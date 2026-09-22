@@ -251,34 +251,92 @@ mean area 90, max 199 — 44 of 60 floors collapse to one or two enormous amoeba
 of attached rooms is not a room.
 
 Capping a merge at an actual **pair** — a greedy matching, so a rect fuses with at most one
-partner — stops the runaway. `attachPct` then stops meaning "how many rooms lack a hallway"
-and starts meaning **"how many rooms are L-shaped rather than rectangular"**, which is a
-knob worth having.
+partner — stops the runaway. The knob then stops meaning "how many rooms lack a hallway" and
+starts meaning **"how many rooms are L-shaped rather than rectangular"**, which is a better
+knob than the one it replaces. **The target is 20% L-shaped**: the majority of rooms should
+be plain single rectangles, with the irregular ones as the exception that makes a floor
+memorable rather than the norm that makes it mush.
 
-With pairs capped, sweeping the room budget (base rect side 4–8, `roomAreaMax` 42,
-`roomPad` 3, `attachPct` 50, 40 floors each):
+### `attachPct` has never meant what its comment says
+
+It cannot deliver 20%, and it could not deliver 85% either. The roll is made **per loop
+iteration, not per placed room**:
+
+```js
+while (roomArea < roomTarget && rooms.length < 22 && guard++ < 1400) {
+  ...
+  if (rooms.length && Math.random() * 100 < L.attachPct && ...) {
+    const res = placeAdjacent(rooms, w, h);
+    if (!res) continue;          // attach: retries 24 times inside, usually succeeds
+    ...
+  }
+  const room = { x: randInt(...), y: randInt(...), w, h };
+  if (rooms.some((r) => overlaps(r, room, L.roomPad))) continue;   // random: fails a LOT
+  ...
+}
+```
+
+The two branches do not fail at the same rate. `placeAdjacent` tries 24 placements
+internally and nearly always finds one; the random branch takes a single blind guess that
+has to clear `roomPad` against every existing room, and as the floor fills that guess fails
+most of the time. So iterations that roll "attach" convert into rooms far more often than
+iterations that roll "random", and the realised share runs several times the nominal one.
+Measured at `roomTarget: 420`:
 
 ```
- roomTarget | rects  rooms  meanArea  median  biggest  L-shaped  extent
-        320 |  10.5    6.9        49      50       73      53%      37
-        400 |  13.1    8.6        49      45       75      53%      38
-        480 |  15.4    9.9        50      52       76      55%      40
+  attachPct | rects/floor  attach edges  realised share
+        0%  |     13.1          0.00            0%
+       10%  |     13.6          5.34           39%
+       20%  |     13.5          6.96           52%
+       50%  |     13.7          9.84           72%
 ```
 
-Against today's floor, `roomTarget: 480` holds the room count and changes everything else:
+A nominal 10% comes out at 39%. Sweeping `attachPct` down never reaches 20% L-shaped — it
+bottoms out around 36%. This also means the 85% the floor ships with is effectively near
+total, which is consistent with 8.1 of 10 rooms measuring as attached.
+
+**`attachCap` is the honest control.** It is already in the layout block and is a direct
+ceiling on the edge count — `attachEdges.length < rooms.length * (attachCap / 100)` — so it
+does not care how often either branch fails. Sweeping it with `attachPct` left high enough
+that the cap binds (base rect side 4–8, `roomAreaMax` 42, `roomPad` 3, 50 floors each):
+
+```
+ cap% roomTarget | rects  rooms  meanArea  median  biggest  L-shaped  extent  orphans
+    8%      440  |  13.9   12.2        35      32       69       14%      42     0.10
+   12%      440  |  13.9   12.0        36      32       68       16%      42     0.08
+   16%      440  |  14.0   11.4        38      32       70       22%      41     0.26
+   16%      500  |  14.4   12.0        37      32       72       20%      42     0.40
+   20%      500  |  15.0   12.2        38      32       71       23%      42     0.44
+   25%      500  |  15.1   12.1        39      35       73       25%      42     0.94
+```
+
+**`attachCap: 16`, `roomTarget: 500`** hits the 20% target. Against today's floor:
 
 | | as shipped | proposed |
 |---|---|---|
-| rooms per floor | 10.0 | 9.9 |
-| mean room area | 19 | 50 |
-| median room area | 18 | 52 |
-| biggest room | 33 | 76 |
+| rooms per floor | 10.0 | 12.0 |
+| mean room area | 19 | 37 |
+| median room area | 18 | 32 |
+| biggest room | 33 | 72 |
 | rooms with a side ≤ 3 | 58% | 0 (min side is 4) |
-| non-rectangular rooms | 0% | 55% |
-| used extent | 28 × 29 | ~40 × 40 |
+| non-rectangular rooms | 0% | 20% |
+| used extent | 28 × 29 | ~42 × 42 |
 
-`generateLevel` caps placement at `rooms.length < 22`; at 15.4 rects that cap is close
-enough to matter and should go up with the budget.
+Twelve distinct rooms instead of ten, each about twice the size, four of five of them plain
+rectangles, and the floor spread over most of the map instead of a third of it.
+
+`generateLevel` caps placement at `rooms.length < 22`; at 14.4 rects that is not binding but
+it is close enough to watch, and it should move with the budget.
+
+### Orphan seams
+
+Pair-capping leaves **0.40 flush adjacencies per floor** that the matching could not absorb
+— rect A mates with B, and C is also flush against A. That seam is neither a merge nor a
+connector, so under the rule it has to be **walled solid**, and C then needs a connector of
+its own like any other room. It is rare enough to be an implementation detail rather than a
+design problem, but it is not zero and the generator has to handle it rather than assume it
+away. Ideally `placeAdjacent` refuses an already-mated partner at placement time, which
+makes the case vanish instead of needing repair.
 
 ## Every stub ends in a secret
 
