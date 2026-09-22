@@ -107,6 +107,12 @@ These are the packets that unblock your own work on classes, bosses and monsters
 | C3 | Caves painter: chasms + rubble, and falling to the next floor | 5k | todo |
 | C4 | Generalize `makeThornVaults` into a room-template system | 5k | todo |
 | C5 | Six room templates as data: library, garden, flooded, crossing, sarcophagus, ritual circle | 4k | todo |
+| C6 | Room size categories (one large room per floor) and less flush-packing — `LAYOUT_DEFAULT` + the room roll in `generateLevel` | 3k | todo |
+
+**`docs/FLOOR-DESIGN.md` is the argument for this track**, with the measurements behind it:
+floors are a warren of 3-tile slots that hold nothing, 95% of rooms are fully visible from
+their own doorway, and C4/C5 are the fix. Run `node tools/floor_stats.js` before and after
+any packet here — it prints the numbers that document quotes.
 
 C1 is the dangerous one — rule 5 in `CLAUDE.md` exists because a tile missed in one
 predicate makes rare seeds unwinnable. Do it alone, and extend the smoke test with it.
@@ -130,6 +136,7 @@ C1 changes no behaviour on purpose — it is the refactor that makes C2/C3 small
 | E2 | Idle / attack / hit / death frames and directional facing, driven off the existing `bumpAt` and `hitAt` timers | 4k | todo |
 | E3 | Title screen + settings (motion, haptics, sound, text size) | 5k | todo |
 | E4 | Run summary on death + a bestiary that fills in as you meet things | 5k | todo |
+| E5 | Floor-map legibility: wall and floor are drawn 1.3:1 apart, so the map reads as one brown mass. `drawMap` only — see `docs/FLOOR-DESIGN.md` §1 | 1k | todo |
 
 ## Track F — skill trees as real trees *(code)*
 
