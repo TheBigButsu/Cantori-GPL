@@ -107,7 +107,8 @@ These are the packets that unblock your own work on classes, bosses and monsters
 | C3 | Caves painter: chasms + rubble, and falling to the next floor | 5k | todo |
 | C4 | Generalize `makeThornVaults` into a room-template system | 5k | todo |
 | C5 | Six room templates as data: library, garden, flooded, crossing, sarcophagus, ritual circle | 4k | todo |
-| C6 | Room size categories (one large room per floor) and less flush-packing — `LAYOUT_DEFAULT` + the room roll in `generateLevel` | 3k | todo |
+| C6 | Doors-and-connectors invariant: merge flush-attached pairs into one L-shaped room, door every connector mouth, no door without a connector. `LAYOUT_DEFAULT` + `generateLevel` + `placeDoors`, asserted in the smoke test — see `docs/FLOOR-DESIGN.md` | 6k | todo |
+| C7 | Every dead-end stub terminates in a secret rather than being sealed: lift `SECRET_MAX`, rebalance the per-floor loot budget against it | 3k | todo |
 
 **`docs/FLOOR-DESIGN.md` is the argument for this track**, with the measurements behind it:
 floors are a warren of 3-tile slots that hold nothing, 95% of rooms are fully visible from

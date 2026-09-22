@@ -199,3 +199,109 @@ above about 60%, the rooms did not actually get bigger.
    than the other way round: a garden painter has nothing to paint in a 6×2 slot.
 
 §5 is not a task. It is the acceptance test for C6 and C5.
+
+---
+
+# The doors-and-connectors rule
+
+Decided after the measurements above. A **connector** is a stretch of corridor between
+rooms; it is the punctuation that makes a room read as a room. The invariant:
+
+> **Every non-wall tile on a room's boundary is a door, and every door fronts a connector.**
+> No undoored room mouths, no doors that open onto anything but a connector, and no doors
+> part-way along a connector.
+
+A connector is doored at **every** mouth, not just one — a junction corridor touching three
+rooms carries three doors. This applies to all five biomes. Boss depths are hand-laid
+arenas that never run `placeDoors`, and the merchant den is a single room; both stay
+exempt.
+
+Two things sit outside the rule by construction, and both are closets:
+
+- **A cell** is a single-door closet inside a broader room — a room within a room. Its door
+  opens onto its containing room, not onto a connector. Not built yet; the rule is written
+  to leave room for it rather than to be amended later.
+- **A secret room** is the same closet, reached from a connector through a door that reads
+  as wall until it is found.
+
+## What that costs, measured
+
+| | as shipped | under the rule |
+|---|---|---|
+| connector mouths with no door | 6.4/floor (43%) | 0 |
+| doors with no connector behind them | 7.2/floor (87% of seams) | 0 |
+| doors part-way along a connector | 0.00/floor | 0 |
+| connectors doored at every mouth | 29% | 100% |
+
+The middle row is the whole of the current flush-attach behaviour: `attachPct` is 85, so
+8 of 10 rooms share a wall with a neighbour and open through a doorway with no hallway
+behind it. Every one of those doors is illegal under the rule.
+
+## Attached rooms become one room
+
+The resolution is not to delete the door but to delete the seam: two rooms placed flush
+**merge into a single L-shaped room**, one continuous space with one boundary, so there is
+nothing there to door. This buys irregular room outlines for free, which is worth having on
+its own — every room in the game today is a rectangle.
+
+**Merging cannot be done at `attachPct: 85`.** `placeAdjacent` attaches each new room to a
+*random* existing one, so attachment chains, and a chain merges end to end. Simulated over
+60 floors, fusing every attached group at today's settings leaves **2.1 rooms per floor**,
+mean area 90, max 199 — 44 of 60 floors collapse to one or two enormous amoebas. A union
+of attached rooms is not a room.
+
+Capping a merge at an actual **pair** — a greedy matching, so a rect fuses with at most one
+partner — stops the runaway. `attachPct` then stops meaning "how many rooms lack a hallway"
+and starts meaning **"how many rooms are L-shaped rather than rectangular"**, which is a
+knob worth having.
+
+With pairs capped, sweeping the room budget (base rect side 4–8, `roomAreaMax` 42,
+`roomPad` 3, `attachPct` 50, 40 floors each):
+
+```
+ roomTarget | rects  rooms  meanArea  median  biggest  L-shaped  extent
+        320 |  10.5    6.9        49      50       73      53%      37
+        400 |  13.1    8.6        49      45       75      53%      38
+        480 |  15.4    9.9        50      52       76      55%      40
+```
+
+Against today's floor, `roomTarget: 480` holds the room count and changes everything else:
+
+| | as shipped | proposed |
+|---|---|---|
+| rooms per floor | 10.0 | 9.9 |
+| mean room area | 19 | 50 |
+| median room area | 18 | 52 |
+| biggest room | 33 | 76 |
+| rooms with a side ≤ 3 | 58% | 0 (min side is 4) |
+| non-rectangular rooms | 0% | 55% |
+| used extent | 28 × 29 | ~40 × 40 |
+
+`generateLevel` caps placement at `rooms.length < 22`; at 15.4 rects that cap is close
+enough to matter and should go up with the budget.
+
+## Every stub ends in a secret
+
+A connector reaching only one room is a stub. **A stub must terminate in a secret** — at
+minimum a door that looks like wall until it is searched out, with a closet behind it.
+
+`resolveDeadEnds` is most of the way there already: it converts up to `SECRET_MAX = 2` dead
+ends per floor into exactly this (an ordinary `WALL` tile that opens on a search, a stocked
+3×3 room behind it) and **seals the rest back to the junction**. The change is that sealing
+stops being an outcome: every stub gets the secret. The existing comment argues the floor
+must be able to promise that a passage goes somewhere — this keeps that promise and pays
+more of them, which also makes searching always worth the turns.
+
+Raising `SECRET_MAX` means the loot budget per floor has to be looked at in the same pass;
+2.78 stub-shaped connectors per floor is several times today's two.
+
+## What this does to the other findings
+
+§2 and §5 come out largely fixed as a side effect: a minimum side of 4 and a median area of
+52 means no more closets-called-rooms, and a room that size is no longer swallowed whole by
+FOV radius 6 from its doorway. §4 is the rule itself. §1 and §3 are untouched and still
+stand on their own.
+
+**Re-measure with `node tools/floor_stats.js` after any of it**, and add the invariant to
+`tests/smoke.js` as an assertion — it is exactly the kind of property that holds for fifty
+floors and then quietly stops.
