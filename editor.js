@@ -42,7 +42,7 @@
   const JSON_COLLS = ["loot", "stats", "gods"];
   const TABS = TABLE_COLLS.concat(["biomes", "classes", "enchants"]).concat(JSON_COLLS).concat(["reference"]);
   const STAT_KEYS = ["STR", "INT", "VIT", "DEX", "RES", "LCK"];
-  const GEAR_CATS = ["weapon", "armor", "ring", "trinket", "necklace"];
+  const GEAR_CATS = ["weapon", "armor", "ring", "trinket", "necklace", "artifact"];
   const TIERS = 5, SLOTS = 5;   // skill tree: the 5×5 grid — 5 tiers of 5 slots
   // A row IS a tier, and a tier is gated on character level: tier 1 from the
   // start, tier 2 at 5, tier 3 at 10, and so on. game.js derives the same gate
@@ -89,7 +89,7 @@
     ],
     gear: [
       { f: "__key", label: "key", type: "key" },
-      { f: "cat", type: "select", opts: ["weapon", "armor", "ring", "trinket", "necklace"] },
+      { f: "cat", type: "select", opts: ["weapon", "armor", "ring", "trinket", "necklace", "artifact"] },
       { f: "sub", label: "subtype", type: "select", opts: ["", "dagger", "sword", "axe", "spear", "bow", "light", "medium", "heavy"] },
       { f: "name", type: "text", cls: "name" },
       { f: "dmgMin", label: "dmg min", type: "num" }, { f: "dmgMax", label: "dmg max", type: "num" },
@@ -115,7 +115,7 @@
     // min/max range rolled on every hit taken.
     armor: [
       { f: "__key", label: "key", type: "key" },
-      { f: "cat", type: "select", opts: ["weapon", "armor", "ring", "trinket", "necklace"] },
+      { f: "cat", type: "select", opts: ["weapon", "armor", "ring", "trinket", "necklace", "artifact"] },
       { f: "sub", label: "subtype", type: "select", opts: ["", "dagger", "sword", "axe", "spear", "bow", "light", "medium", "heavy"] },
       { f: "name", type: "text", cls: "name" },
       { f: "speed", type: "num", step: "0.1" }, { f: "toHit", label: "to-hit", type: "num" },
@@ -468,6 +468,7 @@
     { stateKey: "gear_armor", heading: "armor", addBase: "armor", match: (cat) => cat === "armor", spec: SPECS.armor, template: Object.assign({}, TEMPLATES.gear, { cat: "armor", sub: "medium", dmgMin: undefined, dmgMax: undefined, toHit: undefined, defMin: 1, defMax: 3 }) },
     { stateKey: "gear_jewelry", heading: "rings & necklaces", addBase: "ring", addLabel: "ring/necklace", match: (cat) => cat === "ring" || cat === "necklace", template: Object.assign({}, TEMPLATES.gear, { cat: "ring", dmgMin: undefined, dmgMax: undefined }) },
     { stateKey: "gear_trinket", heading: "trinkets", addBase: "trinket", match: (cat) => cat === "trinket", template: Object.assign({}, TEMPLATES.gear, { cat: "trinket", dmgMin: undefined, dmgMax: undefined }) },
+    { stateKey: "gear_artifact", heading: "artifacts", addBase: "artifact", match: (cat) => cat === "artifact", template: Object.assign({}, TEMPLATES.gear, { cat: "artifact", dmgMin: undefined, dmgMax: undefined }) },
   ];
   function renderGearTables() {
     const wrap = document.createElement("div");

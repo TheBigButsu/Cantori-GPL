@@ -165,7 +165,7 @@ async function main() {
         if (inv[i] && inv[i].identified === false) { c.equip(i); break; }
       }
     }
-    const slots = ["weapon", "armor", "ring1", "ring2", "trinket", "necklace"];
+    const slots = ["weapon", "armor", "ring1", "ring2", "artifact", "necklace"];
     const read = () => { const st = c.peek(), o = {}; for (const sl of slots) if (st[sl]) o[sl] = st[sl].idXp || 0; return o; };
     const before = read();
     c.addXp(3);

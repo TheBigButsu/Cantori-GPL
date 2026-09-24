@@ -318,7 +318,7 @@
 
   const player = {
     x: 0, y: 0, hp: 20, maxHp: 20, atkMin: UNARMED_MIN, atkMax: UNARMED_MAX,
-    atkBonus: 0, weapon: null, armor: null, ring1: null, ring2: null, trinket: null, necklace: null,
+    atkBonus: 0, weapon: null, armor: null, ring1: null, ring2: null, artifact: null, necklace: null,
     inv: [], gold: 0, xp: 0, level: 1,
     cls: "warrior", stats: { STR: 10, INT: 10, VIT: 10, DEX: 10, RES: 10, LCK: 10 },
     statPoints: 0,
@@ -335,8 +335,12 @@
   };
   const STAT_KEYS = ["STR", "INT", "VIT", "DEX", "RES", "LCK"];
   // Equipment slots: cat -> which player field(s) it fills.
-  const EQUIP_SLOTS = { weapon: ["weapon"], armor: ["armor"], ring: ["ring1", "ring2"], trinket: ["trinket"], necklace: ["necklace"] };
-  const ALL_SLOTS = ["weapon", "armor", "ring1", "ring2", "trinket", "necklace"];
+  // SPD's layout, with one of its two free slots split in two: a dedicated ring,
+  // a second slot that takes a ring OR a trinket, a dedicated artifact, and a
+  // neck slot that takes a necklace OR a trinket. A category lists every slot it
+  // may go in, first preference first; equipping fills the first empty one.
+  const EQUIP_SLOTS = { weapon: ["weapon"], armor: ["armor"], ring: ["ring1", "ring2"], trinket: ["ring2", "necklace"], necklace: ["necklace"], artifact: ["artifact"] };
+  const ALL_SLOTS = ["weapon", "armor", "ring1", "ring2", "artifact", "necklace"];
   const wornItems = () => ALL_SLOTS.map((s) => player[s]).filter(Boolean);
   function applyClass(key) {
     const c = DATA.classes[key] || DATA.classes.warrior;
@@ -347,7 +351,7 @@
     player.statPoints = 0; player.atkBonus = 0;
     player.atkMin = UNARMED_MIN; player.atkMax = UNARMED_MAX;
     player.weapon = null; player.armor = null;
-    player.ring1 = null; player.ring2 = null; player.trinket = null; player.necklace = null;
+    player.ring1 = null; player.ring2 = null; player.artifact = null; player.necklace = null;
     player.inv = []; player.gold = 0;
     player.xp = 0; player.level = 1;
     player.lvlHp = 0; player.lvlAcc = 0; player.lvlEva = 0; player.lvlMp = 0;   // reset per-level bonuses
@@ -796,7 +800,7 @@
   // The Metrognome trinket: a worn one grants +1 to EITHER walk speed or attack
   // speed (its rolled variant), never both. Lower action-cost = you act more often
   // relative to monsters.
-  const metroMode = () => (player.trinket && player.trinket.key === "metrognome" ? player.trinket.variant : null);
+  const metroMode = () => { const m = wornItems().find((it) => it.key === "metrognome"); return m ? m.variant : null; };
   // Haste speeds up the two things you do in a fight: walking and swinging. It used
   // to reach the swing only, which left Ourn's whole tree unable to move you a single
   // tile sooner — Dilating Pupils, and a Speed of Light that promises the world slows
@@ -7588,7 +7592,7 @@
   let selectedEquip = null;    // an equipped slot key selected for its detail/actions
   let pendingThrow = null;
   let pendingUpgrade = false;  // a Scroll of Upgrade is armed, awaiting a target item
-  const EQUIP_ROWS = [["Weapon", "weapon"], ["Armor", "armor"], ["Ring", "ring1"], ["Ring", "ring2"], ["Trinket", "trinket"], ["Necklace", "necklace"]];
+  const EQUIP_ROWS = [["Weapon", "weapon"], ["Armor", "armor"], ["Ring", "ring1"], ["Ring / Trinket", "ring2"], ["Artifact", "artifact"], ["Necklace / Trinket", "necklace"]];
   const entryDef = (e) => (isGear(e) ? GEAR[e.key] : CONSUM[e.key]);
   const entryGlyph = (e) => { const d = entryDef(e); return (d && d.glyph) || "?"; };
   const entryColor = (e) => (isGear(e) ? itemColor(e) : consumColor(e.key));
@@ -8194,7 +8198,7 @@
   }
   function classSkills() {
     const base = treeSkills(player.cls).skills;
-    const worn = [player.necklace, player.trinket].filter((it) => it && it.grant);
+    const worn = grantItems();
     if (!worn.length && (!player.boons || !player.boons.size)) return base;
     const out = Object.assign({}, base);
     for (const sk of Object.keys(BOON_SKILLS)) if (player.boons && player.boons.has(BOON_SKILLS[sk].boon)) out[sk] = BOON_SKILLS[sk].skill;
@@ -8252,7 +8256,9 @@
   // hotbar before its card will name it — which is the same bargain as feeling a
   // sword hit harder than it reads, and better than a slot that silently does
   // nothing until some arbitrary number of hits have gone by.
-  const grantItems = () => [player.necklace, player.trinket].filter((it) => it && it.grant);
+  // Whatever is worn in the two slots that take skill-granting jewellery — a
+  // necklace or trinket at the neck, a trinket in the second ring slot.
+  const grantItems = () => [player.necklace, player.ring2].filter((it) => it && it.grant);
   // Ranks this key gets from worn jewellery. A rolled or scrolled +X raises the
   // grant one rank per point, the same way it raises a stat affix — which is what
   // "upgrade scrolls can increase the skill levels" means. It clamps at the
@@ -10194,7 +10200,7 @@
         cls: player.cls, stats: Object.assign({}, player.stats), statPoints: player.statPoints,
         boons: player.boons ? [...player.boons] : [], boonPending, classPending,
         atk: playerAtk(), atkBonus: player.atkBonus, gold: player.gold, weapon: player.weapon, armor: player.armor,
-        ring1: player.ring1, ring2: player.ring2, trinket: player.trinket, necklace: player.necklace,
+        ring1: player.ring1, ring2: player.ring2, artifact: player.artifact, necklace: player.necklace,
         effStats: { STR: eff("STR"), INT: eff("INT"), VIT: eff("VIT"), DEX: eff("DEX"), RES: eff("RES"), LCK: eff("LCK") },
         weaponDmg: [weaponDmgMin(), weaponDmgMax()], weaponToHit: weaponToHit(), weaponSpeed: weaponSpeed(), armorDef: [armorDefMin(), armorDefMax()],
         inv: player.inv.map((i) => i.key), invItems: player.inv.map((i) => Object.assign({}, i)), identified: [...identified],

@@ -3766,3 +3766,12 @@ Sacrifice, the Crystal rooms, Laboratory). They are the S-track packets.
 checks every floor fits the map and has a walkable way from the entrance to the
 exit that uses no locked door, deep water or chasm, and that every vault is
 reachable once opened.
+
+## Equipment slots: SPD's layout, one slot split — DONE
+
+Six slots: **weapon**, **armour**, **ring**, **ring or trinket**, **artifact**, and
+**necklace or trinket**. `EQUIP_SLOTS` in `game.js` lists, per item category, every
+slot the item may go in (first preference first), and equipping fills the first
+empty one: a trinket tries the second ring slot, then the neck. Skill-granting
+jewellery is read from the neck and the second ring slot, which are the two slots
+a trinket can occupy. The artifact slot is filled by the SPD artifacts (see below).
