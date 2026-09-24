@@ -87,10 +87,31 @@ ITEM_SHEET = "items"
 ARTIFACTS = 15 * 16      # xy(1, 16) with xy() being 1-based
 ITEMS = {
     "art_cloak": ARTIFACTS + 0, "art_armband": ARTIFACTS + 1, "art_cape": ARTIFACTS + 2,
-    "art_talisman": ARTIFACTS + 3, "art_hourglass": ARTIFACTS + 4, "art_beacon": ARTIFACTS + 7,
+    "art_talisman": ARTIFACTS + 3, "art_hourglass": ARTIFACTS + 4,
     "art_chains": ARTIFACTS + 8, "art_chalice": ARTIFACTS + 13, "art_sandals": ARTIFACTS + 16,
     "art_rose": ARTIFACTS + 20, "art_tome": ARTIFACTS + 23, "art_key": ARTIFACTS + 24,
 }
+
+
+# SPD's seeds: items.png row xy(1, 25) = index 384, in Plant.image order.
+SEEDS = 24 * 16
+PLANT_ORDER = ["rotberry", "firebloom", "swiftthistle", "sungrass", "icecap", "stormvine",
+               "sorrowmoss", "mageroyal", "earthroot", "starflower", "fadeleaf", "blindweed"]
+PLANTS = [k for k in PLANT_ORDER if k != "rotberry"]   # Rotberry is SPD's quest plant
+for i, k in enumerate(PLANT_ORDER):
+    if k in PLANTS:
+        ITEMS["seed_" + k] = SEEDS + i
+
+# Environment sheets (assets/environment/*.png): 16x16 cells, 16 wide.
+# terrain_features.png row 7 holds the grown plants, by the same Plant.image index;
+# tiles_caves.png's first row is DungeonTileSheet's GROUND block: FLOOR 0,
+# FLOOR_DECO 1, GRASS 2, EMBERS 3 — the cave floor the forest walks on.
+ENV_URL = ("https://raw.githubusercontent.com/00-Evan/shattered-pixel-dungeon/"
+           + SPD_COMMIT + "/core/src/main/assets/environment/{}.png")
+ENV = {"terrain_features": {"plant_" + k: 7 * 16 + i for i, k in enumerate(PLANT_ORDER) if k in PLANTS},
+       # 122 / 125: RAISED_HIGH_GRASS and its _ALT (DungeonTileSheet RAISED_OTHER = xy(9, 8)).
+       "tiles_caves": {"forest_floor": 0, "forest_floor_deco": 1, "forest_lawn": 2, "forest_embers": 3,
+                       "forest_grass": 122, "forest_grass_alt": 125}}
 
 
 def cut_monster(sheet, col, fw, fh):
@@ -125,6 +146,13 @@ def main():
         path = os.path.join(out_dir, key + ".png")
         cut_item(items, index).save(path)
         print("wrote", os.path.relpath(path), "from items.png #" + str(index))
+    for sheet_name, cells in ENV.items():
+        with urllib.request.urlopen(ENV_URL.format(sheet_name)) as r:
+            env = Image.open(io.BytesIO(r.read())).convert("RGBA")
+        for key, index in cells.items():
+            path = os.path.join(out_dir, key + ".png")
+            cut_item(env, index).save(path)
+            print("wrote", os.path.relpath(path), "from environment/" + sheet_name + ".png #" + str(index))
     return 0
 
 

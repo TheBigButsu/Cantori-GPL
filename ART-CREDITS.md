@@ -83,7 +83,10 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 
 | `animated_statue.png` | `core/src/main/assets/sprites/statue.png` (idle frame, 2x) | Animated Statue | none |
 | `rose_ghost.png` | `core/src/main/assets/sprites/ghost.png` (idle frame, 2x) | Dried Rose ghost | none |
-| `art_*.png` (12) | `core/src/main/assets/sprites/items.png`, the artifact row (index 240 on), 2x | the twelve artifacts | none |
+| `plant_*.png` (11) | `core/src/main/assets/environment/terrain_features.png`, row 7, 2x | the plants | none |
+| `seed_*.png` (11) | `core/src/main/assets/sprites/items.png`, the seed row (index 384 on), 2x | the seeds | none |
+| `forest_floor.png`, `forest_floor_deco.png`, `forest_lawn.png`, `forest_embers.png`, `forest_grass.png`, `forest_grass_alt.png` | `core/src/main/assets/environment/tiles_caves.png`, cells 0–3, 122 and 125, 2x | the forest's floor (SPD's caves) | none |
+| `art_*.png` (11) | `core/src/main/assets/sprites/items.png`, the artifact row (index 240 on), 2x | the eleven artifacts | none |
 
 `hero_monk.png` is a modified version of SPD's art, released under GPLv3 like
 the rest. The DCSS `player.png` stays as the fallback for any class without a

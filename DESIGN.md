@@ -3806,6 +3806,9 @@ and `stat` columns in the editor.
 
 ## Artifacts are SPD's — DONE
 
+(Lloyd's Beacon was ported and then cut: with no way back up a floor, a recall
+within one floor was not worth a slot.)
+
 The artifact slot takes SPD's artifacts. An artifact has no rarity or plus. It
 **levels up by use** (0–10), keeps its level and charge when taken off, and most
 run on a **charge** that refills with time. Each one turns up at most once a run.
@@ -3820,7 +3823,6 @@ like a skill.
 | Cape of Thorns | charged by blows you take; full, it deflects part of each blow back for 10 turns |
 | Talisman of Foresight | reveals hidden traps and doors nearby; full, scries the floor (map + all traps) |
 | Timekeeper's Hourglass | stop time: nothing else acts for 1 turn a charge |
-| Lloyd's Beacon | mark a spot, recall to it (within the floor — floors are not revisited) |
 | Ethereal Chains | drag a foe to you, or yourself to open ground in sight (1 charge / 3 tiles) |
 | Chalice of Blood | prick yourself (a share of max HP, never lethal) to level it; HP regen ×(1 + 0.2L) |
 | Sandals of Nature | grass underfoot charges them; spend 50 to root every adjacent foe |
@@ -3831,3 +3833,40 @@ like a skill.
 Deferred until their systems exist: Horn of Plenty (hunger), Alchemist's Toolkit
 (alchemy), Unstable Spellbook (a scroll pool worth reading at random). The
 behaviour lives in `ART` in `game.js`; the rows are `art_*` in `data.js`.
+
+## Plants and seeds are SPD's — DONE
+
+Eleven plants, each grown from its seed: Firebloom, Icecap, Sorrowmoss,
+Blindweed, Stormvine, Fadeleaf, Earthroot, Sungrass, Swiftthistle, Starflower and
+Mageroyal (Rotberry is SPD's quest plant and Blandfruit needs food, so neither is
+here). Whatever steps on a plant sets it off, and the plant is used up; fliers
+pass over. Seeds are always identified.
+
+- **Where they come from:** SPD's Plants rooms grow them (never Firebloom), and
+  gardens get a Sungrass or two. Trampling tall grass flattens it to short grass
+  and shakes a seed loose one time in 25, more often with the Sandals of Nature
+  (SPD's HighGrass). Seeds are also in the ordinary loot pool.
+- **Planting:** use a seed to plant it at your feet (it will not go off under
+  you), or throw it to plant it where it lands.
+- **Effects** are SPD's, except where they need gas or fire, which Cantori does
+  not have yet. Firebloom sets everything in its 3×3 burning and turns the grass
+  there to embers, instead of spawning fire. Icecap freezes the 3×3 instead of
+  spawning frost. Stormvine slows a monster (monsters have no vertigo).
+  Swiftthistle uses the Hourglass's time-stop for 3 turns. Starflower is Bless
+  (+2 to hit, +2 AC, 30 turns). Earthroot is Stone Skin.
+
+The effects are `PLANT_FX` in `game.js`. The seed rows are `seed_*` in `data.js`,
+with a `plant` column in the editor.
+
+## The forest walks on SPD's cave floor
+
+The forest keeps its tree walls but its floor is SPD's caves tileset:
+`forest_floor` (with `forest_floor_deco`, pebbles, on about one tile in eight —
+the new biome field `floorDeco`), short grass, embers, and SPD's raised tall grass
+(`forest_grass` / `forest_grass_alt`), all set in the biome's `spd.tiles`.
+
+## A chasm asks before it takes you
+
+Walking into a chasm opens a Yes/Stay box first. A fall costs a floor and up to a
+quarter of your HP, and chasms sit among ordinary floor, so a slip of the thumb was
+far too easy. Auto-travel never routes through one anyway.

@@ -1066,14 +1066,6 @@ window.CANTORI_DATA = {
       "glyph": "\u25c6",
       "color": "#e0c060"
     },
-    "art_beacon": {
-      "cat": "artifact",
-      "name": "Lloyd's Beacon",
-      "tier": 1,
-      "art": "beacon",
-      "glyph": "\u25c6",
-      "color": "#c0c0a0"
-    },
     "art_chains": {
       "cat": "artifact",
       "name": "Ethereal Chains",
@@ -1591,6 +1583,94 @@ window.CANTORI_DATA = {
       "effect": "Thunderclap",
       "glyph": "!",
       "color": "#cccccc"
+    },
+    "seed_firebloom": {
+      "cat": "seed",
+      "name": "Seed of Firebloom",
+      "plant": "firebloom",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#e0602a"
+    },
+    "seed_icecap": {
+      "cat": "seed",
+      "name": "Seed of Icecap",
+      "plant": "icecap",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#8ad0f0"
+    },
+    "seed_sorrowmoss": {
+      "cat": "seed",
+      "name": "Seed of Sorrowmoss",
+      "plant": "sorrowmoss",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#9ad06a"
+    },
+    "seed_blindweed": {
+      "cat": "seed",
+      "name": "Seed of Blindweed",
+      "plant": "blindweed",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#e8e0d0"
+    },
+    "seed_stormvine": {
+      "cat": "seed",
+      "name": "Seed of Stormvine",
+      "plant": "stormvine",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#6a8ad0"
+    },
+    "seed_fadeleaf": {
+      "cat": "seed",
+      "name": "Seed of Fadeleaf",
+      "plant": "fadeleaf",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#c0a0e0"
+    },
+    "seed_earthroot": {
+      "cat": "seed",
+      "name": "Seed of Earthroot",
+      "plant": "earthroot",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#a08050"
+    },
+    "seed_sungrass": {
+      "cat": "seed",
+      "name": "Seed of Sungrass",
+      "plant": "sungrass",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#e0d040"
+    },
+    "seed_swiftthistle": {
+      "cat": "seed",
+      "name": "Seed of Swiftthistle",
+      "plant": "swiftthistle",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#f0a040"
+    },
+    "seed_starflower": {
+      "cat": "seed",
+      "name": "Seed of Starflower",
+      "plant": "starflower",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#f0e080"
+    },
+    "seed_mageroyal": {
+      "cat": "seed",
+      "name": "Seed of Mageroyal",
+      "plant": "mageroyal",
+      "weight": 1,
+      "glyph": "\u2022",
+      "color": "#d070c0"
     }
   },
   "traps": {
@@ -1800,6 +1880,7 @@ window.CANTORI_DATA = {
       "name": "Forest",
       "floor": "forest_floor",
       "wall": "forest_wall",
+      "floorDeco": "forest_floor_deco",
       "monsters": [
         "rat",
         "wolf",
@@ -1885,6 +1966,12 @@ window.CANTORI_DATA = {
       "spawnCap": 12,
       "horror": "Goblin",
       "spd": {
+        "tiles": {
+          "lawn": "forest_lawn",
+          "embers": "forest_embers",
+          "grass": "forest_grass",
+          "grass_alt": "forest_grass_alt"
+        },
         "standard": [
           4,
           6

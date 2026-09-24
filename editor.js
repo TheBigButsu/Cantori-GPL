@@ -112,7 +112,7 @@
       { f: "effect", label: "ring effect", type: "select", opts: ["", "accuracy", "arcana", "elements", "energy", "evasion", "force", "furor", "haste", "might", "sharpshooting", "tenacity", "wealth"] },
       { f: "stat", label: "ring stat", type: "select", opts: [""].concat(STAT_KEYS) },
       // Artifacts (SPD's): which one it is — the behaviour lives in ART in game.js.
-      { f: "art", label: "artifact", type: "select", opts: ["", "cloak", "armband", "cape", "talisman", "hourglass", "beacon", "chains", "chalice", "sandals", "rose", "tome", "key"] },
+      { f: "art", label: "artifact", type: "select", opts: ["", "cloak", "armband", "cape", "talisman", "hourglass", "chains", "chalice", "sandals", "rose", "tome", "key"] },
       { f: "glyph", type: "text" }, { f: "color", type: "color" },
     ],
     // Armour's own column set. There is no AC column: armour grants no flat AC.
@@ -134,9 +134,12 @@
     ],
     consumables: [
       { f: "__key", label: "key", type: "key" },
-      { f: "cat", type: "select", opts: ["potion", "scroll", "tool"] },
+      { f: "cat", type: "select", opts: ["potion", "scroll", "tool", "seed"] },
       { f: "name", type: "text", cls: "name" },
       { f: "effect", type: "text" }, { f: "noDrop", label: "no drop", type: "bool" },
+      // Seeds (SPD's): which plant it grows — the effect lives in PLANT_FX in game.js,
+      // and the plant's sprite is assets/tiles/plant_<name>.png.
+      { f: "plant", type: "select", opts: ["", "firebloom", "icecap", "sorrowmoss", "blindweed", "stormvine", "fadeleaf", "earthroot", "sungrass", "swiftthistle", "starflower", "mageroyal"] },
       // Blank = 1 for weight, and blank shopWeight = whatever weight says. Both are
       // deliberately left empty on most rows so the common case reads as "even odds".
       { f: "weight", label: "drop weight", type: "num" },
@@ -682,6 +685,7 @@
       grid.appendChild(biomeField(b, "name", "name", "text"));
       grid.appendChild(biomeField(b, "floor sprite", "floor", "text"));
       grid.appendChild(biomeField(b, "wall sprite", "wall", "text"));
+      grid.appendChild(biomeField(b, "floor deco sprite (1 in 8 floor tiles)", "floorDeco", "text"));
       grid.appendChild(biomeField(b, "boss", "boss", "select", [""].concat(bossKeys)));
       grid.appendChild(biomeField(b, "bossCount", "bossCount", "num"));
       grid.appendChild(biomeField(b, "door style", "door", "select", ["door", "bush"]));

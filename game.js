@@ -238,6 +238,7 @@
     let v = 0;
     if (player.zen && player.zen.turns > 0) v += player.zen[field] || 0;
     if (player.unseen && player.unseen.turns > 0) v += player.unseen[field] || 0;
+    if (player.bless && player.bless.turns > 0) v += player.bless[field] || 0;     // Starflower
     return v;
   };
   const playerToHit = () => BASE_TO_HIT + mod("DEX") + weaponToHit() + (player.lvlAcc || 0) + (player.boonAcc || 0) + passiveMod("acc") + timedBonus("acc") + ringL("accuracy");
@@ -712,8 +713,7 @@
   // behaviour lives (mitigateDamage, regenTick, pickUp, openLocked …) via artLvl().
   //
   // Simplified from SPD where Cantori lacks the system SPD leans on: the Dried
-  // Rose's ghost does not follow you downstairs, Lloyd's Beacon returns you
-  // within a floor (there is no going back up), the Holy Tome casts one spell,
+  // Rose's ghost does not follow you downstairs, the Holy Tome casts one spell,
   // and the Sandals root foes rather than growing SPD's plants. The Horn of
   // Plenty (needs hunger), Alchemist's Toolkit (needs alchemy) and Unstable
   // Spellbook (needs a scroll pool) wait for their systems.
@@ -725,7 +725,6 @@
   const ART_LVL_CAP = 10;
   let artPending = false;             // a targeted artifact is armed, awaiting a tap
   let artifactsSeen = new Set();      // artifact keys dropped this run — each exists once
-  let floorSerial = 0;                // which floor a Lloyd's Beacon mark belongs to
   function artCharge(a) {
     const d = ART[artKind(a)], cap = d && d.cap ? d.cap(a) : 0;
     if (a.charge == null || a.charge < 0) a.charge = cap;        // a fresh artifact arrives charged
@@ -800,21 +799,6 @@
         a.charge = 0; artGainExp(a, c);
         flashScreen("#e0c060", 300);
         log("You turn the hourglass. The world holds its breath. (" + c + " turns)", "hit");
-        return true;
-      } },
-    // SPD LloydsBeacon: mark a spot, and return to it (within the floor).
-    beacon: { name: "Lloyd's Beacon", icon: "📍", cap: () => 3, regen: (a) => 1 / Math.max(20, 60 - 4 * a.lvl),
-      text: (a) => (a.mark && a.mark.floor === floorSerial ? "return to your mark" : "set a mark on this floor to return to"),
-      use(a) {
-        if (!a.mark || a.mark.floor !== floorSerial) { a.mark = { floor: floorSerial, x: player.x, y: player.y }; log("You set the beacon's mark here."); return true; }
-        if (artCharge(a) < 1) { log("The beacon is dark."); return false; }
-        if (monsterAt(a.mark.x, a.mark.y) || !passable(a.mark.x, a.mark.y)) { log("Something stands on your mark."); return false; }
-        a.charge--;
-        spawnBurst(player.x, player.y, "#c0c0a0");
-        player.x = a.mark.x; player.y = a.mark.y; computeFOV(); snapPlayer();
-        spawnBurst(player.x, player.y, "#c0c0a0");
-        artGainExp(a, 1);
-        log("The beacon pulls you back to your mark.", "hit");
         return true;
       } },
     // SPD EtherealChains: pull a foe to you, or yourself to a spot you can see.
@@ -1352,7 +1336,7 @@
   }
   function displayName(key) {
     const d = defOf(key);
-    if (d.cat === "weapon" || d.cat === "armor" || d.cat === "tool" || identified.has(key)) return d.name;
+    if (d.cat === "weapon" || d.cat === "armor" || d.cat === "tool" || d.cat === "seed" || identified.has(key)) return d.name;
     if (d.cat === "potion") return (potionLook[key] ? potionLook[key].name + " Potion" : "Unidentified Potion");
     return scrollLook[key] ? "Scroll titled \u201c" + scrollLook[key].name + "\u201d" : "Unidentified Scroll";
   }
@@ -2443,6 +2427,149 @@
   // Ground a monster, an item or a key may be put down on. The old generator only
   // ever made FLOOR; an SPD room is as often lawn, special floor or a shallow pool.
   const openGround = (x, y) => { const t = map[y][x]; return t === FLOOR || t === SPFLOOR || t === LAWN || t === SHALLOW || t === EMBERS; };
+
+  // ---- Plants and seeds: SPD's (plants/*.java) --------------------------------
+  //
+  // A plant grows where a seed is planted and does its one thing to whatever
+  // steps on it, then is gone. Seeds come from trampling tall grass (SPD's
+  // HighGrass: 1 in 25, better with the Sandals of Nature), from the loot pool,
+  // and from SPD's Plants and Garden rooms, which grow them already. Use a seed to
+  // plant it at your feet (it does not go off under you), or throw it to plant it
+  // where it lands.
+  //
+  // SPD's gas and fire are Blobs, which Cantori does not have yet: Firebloom and
+  // Icecap act at once on the 3×3 around them instead of leaving a cloud, and
+  // Stormvine slows a monster (monsters have no vertigo). The rest are SPD's.
+  let plants = [];              // { x, y, kind } on the current floor
+  const plantAt = (x, y) => plants.find((p) => p.x === x && p.y === y) || null;
+  const PLANT_KINDS = () => Object.keys(CONSUM).filter((k) => CONSUM[k].cat === "seed" && CONSUM[k].plant).map((k) => CONSUM[k].plant);
+  const seedKeyOf = (kind) => Object.keys(CONSUM).find((k) => CONSUM[k].cat === "seed" && CONSUM[k].plant === kind) || null;
+  const plantName = (kind) => { const k = seedKeyOf(kind); return k ? CONSUM[k].name.replace(/^Seed of /, "") : kind; };
+  function randomPlantKind(noFire) {
+    const kinds = PLANT_KINDS().filter((k) => !(noFire && k === "firebloom"));
+    return kinds.length ? kinds[randInt(0, kinds.length - 1)] : null;
+  }
+  // Somewhere a plant may grow: open ground, no plant already, not the stairs.
+  const plantable = (x, y) => inBounds(x, y) && (openGround(x, y) || map[y][x] === GRASS) && !plantAt(x, y);
+  const around9 = (x, y) => { const o = [[x, y]]; for (const [dx, dy] of DIRS8) o.push([x + dx, y + dy]); return o.filter(([a, b]) => inBounds(a, b)); };
+  const whoAt = (x, y) => (player.x === x && player.y === y ? player : monsterAt(x, y));
+  const PLANT_FX = {
+    // SPD Firebloom: fire. Here: everything in the 3×3 catches alight, and the
+    // grass there burns to embers.
+    firebloom: { desc: "bursts into flame around it", go(x, y) {
+      const heat = 3 + Math.floor(depth / 3);
+      for (const [a, b] of around9(x, y)) {
+        if (map[b][a] === GRASS || map[b][a] === LAWN) map[b][a] = EMBERS;
+        const w = whoAt(a, b);
+        if (w === player) { burnPlayer(heat); floatText(a, b, "🔥", "#ff8f4a"); }
+        else if (w && w.hp > 0) { addDot(w, { tag: "burn", dmg: heat, rounds: 4, icon: "🔥", color: "#ff8f4a" }); floatText(a, b, "🔥", "#ff8f4a"); startHunting(w); }
+      }
+      spawnBurst(x, y, "#ff8f4a");
+    } },
+    // SPD Icecap: freezing — everything in the 3×3 is frozen in place.
+    icecap: { desc: "freezes everything around it solid", go(x, y) {
+      for (const [a, b] of around9(x, y)) {
+        const w = whoAt(a, b);
+        if (w === player) paralyzePlayer();
+        else if (w && w.hp > 0) { w.para = Math.max(w.para || 0, w.boss ? PARA_BOSS_MAX : 3 + Math.floor(depth / 5)); floatText(a, b, "❄", "#8ad0f0"); }
+      }
+      spawnBurst(x, y, "#8ad0f0");
+    } },
+    // SPD Sorrowmoss: poison, 5 + 2/3 of the depth.
+    sorrowmoss: { desc: "poisons what treads on it", go(x, y, w) {
+      const dose = 5 + Math.round(2 * depth / 3);
+      if (w === player) { poisonPlayer(dose); floatText(x, y, "☠", "#9ad06a"); }
+      else if (w) { addPoison(w, dose); floatText(x, y, "☠+" + dose, "#9ad06a"); }
+    } },
+    // SPD Blindweed: blindness — a monster loses you and wanders off.
+    blindweed: { desc: "blinds what treads on it", go(x, y, w) {
+      if (w === player) { player.blind = Math.max(player.blind || 0, 10); computeFOV(); log("A flash of pollen — you can barely see!", "hurt"); }
+      else if (w) { setState(w, WANDERING); w.target = null; floatText(x, y, "blind", "#e8e0d0"); }
+    } },
+    // SPD Stormvine: vertigo. Monsters have no vertigo, so they are slowed instead.
+    stormvine: { desc: "makes what treads on it stagger", go(x, y, w) {
+      if (w === player) { player.vertigo = Math.max(player.vertigo || 0, 10); log("The world lurches — you can't walk straight!", "hurt"); }
+      else if (w) { w.chill = Math.max(w.chill || 0, 10); floatText(x, y, "↻", "#6a8ad0"); }
+    } },
+    // SPD Fadeleaf: teleports what treads on it.
+    fadeleaf: { desc: "teleports what treads on it", go(x, y, w) {
+      if (w === player) { applyEffect("teleport"); return; }
+      if (!w || w.boss) return;
+      const reach = floodReach(player.x, player.y, true);
+      for (let t = 0; t < 200; t++) {
+        const tx = randInt(1, MAP_W - 2), ty = randInt(1, MAP_H - 2);
+        if (!passable(tx, ty) || monsterAt(tx, ty) || !reach.has(ty * MAP_W + tx) || cheb(tx, ty, player.x, player.y) < 8) continue;
+        w.x = tx; w.y = ty; w.rx = tx; w.ry = ty;
+        setState(w, WANDERING); w.target = null;
+        break;
+      }
+      floatText(x, y, "✦", "#c0a0e0");
+    } },
+    // SPD Earthroot: bark armour for whoever steps on it. Here: Stone Skin for you.
+    earthroot: { desc: "wraps you in bark armour", go(x, y, w) {
+      if (w === player) { player.stoneSkin = { turns: Math.max(20, (player.stoneSkin && player.stoneSkin.turns) || 0) }; log("Bark closes over your skin.", "hit"); }
+    } },
+    // SPD Sungrass: heals whoever steps on it, over time.
+    sungrass: { desc: "heals what treads on it, over time", go(x, y, w) {
+      if (w === player) { player.healPending = (player.healPending || 0) + player.maxHp; log("Warmth soaks up out of the ground — you begin to heal.", "hit"); }
+      else if (w) w.hp = w.maxHp;
+    } },
+    // SPD Swiftthistle: a time bubble — your next few actions cost the world nothing.
+    swiftthistle: { desc: "lets you act while time stands still", go(x, y, w) {
+      if (w === player) { player.timeFreeze = Math.max(player.timeFreeze || 0, 3); log("Time slows to a crawl around you.", "hit"); }
+    } },
+    // SPD Starflower: Bless — sharper aim and harder to hit, for a while.
+    starflower: { desc: "blesses you: +2 to hit and +2 AC for 30 turns", go(x, y, w) {
+      if (w === player) { player.bless = { turns: 30, acc: 2, ac: 2 }; log("Starlight settles on you — you feel blessed.", "hit"); }
+    } },
+    // SPD Mageroyal: cures whoever steps on it.
+    mageroyal: { desc: "cures what treads on it", go(x, y, w) {
+      if (w === player) {
+        player.burn = null; player.poison = 0; player.toxin = 0; player.para = 0; player.stun = 0; player.blind = 0; player.vertigo = 0;
+        log("A clean, green smell — you feel refreshed.", "hit");
+      } else if (w) w.dots = [];
+    } },
+  };
+  // Something stepped on (x, y): the plant there, if any, goes off and is gone.
+  function triggerPlant(x, y, who) {
+    const p = plantAt(x, y);
+    if (!p) return;
+    plants = plants.filter((q) => q !== p);
+    const fx = PLANT_FX[p.kind];
+    if (visible[y] && visible[y][x]) log((who === player ? "You tread on " : upFirst(theMon(who)) + " treads on ") + "the " + plantName(p.kind) + "!", who === player ? "hurt" : "");
+    if (fx) fx.go(x, y, who);
+    updateHUD();
+  }
+  // SPD HighGrass: trampling tall grass flattens it, and sometimes shakes a seed loose.
+  function trample(x, y, who) {
+    if (!inBounds(x, y) || map[y][x] !== GRASS) return;
+    map[y][x] = LAWN;
+    if (who !== player) return;
+    const sandals = Math.max(0, artLvl("sandals"));
+    if (Math.random() < 1 / (25 - Math.min(16, (artLvl("sandals") >= 0 ? 4 : 0) + sandals))) {
+      const k = seedKeyOf(randomPlantKind(false));
+      if (k && !itemAt(x, y)) items.push({ x, y, key: k });
+    }
+  }
+  // Planting: at your feet from the pack, or wherever a thrown seed lands.
+  function plantSeed(key, x, y) {
+    const d = CONSUM[key];
+    if (!d || !d.plant || !plantable(x, y)) return false;
+    plants.push({ x, y, kind: d.plant });
+    return true;
+  }
+  function useSeed(idx) {
+    const it = player.inv[idx];
+    if (!it) return;
+    if (!plantable(player.x, player.y)) { log("Nothing will grow here."); return; }
+    takeOne(idx); selectedInvIdx = -1;
+    plantSeed(it.key, player.x, player.y);
+    log("You plant the " + plantName(CONSUM[it.key].plant) + ". It will go off when something treads on it.");
+    worldTurn();
+    if (dead) { toggleInv(false); return; }
+    renderInv();
+  }
+
   let ironKeys = 0;               // this floor's iron keys in hand — SPD keys only open their own floor
   let wells = [];                 // { x, y, water: "health"|"awareness", used }
   let spdInfo = null;             // the last SPD floor's room list, for the dev surface
@@ -2479,6 +2606,10 @@
     wells = (lv.wells || []).map((w) => ({ x: w.x + ox, y: w.y + oy, water: w.water, used: false }));
     for (const d of lv.drops) spdDrop(d.kind, d.x + ox, d.y + oy);
     for (const m of lv.mobs) if (m.kind === "statue") spawnStatue(m.x + ox, m.y + oy);
+    for (const p of lv.plants || []) {
+      const kind = p.kind || randomPlantKind(p.noFire);
+      if (kind && plantable(p.x + ox, p.y + oy)) plants.push({ x: p.x + ox, y: p.y + oy, kind });
+    }
     for (const t of lv.traps) {
       const key = pickTrapKey();
       if (key && map[t.y + oy][t.x + ox] !== STAIRS) traps.push({ x: t.x + ox, y: t.y + oy, key, revealed: !t.hidden, sprung: false });
@@ -2505,6 +2636,7 @@
     else if (kind === "random") it = Math.random() < 0.5 ? Object.assign({}, rollGearDrop(depth)) : { key: weightedConsumKey() };
     else if (kind === "scrollIdentify" || kind === "scroll") it = { key: consumOfCat("scroll") };
     else if (kind === "potionOrScroll") it = { key: consumOfCat(Math.random() < 0.5 ? "potion" : "scroll") };
+    else if (kind === "seed") it = { key: consumOfCat("seed") };
     else it = { key: weightedConsumKey() };                     // consumable, food (until food exists)
     if (!it || !it.key) return;
     items.push(Object.assign(it, { x, y }));
@@ -2581,7 +2713,7 @@
   }
 
   function generateLevel() {
-    floorSerial++; artPending = false; player.timeFreeze = 0; player.capeTurns = 0;
+    artPending = false; player.timeFreeze = 0; player.capeTurns = 0;
     map = blankGrid(WALL);
     explored = blankGrid(false);
     beenSeen = blankGrid(false);
@@ -2611,7 +2743,7 @@
     biomeIndex = biomeOf(depth);
     biome = DATA.biomes[biomeIndex];
 
-    ironKeys = 0; wells = []; spdInfo = null;
+    ironKeys = 0; wells = []; spdInfo = null; plants = [];
     if (!isBossDepth(depth) && useSpdFloors()) {
       const spdRooms = buildSpdFloor();
       if (spdRooms) { finishSpdFloor(spdRooms); return; }
@@ -2801,7 +2933,7 @@
     propOpenDoors = new Set();
     walkPath = [];
     monsters = [];
-    items = [];
+    items = []; plants = [];
     traps = [];
     decoys = [];
     notes = [];
@@ -5041,7 +5173,7 @@
 
   // Returns true if a turn was spent.
   function playerAct(dx, dy) {
-    if (dead || (dx === 0 && dy === 0)) return false;
+    if (dead || confirmOpen || (dx === 0 && dy === 0)) return false;
     if (player.meditate) endMeditate("you move");
     if (paraBlocksPlayer()) return true;
     if (player.stun > 0) { player.stun--; floatText(player.x, player.y, "stunned", "#e0a848"); log("You're too dazed to act!", "hurt"); worldTurn(); return true; }
@@ -5095,6 +5227,15 @@
       if (inBounds(nx, ny) && map[ny][nx] === WELL) return drinkWell(nx, ny);
     }
 
+    // A chasm is a one-way trip, so walking into one asks first — it sits among
+    // ordinary floor, and a slip of the thumb used to be a floor lost and a
+    // quarter of your health with it. Auto-travel never routes through one
+    // (noTravel), so this only ever fires on a deliberate step.
+    if (canStep(player.x, player.y, dx, dy) && map[ny][nx] === CHASM && !player.jumping) {
+      askConfirm("THE CHASM", "Jump in? You will fall to depth " + (depth + 1) + " and land hurt — up to a quarter of your health.",
+        "Jump", () => { player.jumping = true; try { playerAct(dx, dy); } finally { player.jumping = false; } });
+      return false;
+    }
     if (canStep(player.x, player.y, dx, dy)) {
       player.x = nx; player.y = ny;
       if (map[ny][nx] === THORN) {
@@ -5117,6 +5258,9 @@
       if (tr && !tr.sprung) { triggerTrap(tr); if (dead) return true; }
       if (map[player.y][player.x] === STAIRS) { descend(); return true; }  // fresh level, no world turn
       if (map[player.y][player.x] === CHASM) { fallThrough(); return true; }
+      trample(player.x, player.y, player);
+      triggerPlant(player.x, player.y, player);
+      if (dead) return true;
       { const sa = artOf(); if (sa && artKind(sa) === "sandals" && (map[player.y][player.x] === GRASS || map[player.y][player.x] === LAWN)) { artCharge(sa); sa.charge = Math.min(100, sa.charge + 5 + sa.lvl); } }
       worldTurn(walkCost());     // Metrognome (walk) → you cover ground faster than your foes. Terrain never costs extra time: it shapes the route instead of taxing it, and a costlier step used to hand every monster in earshot a free second action.
       return true;
@@ -5451,6 +5595,8 @@
   function moveMonster(m, nx, ny) {
     m.x = nx; m.y = ny;
     if (legLog && legLog.m === m) legLog.legs.push([nx, ny]);
+    // A walker flattens tall grass and sets off plants; a flier passes over both.
+    if (!m.flying) { trample(nx, ny, m); if (plants.length) triggerPlant(nx, ny, m); }
   }
   function stepMonsterTo(m, tx, ty) {
     // monsterPathStep lets the GOAL tile itself be occupied (so a path can still
@@ -6331,6 +6477,7 @@
     _boss.tick(); if (dead) return;             // a boss's delayed effects (e.g. the Golem's node blasts)
     panX = 0; panY = 0; enemyFocusIdx = -1; pendingThrow = null;   // any action recenters the camera on you
     artifactTick(cost);
+    if (player.bless && player.bless.turns > 0 && --player.bless.turns === 0) { player.bless = null; log("The starlight fades."); }
     // Timekeeper's Hourglass: while time is stopped, nothing else gets a turn.
     const frozen = player.timeFreeze > 0;
     if (frozen && --player.timeFreeze === 0) log("Time lurches back into motion.");
@@ -6459,7 +6606,7 @@
   }
 
   function walkTo(tx, ty) {
-    if (dead) return;
+    if (dead || confirmOpen) return;
     if (!examineMode && paraBlocksPlayer()) return;
     if (player.stun > 0 && !examineMode) { player.stun--; floatText(player.x, player.y, "stunned", "#e0a848"); log("You're too dazed to act!", "hurt"); worldTurn(); return; }
     if (examineMode) { describeTile(tx, ty); toggleExamine(false); updateHotbar(); return; }
@@ -6728,6 +6875,10 @@
     // Optional per-biome art for the SPD terrain — only names a biome actually
     // lists, so an undrawn one is a drawn shape rather than a 404.
     ...DATA.biomes.flatMap((b) => (b.spd && b.spd.tiles ? Object.values(b.spd.tiles) : [])),
+    ...DATA.biomes.map((b) => b.floorDeco).filter(Boolean),
+    // Seeds and the plants they grow (SPD's art — tools/cut_spd_sprites.py).
+    ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].cat === "seed"),
+    ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].plant).map((k) => "plant_" + DATA.consumables[k].plant),
   ]));
   const SPRITES = {};
   for (const n of SPRITE_NAMES) {
@@ -7134,6 +7285,11 @@
       else drawArmorInto(c, ox, oy, s, d.color || "#b9c0c8");
       return;
     }
+    if (d.cat === "seed") {
+      const img = SPRITES[key];
+      if (ready(img)) { c.drawImage(img, ox, oy, s, s); return; }
+      drawGlyphInto(c, ox, oy, s, d.glyph || "\u2022", d.color || "#cfc3a0"); return;
+    }
     if (d.cat === "artifact") {
       const img = SPRITES[key];
       if (ready(img)) { c.drawImage(img, ox, oy, s, s); return; }
@@ -7361,7 +7517,10 @@
           else if (!drawImg(SPRITES[biome.wall], px, py)) { ctx.fillStyle = shade(COL.wallFace, b); ctx.fillRect(px, py, tile, tile); }
           if (hintedSecretAt(mx, my)) drawSecretHint(px, py, now);
         } else {
-          if (!drawImg(SPRITES[biome.floor], px, py)) {
+          // SPD scatters a decorated floor tile through the plain ones; a biome
+          // that names a `floorDeco` sprite gets about one in eight, fixed per tile.
+          const deco = biome.floorDeco && t === FLOOR && (((mx * 73856093) ^ (my * 19349663)) & 7) === 0;
+          if (!drawImg(SPRITES[deco ? biome.floorDeco : biome.floor], px, py) && !(deco && drawImg(SPRITES[biome.floor], px, py))) {
             ctx.fillStyle = shade((mx + my) % 2 === 0 ? COL.floorA : COL.floorB, b);
             ctx.fillRect(px, py, tile, tile);
           }
@@ -7371,7 +7530,12 @@
           else if (t === WATER) drawWater(px, py, b);
           else if (t === CHASM) drawChasm(px, py, b);
           else if (t === RUBBLE) drawRubble(px, py, b);
-          else if (t === GRASS) drawGrass(px, py, b);
+          else if (t === GRASS) {
+            // Tall grass: the biome's own sprite if it names one (SPD's raised grass,
+            // with an alternate on every other tile by a fixed hash), else the drawn fill.
+            const gt = biome.spd && biome.spd.tiles, alt = gt && gt.grass_alt && (((mx * 83492791) ^ (my * 2971215073)) & 1);
+            if (!(gt && gt.grass && drawImg(SPRITES[alt ? gt.grass_alt : gt.grass], px, py))) drawGrass(px, py, b);
+          }
           else if (t >= SHALLOW) drawSpdTerrain(t, mx, my, px, py, b, now);
         }
         dim(px, py, 1 - b);                                   // torch falloff / memory
@@ -7435,6 +7599,14 @@
       if (!t.revealed || !inBounds(t.x, t.y) || !visible[t.y][t.x]) continue;
       drawTrapMark(t, SX(t.x), SY(t.y), now);
       dim(SX(t.x), SY(t.y), (1 - litBright(t.x, t.y)) * 0.8);
+    }
+
+    // plants (drawn where they grow, remembered once seen like the floor itself)
+    for (const p of plants) {
+      if (!inBounds(p.x, p.y) || !explored[p.y][p.x]) continue;
+      const px = SX(p.x), py = SY(p.y);
+      if (!drawImg(SPRITES["plant_" + p.kind], px, py)) drawGlyphInto(ctx, px, py, tile, "\u2698", "#7ec98a");
+      dim(px, py, 1 - (visible[p.y][p.x] ? litBright(p.x, p.y) : MEM));
     }
 
     // floor items
@@ -7804,6 +7976,22 @@
   // ---- Merchant floor: shopkeeper (buy/sell) + fountain (full heal) --------
   let shopOpen = false;
   let fountainOpen = false;
+  // A yes/no box for an action that cannot be undone. While it is up the board
+  // takes no input at all — it is the one thing on screen that matters.
+  let confirmOpen = false;
+  function askConfirm(title, text, yesLabel, onYes) {
+    walkPath = [];
+    confirmOpen = true;
+    document.getElementById("confirmTitle").textContent = title;
+    document.getElementById("confirmSub").textContent = text;
+    const acts = document.getElementById("confirmActions");
+    acts.innerHTML = "";
+    const close = () => { confirmOpen = false; document.getElementById("confirmBox").hidden = true; };
+    acts.appendChild(mkBtn(yesLabel, "primary", () => { close(); onYes(); }));
+    acts.appendChild(mkBtn("Stay", "", close));
+    document.getElementById("confirmBox").hidden = false;
+  }
+  const closeConfirm = () => { confirmOpen = false; const el = document.getElementById("confirmBox"); if (el) el.hidden = true; };
   function toggleShop(force) {
     shopOpen = force === undefined ? !shopOpen : force;
     if (shopOpen) { toggleMap(false); toggleChar(false); toggleInv(false); toggleExamine(false); renderShop(); }
@@ -8255,6 +8443,7 @@
     const it = player.inv[idx];
     if (!it) return;
     const def = CONSUM[it.key];
+    if (def.cat === "seed") { useSeed(idx); return; }
     if (def.effect === "burn") {                 // a torch: only spent if there are thorns to burn
       if (!adjacentThorns().length) { log("No thorns within reach to burn."); return; }
       takeOne(idx); selectedInvIdx = -1;
@@ -8324,6 +8513,9 @@
       } else {
         log("The " + nm + " shatters, its magic wasted.");
       }
+    } else if (!isGear(one) && CONSUM[one.key] && CONSUM[one.key].cat === "seed" && plantable(tx, ty) && !monsterAt(tx, ty)) {
+      plantSeed(one.key, tx, ty);
+      log("The seed takes root where it lands — a " + plantName(CONSUM[one.key].plant) + ".");
     } else {
       const spot = passable(tx, ty) ? { x: tx, y: ty } : nearestFreeFloor(tx, ty);
       if (spot) { items.push(Object.assign({ x: spot.x, y: spot.y }, one)); log("You throw the " + nm + "."); }
@@ -9994,6 +10186,8 @@
     }
     const torch = torches.find((tr) => tr.x === x && tr.y === y);
     if (torch) { log("A wall torch — tap it to take it; fire clears thorns."); return; }
+    const pl = plantAt(x, y);
+    if (pl && explored[y][x]) { log("A " + plantName(pl.kind) + " — it " + ((PLANT_FX[pl.kind] || {}).desc || "does something") + ". Whatever steps on it sets it off."); return; }
     if (shopKeeper && shopKeeper.x === x && shopKeeper.y === y) { log("A merchant — tap to buy potions or sell your gear."); return; }
     if (fountain && fountain.x === x && fountain.y === y) { log("A fountain — tap to pay for a full heal."); return; }
     if (altar && altar.x === x && altar.y === y) { log("A god's altar — tap to buy a god's attention for " + ALTAR_BOON_PRICE + " gold."); return; }
@@ -10233,7 +10427,7 @@
   };
   function restBusy() {
     return dead || mapOpen || invOpen || charOpen || boonPending || classPending || shopOpen ||
-      fountainOpen || altarOpen || examineMode || pendingThrow != null || !!pendingSkill;
+      fountainOpen || altarOpen || confirmOpen || examineMode || pendingThrow != null || !!pendingSkill;
   }
   function startRest() {
     if (restTimer || restBusy()) return;
@@ -10371,6 +10565,7 @@
     if (boonPending || classPending) return;      // choose your boon/character first
     if (shopOpen) { if (e.key === "Escape") toggleShop(false); return; }
     if (fountainOpen) { if (e.key === "Escape") toggleFountain(false); return; }
+    if (confirmOpen) { if (e.key === "Escape") closeConfirm(); return; }
     if (altarOpen) { if (e.key === "Escape") toggleAltar(false); return; }
     const key = (e.key || "").toLowerCase();
     if (key === "c") { e.preventDefault(); toggleChar(); return; }
@@ -10411,7 +10606,7 @@
   // secret door — which is what waiting at a dead end means anyway. Shattered Pixel
   // has a dedicated search; on a phone, one fewer control beats one more.
   function waitTurn() {
-    if (dead || mapOpen || invOpen || charOpen || boonPending || classPending || shopOpen || fountainOpen || altarOpen) return;
+    if (dead || mapOpen || invOpen || charOpen || boonPending || classPending || shopOpen || fountainOpen || altarOpen || confirmOpen) return;
     walkPath = [];
     if (searchHere()) return;                    // a find costs the turn all by itself
     worldTurn();
@@ -10752,6 +10947,13 @@
     // a floor is completable without depending on monster positions or explored state.
     reach: (tx, ty, blockThorns) => inBounds(tx, ty) && floodReach(player.x, player.y, !!blockThorns).has(ty * MAP_W + tx),
     step: (dx, dy) => playerAct(dx, dy),
+    // Terrain and plants, for tests: set a tile by name, plant a seed, read state.
+    setTerrain: (x, y, name) => { const t = { FLOOR, CHASM, GRASS, LAWN, WATER, SHALLOW }[name]; if (t != null && inBounds(x, y)) map[y][x] = t; },
+    terrainIs: (x, y, name) => inBounds(x, y) && map[y][x] === ({ FLOOR, CHASM, GRASS, LAWN, EMBERS, WATER, SHALLOW }[name]),
+    plantHere: (kind, x, y) => { plants = plants.filter((p) => !(p.x === x && p.y === y)); plants.push({ x, y, kind }); },
+    plantList: () => plants.map((p) => Object.assign({}, p)),
+    confirmUp: () => confirmOpen,
+    closeConfirm: () => closeConfirm(),
     place: (x, y) => { if (passable(x, y)) { player.x = x; player.y = y; computeFOV(); snapPlayer(); } },
     tap: (x, y) => walkTo(x, y),
     walking: () => walkPath.length,

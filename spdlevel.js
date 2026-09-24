@@ -199,7 +199,7 @@
 
   // ---- Level canvas: the flat terrain array the painters write into ---------
   function makeLevel(w, h) {
-    return { w, h, map: new Int8Array(w * h), drops: [], mobs: [], traps: [], keys: 0, entrance: null, exit: null };
+    return { w, h, map: new Int8Array(w * h), drops: [], mobs: [], traps: [], plants: [], keys: 0, entrance: null, exit: null };
   }
   const cell = (lv, x, y) => x + y * lv.w;
   function setT(lv, x, y, t) { if (x >= 0 && y >= 0 && x < lv.w && y < lv.h) lv.map[x + y * lv.w] = t; }
@@ -779,7 +779,7 @@
       }
     }
   }
-  class PlantsRoom extends StandardRoom {                                   // SPD PlantsRoom (seeds wait for the seeds port)
+  class PlantsRoom extends StandardRoom {                                   // SPD PlantsRoom
     minWidth() { return Math.max(super.minWidth(), 5); } minHeight() { return Math.max(super.minHeight(), 5); }
     sizeCatProbs() { return [3, 1, 0]; }
     merge(lv, other, rect, t) { super.merge(lv, other, rect, t === T.EMPTY && (other instanceof PlantsRoom || other instanceof GrassyGraveRoom) ? T.GRASS : t); }
@@ -788,16 +788,22 @@
       fillRoom(lv, this, 2, T.HIGH_GRASS);
       if (Math.min(this.width(), this.height()) >= 7) fillRoom(lv, this, 3, T.GRASS);
       const c = this.center();
+      // SPD plants a random seed (never Firebloom) at each spot. `plant` is the
+      // request; game.js picks the kind.
+      const plant = (x, y) => lv.plants.push({ x, y, noFire: true });
       if (Math.max(this.width(), this.height()) >= 9) {
         if (Math.min(this.width(), this.height()) >= 11) {
           drawLine(lv, { x: this.left + 2, y: c.y }, { x: this.right - 2, y: c.y }, T.HIGH_GRASS);
           drawLine(lv, { x: c.x, y: this.top + 2 }, { x: c.x, y: this.bottom - 2 }, T.HIGH_GRASS);
+          plant(c.x - 1, c.y - 1); plant(c.x + 1, c.y - 1); plant(c.x - 1, c.y + 1); plant(c.x + 1, c.y + 1);
         } else if (this.width() > this.height() || (this.width() === this.height() && R.Int(2) === 0)) {
           drawLine(lv, { x: c.x, y: this.top + 2 }, { x: c.x, y: this.bottom - 2 }, T.HIGH_GRASS);
+          plant(c.x - 1, c.y); plant(c.x + 1, c.y);
         } else {
           drawLine(lv, { x: this.left + 2, y: c.y }, { x: this.right - 2, y: c.y }, T.HIGH_GRASS);
+          plant(c.x, c.y - 1); plant(c.x, c.y + 1);
         }
-      }
+      } else plant(c.x, c.y);
     }
   }
   class AquariumRoom extends StandardRoom {                                 // SPD AquariumRoom (no piranhas yet)
@@ -1298,8 +1304,18 @@
     }
   }
   class GardenRoom extends SpecialRoom {                                    // SPD GardenRoom
-    paint(lv) { fillRoom(lv, this, 0, T.WALL); fillRoom(lv, this, 1, T.HIGH_GRASS); fillRoom(lv, this, 2, T.GRASS); this.lock(lv);
-      this.drop(lv, T.GRASS, "food"); }
+    // SPD plants a Sungrass (or a Blandfruit bush, which needs food) in about a
+    // third of gardens, sometimes two. Blandfruit becomes a second random plant.
+    paint(lv) {
+      fillRoom(lv, this, 0, T.WALL); fillRoom(lv, this, 1, T.HIGH_GRASS); fillRoom(lv, this, 2, T.GRASS); this.lock(lv);
+      const spot = () => this.spot(lv, T.GRASS);
+      const k = R.Int(3);
+      const put = (kind) => { const p = spot(); if (p && !lv.plants.some((q) => q.x === p.x && q.y === p.y)) lv.plants.push({ x: p.x, y: p.y, kind }); };
+      if (k === 0) put("sungrass");
+      else if (k === 1) put(null);
+      else if (R.Int(5) === 0) { put("sungrass"); put(null); }
+      this.drop(lv, T.GRASS, "seed");
+    }
   }
   class LibraryRoom extends SpecialRoom {                                   // SPD LibraryRoom
     paint(lv) {

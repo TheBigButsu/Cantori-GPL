@@ -183,6 +183,7 @@ async function main() {
   // the flex slots: a trinket goes in the second ring slot or at the neck.
   const rings = await page.evaluate(() => {
     const c = window.cantori, D = window.CANTORI_DATA, out = { problems: [] };
+    c.regenerate(); c.hurt(-999);                 // a quiet floor: this block spends turns
     for (const sl of ["ring1", "ring2", "necklace"]) c.unequip(sl);
     const before = c.ringInfo();
     c.give("ring_haste");
@@ -215,6 +216,11 @@ async function main() {
   // error, and the ones with a visible effect show it.
   const arts = await page.evaluate(() => {
     const c = window.cantori, D = window.CANTORI_DATA, problems = [], fired = [];
+    // Every equip costs a turn, and this block spends dozens of them: on a fresh
+    // floor at full health, a monster that happens to be awake cannot kill a
+    // level-1 hero in the middle of it (which made artifacts "fail" at random).
+    c.regenerate(); c.hurt(-999);
+    if (c.peek().dead) return { problems: ["the player was dead before the artifact test"], fired: 0, total: 0 };
     const keys = Object.keys(D.gear).filter((k) => D.gear[k].cat === "artifact");
     for (const k of keys) {
       c.give(k);
@@ -222,7 +228,7 @@ async function main() {
       c.equip(inv.length - 1);
       const info = c.artInfo();
       if (!info || info.key !== k) { problems.push(k + " did not go in the artifact slot"); continue; }
-      c.chargeArtifact();
+      c.chargeArtifact(); c.hurt(-999);
       const before = c.artInfo();
       c.useArtifact();
       const after = c.artInfo();
@@ -239,8 +245,30 @@ async function main() {
     }
     return { problems, fired: fired.length, total: keys.length };
   });
-  check(arts.total >= 12, `expected 12 artifacts in data.js, found ${arts.total}`);
+  check(arts.total >= 11, `expected 11 artifacts in data.js, found ${arts.total}`);
   check(arts.problems.length === 0, "artifacts: " + arts.problems.join("; "));
+
+  // A chasm asks before it takes you, and a plant goes off when trodden on.
+  const terrain = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    c.regenerate(); c.hurt(-999);
+    const p = c.peek();
+    const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => c.passableAt(p.x + dx, p.y + dy) && !c.peek().mlist.some((m) => m.x === p.x + dx && m.y === p.y + dy));
+    if (!side) return { problems: ["no free tile beside the start for the terrain checks"] };
+    const [dx, dy] = side, tx = p.x + dx, ty = p.y + dy;
+    c.setTerrain(tx, ty, "CHASM");
+    c.step(dx, dy);
+    if (!c.confirmUp()) problems.push("walking into a chasm did not ask first");
+    if (c.peek().depth !== p.depth) problems.push("walking into a chasm dropped you without asking");
+    c.closeConfirm();
+    c.setTerrain(tx, ty, "FLOOR");
+    c.plantHere("sungrass", tx, ty);
+    c.hurt(5);
+    c.step(dx, dy);
+    if (c.plantList().some((q) => q.x === tx && q.y === ty)) problems.push("stepping on a Sungrass did not set it off");
+    return { problems };
+  });
+  check(terrain.problems.length === 0, "terrain: " + terrain.problems.join("; "));
 
   // C4: identification costs loot.identifyXp x the item's TIER, and nothing else.
   // Rarity and drop depth must not enter into it — they used to, and a price the
@@ -268,7 +296,7 @@ async function main() {
   });
   check(idCost.length === 0, `identification cost is not identifyXp x tier: ${idCost.slice(0, 3).join("; ")}`);
 
-  let spdFloors = 0, spdSpecials = 0;
+  let spdFloors = 0, spdSpecials = 0, spdPlants = 0;
   for (let d = 1; d <= DEPTHS; d++) {
     const state = await page.evaluate(() => window.cantori.peek());
 
@@ -300,7 +328,7 @@ async function main() {
           spd: (() => {
             const f = window.cantori.spdFloor();
             if (!f) return null;
-            return { specials: f.rooms.filter((q) => q.kind === "special").length, locked: f.lockedDoors.length,
+            return { specials: f.rooms.filter((q) => q.kind === "special").length, locked: f.lockedDoors.length, plants: window.cantori.plantList().length,
                      keys: f.keysOnFloor.length, keysReachable: f.keysOnFloor.every((k) => window.cantori.reach(k.x, k.y)) };
           })(),
         };
@@ -319,7 +347,7 @@ async function main() {
         if (r.stairs) check(r.stairsReachable, `${at}: stairs at ${r.stairs.x},${r.stairs.y} are unreachable on foot`);
         check(r.monsters > 0, `${at}: no monsters spawned`);
         if (r.spd) {
-          spdFloors++; spdSpecials += r.spd.specials;
+          spdFloors++; spdSpecials += r.spd.specials; spdPlants += r.spd.plants;
           check(r.spd.keys >= r.spd.locked, `${at}: ${r.spd.locked} locked door(s) but only ${r.spd.keys} iron key(s) on the floor`);
           check(r.spd.keysReachable, `${at}: an iron key lies somewhere you cannot walk to`);
         }
@@ -388,6 +416,7 @@ async function main() {
   // fall back to the old generator would pass every check above.
   check(spdFloors > 0, "no ordinary floor was built by the SPD builder (spdlevel.js)");
   check(spdSpecials > 0, "SPD floors were built, but not one special room appeared");
+  check(spdPlants > 0, "SPD floors were built, but not one plant grew on any of them");
 
   if (failures.length) {
     console.error(`\nFAIL — ${failures.length} of ${checks} checks failed:\n`);
@@ -397,7 +426,7 @@ async function main() {
     console.error("");
     process.exit(1);
   }
-  console.log(`ok — ${checks} checks passed across ${DEPTHS} depths × ${ITERATIONS} regenerations (${spdFloors} SPD floors, ${spdSpecials} special rooms)`);
+  console.log(`ok — ${checks} checks passed across ${DEPTHS} depths × ${ITERATIONS} regenerations (${spdFloors} SPD floors, ${spdSpecials} special rooms, ${spdPlants} plants)`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

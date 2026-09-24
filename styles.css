@@ -661,6 +661,13 @@ body{
   -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
 }
 #fountain[hidden]{display:none}
+#confirmBox{
+  position:fixed;inset:0;z-index:25;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(6,4,2,.88);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+}
+#confirmBox[hidden]{display:none}
 
 /* Death / victory screens */
 #gameover, #win{
