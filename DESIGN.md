@@ -3775,3 +3775,31 @@ slot the item may go in (first preference first), and equipping fills the first
 empty one: a trinket tries the second ring slot, then the neck. Skill-granting
 jewellery is read from the neck and the second ring slot, which are the two slots
 a trinket can occupy. The artifact slot is filled by the SPD artifacts (see below).
+
+## Rings are SPD's twelve — DONE
+
+A ring is one **effect** plus one **stat** that goes with it, both scaled by the
+ring's **level** = 1 + rarity step (white 0 … gold 4) + plus. Rings roll bare: no
+random stat affixes, no enchants (Speed/Swiftness/Thorns/Defense are armour and
+necklace enchants only now). Two rings with the same effect stack.
+
+| Ring | Effect at level L | Stat |
+|---|---|---|
+| Accuracy | +L to hit | DEX |
+| Arcana | enchant procs ×(1 + 0.15L) | RES |
+| Elements | burns, poisons, stuns, paralysis on you ×0.85^L | VIT |
+| Energy | skill cooldowns ×(1 + 0.15L) as fast, MP regen ×(1 + 0.2L) | INT |
+| Evasion | +2L% dodge (under the usual cap) | LCK |
+| Force | unarmed +L–2L damage | STR |
+| Furor | attacks ×1.08^L as fast | STR |
+| Haste | moves ×1.1^L as fast | DEX |
+| Might | +5L% max HP | VIT |
+| Sharpshooting | ranged weapons +L damage, +⌊L/3⌋ range | DEX |
+| Tenacity | damage ×0.85^(L × fraction of HP missing) — SPD's formula | RES |
+| Wealth | min(60%, 8L%) of kills drop gold, a consumable, or (15%) blue/purple gear | LCK |
+
+**Unknown until worn**: each run deals the twelve rings out to twelve gems
+(garnet, topaz, onyx …). Putting one on names it for the rest of the run. Its
+level still has to be learned through XP, like any gear's plus. The numbers
+live in `RING_FX` in `game.js`; the rows are `ring_*` in `data.js`, with `effect`
+and `stat` columns in the editor.

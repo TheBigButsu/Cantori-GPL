@@ -224,7 +224,7 @@
   // by level 20, the modifier reaches +11, and mod × level is quadratic: 333 max HP
   // at level 20 against 20 at level 1. A modifier is a flat bonus, exactly as it
   // reads, and the per-level growth stays the levelUp set's job.
-  const computeMaxHp = () => { const cls = DATA.classes[player.cls] || {}; return Math.max(1, (cls.baseHp != null ? cls.baseHp : HP_BASE) + mod("VIT") * HP_PER_VIT_MOD + (player.lvlHp || 0)); };
+  const computeMaxHp = () => { const cls = DATA.classes[player.cls] || {}; return Math.max(1, Math.round(((cls.baseHp != null ? cls.baseHp : HP_BASE) + mod("VIT") * HP_PER_VIT_MOD + (player.lvlHp || 0)) * (1 + 0.05 * ringL("might")))); };
   // `mpPerInt` is Keen Intellect's currency: a passive multiple of the INT modifier
   // on top of the base one every character already gets. Floored at 0 so a negative
   // modifier cannot have the passive take mana away.
@@ -240,7 +240,7 @@
     if (player.unseen && player.unseen.turns > 0) v += player.unseen[field] || 0;
     return v;
   };
-  const playerToHit = () => BASE_TO_HIT + mod("DEX") + weaponToHit() + (player.lvlAcc || 0) + (player.boonAcc || 0) + passiveMod("acc") + timedBonus("acc");
+  const playerToHit = () => BASE_TO_HIT + mod("DEX") + weaponToHit() + (player.lvlAcc || 0) + (player.boonAcc || 0) + passiveMod("acc") + timedBonus("acc") + ringL("accuracy");
   // AC = 10 + as much of your DEX modifier as what you are wearing allows: all of
   // it bare-skinned, tier + plus in medium, none in light or heavy. See ARMOR_SUB.
   // Happy Feet is the first thing that adds AC from a passive, and the Meditate
@@ -268,7 +268,7 @@
   const luckDodge = () => Math.max(0, mod("LCK")) * EVA_PCT_PER_LCK_MOD / 100;
   const dodgeChance = () => Math.min(EVA_CAP,
     Math.max(0, evasionPoints()) * EVA_PER_POINT + Math.max(0, passiveMod("evaPct")) / 100 + luckDodge() +
-    Math.max(0, player.lvlEvaPct || 0) / 100);
+    Math.max(0, player.lvlEvaPct || 0) / 100 + ringL("evasion") * 0.02);
   // Critical hits: 5% chance to deal 125% damage by default, grown by Ourn's
   // Perfectly Timed Blow (+1% per character level), DEX (+1% chance per point)
   // and LCK (+0.5% chance per point, +2% crit damage per point).
@@ -377,6 +377,7 @@
     player.retribution = null;                 // Chadwick's braced guard
     activeWalls = []; pullZone = null;
     assignPotionLooks();                        // scramble unidentified potion colours for this run
+    assignRingLooks();                          // and deal the ring gems
     for (const k in _skillCache) delete _skillCache[k];   // force a rebuild (a Playtest draft can change a tree)
     player.skills = {};
     const sk = treeSkills(key).skills;
@@ -611,9 +612,81 @@
     for (const s of inst.stats || []) if (s.stat === statKey) n += s.val + triangular(inst.plus || 0);
     return n;
   };
+  // ---- Rings: SPD's twelve (items/rings/RingOf*.java) -----------------------
+  //
+  // A ring is ONE effect, not a stat stick. Each data row names its `effect` and
+  // one fixed `stat` that comes with it (Haste → DEX, Tenacity → RES, …). How much
+  // of both a ring gives is its LEVEL: 1 + its rarity step (white 0 … gold 4) + its
+  // plus, which is SPD's upgrade level in Cantori's terms. No random affixes and no
+  // enchants — loot.js rolls a ring bare.
+  //
+  // A ring's type is hidden until worn, as in SPD: each run deals the twelve out
+  // to twelve gems, so a "garnet ring" is a different ring next run. Putting one on
+  // names it for the rest of the run (its level still comes out through XP, like
+  // any gear's plus).
+  const RING_GEMS = [["Garnet", "#b8323a"], ["Ruby", "#e0305a"], ["Topaz", "#e0b040"], ["Emerald", "#3ab06a"],
+    ["Onyx", "#55556a"], ["Opal", "#d8e0f0"], ["Tourmaline", "#d060a0"], ["Sapphire", "#3060d0"],
+    ["Amethyst", "#9050c0"], ["Quartz", "#e8e0d0"], ["Agate", "#b07040"], ["Diamond", "#c0f0ff"]];
+  const ringLook = {};            // ring key -> [gem name, colour], dealt per run
+  const ringKnown = new Set();    // ring keys worn at least once this run
+  function assignRingLooks() {
+    for (const k of Object.keys(ringLook)) delete ringLook[k];
+    ringKnown.clear();
+    const gems = RING_GEMS.slice();
+    for (let i = gems.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = gems[i]; gems[i] = gems[j]; gems[j] = t; }
+    let gi = 0;
+    for (const k of Object.keys(GEAR)) if (GEAR[k].cat === "ring" && GEAR[k].effect) ringLook[k] = gems[gi++ % gems.length];
+  }
+  const isRing = (inst) => !!(inst && GEAR[inst.key] && GEAR[inst.key].cat === "ring");
+  const RARITY_STEP = { white: 0, green: 1, blue: 2, purple: 3, gold: 4 };
+  const ringLevel = (inst) => 1 + (RARITY_STEP[inst.rarity] || 0) + (inst.plus || 0);
+  // Total level of every worn ring with this effect — two Rings of Haste stack, as
+  // in SPD.
+  function ringL(effect) {
+    let n = 0;
+    for (const it of [player.ring1, player.ring2]) if (isRing(it) && GEAR[it.key].effect === effect) n += ringLevel(it);
+    return n;
+  }
+  // What each effect does at level L, in one table: the card text and the numbers
+  // the hooks below read. SPD's multipliers are per upgrade level; a Cantori ring's
+  // level includes its rarity, so the steps are a little gentler than SPD's.
+  const RING_FX = {
+    accuracy:      { name: "Accuracy",      text: (L) => "+" + L + " to hit" },
+    arcana:        { name: "Arcana",        text: (L) => "enchantments proc ×" + (1 + 0.15 * L).toFixed(2) + " as often" },
+    elements:      { name: "Elements",      text: (L) => "burns, poisons, stuns and paralysis on you at ×" + Math.pow(0.85, L).toFixed(2) },
+    energy:        { name: "Energy",        text: (L) => "skills recharge ×" + (1 + 0.15 * L).toFixed(2) + " as fast, MP regenerates ×" + (1 + 0.2 * L).toFixed(2) },
+    evasion:       { name: "Evasion",       text: (L) => "+" + (2 * L) + "% dodge" },
+    force:         { name: "Force",         text: (L) => "bare fists hit +" + L + "–" + (2 * L) + " harder" },
+    furor:         { name: "Furor",         text: (L) => "attacks ×" + Math.pow(1.08, L).toFixed(2) + " as fast" },
+    haste:         { name: "Haste",         text: (L) => "moves ×" + Math.pow(1.1, L).toFixed(2) + " as fast" },
+    might:         { name: "Might",         text: (L) => "+" + (5 * L) + "% max HP" },
+    sharpshooting: { name: "Sharpshooting", text: (L) => "ranged weapons +" + L + " damage, +" + Math.floor(L / 3) + " range" },
+    tenacity:      { name: "Tenacity",      text: (L) => "the lower your HP, the less a blow hurts (down to ×" + Math.pow(0.85, L).toFixed(2) + " near death)" },
+    wealth:        { name: "Wealth",        text: (L) => Math.min(60, 8 * L) + "% of kills drop something extra" },
+  };
+  const ringFx = (inst) => RING_FX[GEAR[inst.key].effect] || null;
+  function ringStat(statKey) {
+    let n = 0;
+    for (const it of [player.ring1, player.ring2]) if (isRing(it) && GEAR[it.key].stat === statKey) n += ringLevel(it);
+    return n;
+  }
+  // SPD's RingOfWealth: kills sometimes drop something extra, and now and then
+  // it is gear of a better rarity than the floor's usual.
+  function wealthDrop(m) {
+    const L = ringL("wealth");
+    if (!L || Math.random() >= Math.min(0.6, 0.08 * L) || itemAt(m.x, m.y)) return;
+    const r = Math.random();
+    const it = r < 0.15 ? _loot.rollItem(_loot.pickAnyInCat(Math.random() < 0.5 ? "weapon" : "armor", _loot.pickTier(depth)) || GEAR_KEYS_ANY(), depth, Math.random() < 0.7 ? "blue" : "purple")
+      : r < 0.55 ? { key: "gold", amount: randInt(5, 15) + depth * 2 } : { key: weightedConsumKey() };
+    if (!it) return;
+    items.push(Object.assign(it, { x: m.x, y: m.y }));
+    floatText(m.x, m.y, "✦", "#f0c14b");
+  }
+  const GEAR_KEYS_ANY = () => Object.keys(GEAR).find((k) => GEAR[k].cat === "weapon");
+
   // Sum a stat bonus across every equipped item (weapon, armor, rings, trinket, necklace).
   function equipStat(statKey) {
-    let n = 0;
+    let n = ringStat(statKey);
     for (const it of wornItems()) n += gStatBonus(it, statKey);
     // A light armour's INT is a property of the garment itself, not a rolled affix —
     // every robe of that tier carries it, so it is a base gear field.
@@ -699,13 +772,15 @@
   // nothing here, and Sword Master (when: "sword") reaches the roll it is about.
   // Without this a sword passive could only ever add flat damage, never widen the
   // weapon's range — so "+1 max damage" had nowhere to land.
-  const weaponDmgMin = () => (player.weapon ? gDmgMin(player.weapon) : player.atkMin + unarmedStatBonus()) + passiveMod("dmgMin");
-  const weaponDmgMax = () => (player.weapon ? gDmgMax(player.weapon) : player.atkMax + unarmedStatBonus()) + passiveMod("dmgMax");
+  const weaponDmgMin = () => (player.weapon ? gDmgMin(player.weapon) + rangedRingDmg() : player.atkMin + unarmedStatBonus() + ringL("force")) + passiveMod("dmgMin");
+  const weaponDmgMax = () => (player.weapon ? gDmgMax(player.weapon) + rangedRingDmg() : player.atkMax + unarmedStatBonus() + 2 * ringL("force")) + passiveMod("dmgMax");
+  // Ring of Sharpshooting: a bow or a spear hits harder and reaches further.
+  const rangedRingDmg = () => (player.weapon && (GEAR[player.weapon.key].range || 1) > 1 ? ringL("sharpshooting") : 0);
   const weaponToHit = () => (player.weapon ? (GEAR[player.weapon.key].toHit || 0) : 0);
   const weaponSpeed = () => { if (!player.weapon) { const s = passiveMod("speed"); if (s) return s; } return player.weapon ? (GEAR[player.weapon.key].speed || 1) : 1; };
   // Weapon reach: 1 = melee (adjacent only). Spears/bows carry a range > 1 and
   // can strike a monster that far away with line of sight.
-  const weaponRange = () => (player.weapon ? (GEAR[player.weapon.key].range || 1) : 1);
+  const weaponRange = () => { const r = player.weapon ? (GEAR[player.weapon.key].range || 1) : 1; return r > 1 ? r + Math.floor(ringL("sharpshooting") / 3) : r; };
   const weaponSub = () => (player.weapon ? (GEAR[player.weapon.key].sub || "") : "");
   const armorSubName = () => (player.armor ? (GEAR[player.armor.key].sub || "") : "");
   // Armor subtype: lighter armor dodges better (evasion), heavier mitigates more
@@ -815,8 +890,8 @@
   // multiplies it. They meet here rather than anywhere else so that every readout
   // of "what does a step cost me" — the character sheet included — already has the
   // slime in it.
-  const walkCost = () => (1 / (1 + walkHaste() + (metroMode() === "walk" ? 1 : 0))) * auraMult("auraWalk");
-  const attackCost = () => (1 / (playerActSpeed() + (metroMode() === "attack" ? 1 : 0))) * auraMult("auraAttack");
+  const walkCost = () => (1 / (1 + walkHaste() + (metroMode() === "walk" ? 1 : 0))) * auraMult("auraWalk") / Math.pow(1.1, ringL("haste"));
+  const attackCost = () => (1 / (playerActSpeed() + (metroMode() === "attack" ? 1 : 0))) * auraMult("auraAttack") / Math.pow(1.08, ringL("furor"));
   // The "power" an item's enchant procs at: weapon top-end damage, armor defense,
   // or (for jewelry) its tier + plus.
   function itemPower(inst) {
@@ -849,6 +924,7 @@
   function itemName(inst) {
     if (!isGear(inst)) return displayName(inst.key);
     const p = dispPlus(inst) > 0 ? "+" + dispPlus(inst) + " " : "";
+    if (isRing(inst) && ringLook[inst.key] && !ringKnown.has(inst.key)) return p + ringLook[inst.key][0] + " Ring";
     return p + GEAR[inst.key].name;
   }
   // `skipBase` drops the intrinsic weapon numbers (speed, to-hit). The pack's detail
@@ -865,6 +941,13 @@
       // read silently showed nothing for every weapon, including the ones whose
       // to-hit is the most important thing about them (dagger +3, bow −3, axe −5).
       if (g.toHit) parts.push("to hit " + (g.toHit > 0 ? "+" : "") + g.toHit);
+    }
+    if (isRing(inst) && ringFx(inst)) {
+      if (!ringKnown.has(inst.key)) return "an unknown ring — put it on to learn what it does";
+      const fx = ringFx(inst), stat = GEAR[inst.key].stat;
+      if (!itemIdentified(inst)) return fx.name + " (level unknown)" + (stat ? ", +? " + stat : "");
+      const L = ringLevel(inst);
+      return fx.name + " " + L + ": " + fx.text(L) + (stat ? ", +" + L + " " + stat : "");
     }
     if (!itemIdentified(inst)) { parts.push("unidentified"); return parts.join(", "); }
     // The grant first: it is what the item IS, and burying it behind two stat
@@ -3473,6 +3556,7 @@
     else if (target.boss) xp = 15 + Math.round(target.maxHp * 0.4);
     else { const mf = (VERMIN[target.type] && VERMIN[target.type].minFloor) || 1; xp = Math.max(1, Math.ceil(mf / 2)); }
     if (xp > 0) gainXP(xp);
+    if (!target.boss && !target.horror) wealthDrop(target);
     tickBoonKillCounters();
     _boss.onKill(target);
     if (target.boss && !monsters.some((m) => m.boss)) onBossDefeated(target.x, target.y);
@@ -3643,7 +3727,7 @@
     return true;
   }
   function paralyzePlayer() {
-    const t = paraTurns();
+    const t = Math.max(1, Math.round(paraTurns() * elementsMult()));
     player.para = Math.max(player.para || 0, t);
     floatText(player.x, player.y, "held", "#cfd6e6");
     log("Your limbs lock solid — you cannot move! (up to " + t + " turns, RES save each turn vs DC " + paraDc() + ")", "hurt");
@@ -3803,13 +3887,17 @@
   // either on you. These are the mirror of the monster tick rather than a new idea:
   // burn cools by 1 a turn to a floor of 1 and ends with its rounds, poison deals
   // its whole stack and decays by 1, exactly as addPoison has always worked.
+  // Ring of Elements shrinks every harmful status as it lands on you.
+  const elementsMult = () => Math.pow(0.85, ringL("elements"));
   function burnPlayer(dmg) {
+    dmg = Math.ceil(dmg * elementsMult());
     if (dmg <= 0) return;
     const cur = player.burn;
     if (cur && cur.dmg >= dmg) { cur.rounds = Math.max(cur.rounds, dmg); return; }
     player.burn = { dmg, rounds: dmg };
   }
   function poisonPlayer(amount) {
+    amount = Math.ceil(amount * elementsMult());
     if (amount <= 0) return;
     player.poison = (player.poison || 0) + amount;
   }
@@ -3902,7 +3990,7 @@
           const lost = Math.min(player.mp, mp);
           player.mp -= lost; floatText(player.x, player.y, "-" + lost + " MP", "#7ea8e0");
         }
-        const st = randInt(Number(src.burstStunMin) || 0, Number(src.burstStunMax) || 0);
+        const st = Math.round(randInt(Number(src.burstStunMin) || 0, Number(src.burstStunMax) || 0) * elementsMult());
         if (st > 0) { player.stun = (player.stun || 0) + st; floatText(player.x, player.y, "stunned", "#e0a848"); }
       }
       updateHUD();
@@ -3967,6 +4055,10 @@
     dmg = Math.round(dmg * (1 - resReduction()));
     if (!o.noArmor) dmg -= armorBlock();
     dmg = Math.max(1, dmg);
+    // Ring of Tenacity: SPD's formula — ×0.85 per level, scaled by how much of your
+    // health is already gone, so it does nothing at full HP and most near death.
+    const ten = ringL("tenacity");
+    if (ten > 0) dmg = Math.max(1, Math.round(dmg * Math.pow(0.85, ten * (1 - player.hp / Math.max(1, player.maxHp)))));
     // Rung 5 and 6, both of them yours rather than your gear's, and both able to
     // take a blow to nothing — which is the only reason either is worth a tier-4
     // or tier-5 node. The 1-damage floor above still applies to everything the
@@ -4029,7 +4121,7 @@
     for (const e of enchants) {
       if (target.hp <= 0) break;
       const def = LOOT.enchants[e] || {};
-      const proc = (def.proc != null ? def.proc : 1) + Math.max(0, mod("LCK")) * 3 / 100;   // LCK: +3% per modifier point to all procs
+      const proc = ((def.proc != null ? def.proc : 1) + Math.max(0, mod("LCK")) * 3 / 100) * (1 + 0.15 * ringL("arcana"));   // LCK: +3% per modifier point to all procs; Ring of Arcana multiplies
       if (Math.random() >= proc) continue;
       const fx = def.effect || {};
       const icon = def.icon || "✦", color = def.color || "#cfe6ff";
@@ -4932,7 +5024,7 @@
       const effMp = Math.max(1, (cls.mpRegenTurns != null ? cls.mpRegenTurns : 600) - regenInt * (cls.intRegen != null ? cls.intRegen : 2) * 5);
       // Deep Well: a flat multiplier on MP regen. Ranks replace each other rather
       // than stacking, which falls out of passiveMod reading only the active rank.
-      player.mpRegenAcc = (player.mpRegenAcc || 0) + (player.maxMp / effMp) * (1 + passiveMod("mpRegen"));
+      player.mpRegenAcc = (player.mpRegenAcc || 0) + (player.maxMp / effMp) * (1 + passiveMod("mpRegen")) * (1 + 0.2 * ringL("energy"));
       while (player.mpRegenAcc >= 1 && player.mp < player.maxMp) { player.mpRegenAcc -= 1; player.mp++; changed = true; }
       if (player.mp >= player.maxMp) player.mpRegenAcc = 0;
     } else player.mpRegenAcc = 0;
@@ -5865,6 +5957,10 @@
     // faster it all comes back, so the boon pays a caster who commits rather than
     // one who hoards a single button.
     let cdTick = 1;
+    // Ring of Energy stands in for SPD's wand recharge: skills come back faster,
+    // carried as a fraction so a small ring still gives the odd extra tick.
+    const en = ringL("energy");
+    if (en > 0) { player.energyAcc = (player.energyAcc || 0) + 0.15 * en; while (player.energyAcc >= 1) { player.energyAcc -= 1; cdTick++; } }
     if (player.boons && player.boons.has("rhythm")) {
       let waiting = 0;
       for (const k in player.skills) if (player.skills[k].cd > 0) waiting++;
@@ -7804,7 +7900,10 @@
     player[slot] = it;
     selectedInvIdx = -1;
     const verb = cat === "weapon" ? "You wield the " : cat === "armor" ? "You don the " : "You equip the ";
-    log(verb + itemName(it) + ".");
+    const unknownRing = isRing(it) && ringLook[it.key] && !ringKnown.has(it.key);
+    const wasName = itemName(it);
+    if (unknownRing) ringKnown.add(it.key);
+    log(verb + wasName + "." + (unknownRing ? " It is a " + GEAR[it.key].name + "!" : ""), unknownRing ? "hit" : "");
     player.maxHp = computeMaxHp();               // VIT affixes can change max HP
     player.hp = Math.min(player.hp, player.maxHp);
     player.maxMp = computeMaxMp();               // INT affixes/quality bonuses can change max MP
@@ -10176,6 +10275,15 @@
     }),
     giveKeys: (n) => { ironKeys += (n == null ? 1 : n); return ironKeys; },
     reveal: () => { applyEffect("map"); computeFOV(); },
+    // Rings: what is worn, what each is called, and the numbers the hooks read.
+    ringInfo: () => ({
+      ring1: player.ring1 && { key: player.ring1.key, name: itemName(player.ring1), text: itemAffixText(player.ring1), level: ringLevel(player.ring1) },
+      ring2: player.ring2 && { key: player.ring2.key, name: itemName(player.ring2), text: itemAffixText(player.ring2) },
+      necklace: player.necklace && player.necklace.key, known: Array.from(ringKnown),
+      walkCost: walkCost(), attackCost: attackCost(), toHit: playerToHit(), maxHp: computeMaxHp(),
+      levels: Object.keys(RING_FX).reduce((o, k) => { o[k] = ringL(k); return o; }, {}),
+    }),
+    nameOf: (i) => (player.inv[i] ? itemName(player.inv[i]) : null),
     grant: (n) => { player.statPoints += (n || 1); renderChar(); updateHotbar(); },
     learn: (k) => learnSkill(k),
     doSkill: (k) => useSkill(k),

@@ -107,6 +107,10 @@
       // an opt-out for a piece whose identity is its own — the Metrognome.
       { f: "minRarity", label: "min rarity", type: "select", opts: ["", "white", "green", "blue", "purple", "gold"] },
       { f: "noGrant", label: "no skill grant", type: "bool" },
+      // Rings (SPD's): the one thing the ring does, and the stat that comes with
+      // it. Both scale with the ring's level (rarity + plus) — see RING_FX in game.js.
+      { f: "effect", label: "ring effect", type: "select", opts: ["", "accuracy", "arcana", "elements", "energy", "evasion", "force", "furor", "haste", "might", "sharpshooting", "tenacity", "wealth"] },
+      { f: "stat", label: "ring stat", type: "select", opts: [""].concat(STAT_KEYS) },
       { f: "glyph", type: "text" }, { f: "color", type: "color" },
     ],
     // Armour's own column set. There is no AC column: armour grants no flat AC.

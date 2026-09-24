@@ -906,19 +906,113 @@ window.CANTORI_DATA = {
       "glyph": "[",
       "color": "#dfe6ef"
     },
-    "ring_copper": {
+    "ring_accuracy": {
       "cat": "ring",
-      "name": "Copper Ring",
+      "name": "Ring of Accuracy",
       "tier": 1,
+      "effect": "accuracy",
+      "stat": "DEX",
+      "glyph": "o",
+      "color": "#e0d890"
+    },
+    "ring_arcana": {
+      "cat": "ring",
+      "name": "Ring of Arcana",
+      "tier": 1,
+      "effect": "arcana",
+      "stat": "RES",
+      "glyph": "o",
+      "color": "#b491d6"
+    },
+    "ring_elements": {
+      "cat": "ring",
+      "name": "Ring of Elements",
+      "tier": 1,
+      "effect": "elements",
+      "stat": "VIT",
+      "glyph": "o",
+      "color": "#e08a5a"
+    },
+    "ring_energy": {
+      "cat": "ring",
+      "name": "Ring of Energy",
+      "tier": 1,
+      "effect": "energy",
+      "stat": "INT",
+      "glyph": "o",
+      "color": "#7ab0e0"
+    },
+    "ring_evasion": {
+      "cat": "ring",
+      "name": "Ring of Evasion",
+      "tier": 1,
+      "effect": "evasion",
+      "stat": "LCK",
+      "glyph": "o",
+      "color": "#9ad0ff"
+    },
+    "ring_force": {
+      "cat": "ring",
+      "name": "Ring of Force",
+      "tier": 1,
+      "effect": "force",
+      "stat": "STR",
+      "glyph": "o",
+      "color": "#d06a4a"
+    },
+    "ring_furor": {
+      "cat": "ring",
+      "name": "Ring of Furor",
+      "tier": 1,
+      "effect": "furor",
+      "stat": "STR",
+      "glyph": "o",
+      "color": "#e05a5a"
+    },
+    "ring_haste": {
+      "cat": "ring",
+      "name": "Ring of Haste",
+      "tier": 1,
+      "effect": "haste",
+      "stat": "DEX",
+      "glyph": "o",
+      "color": "#f0e060"
+    },
+    "ring_might": {
+      "cat": "ring",
+      "name": "Ring of Might",
+      "tier": 1,
+      "effect": "might",
+      "stat": "VIT",
       "glyph": "o",
       "color": "#c58a4a"
     },
-    "ring_silver": {
+    "ring_sharpshooting": {
       "cat": "ring",
-      "name": "Silver Ring",
-      "tier": 3,
+      "name": "Ring of Sharpshooting",
+      "tier": 1,
+      "effect": "sharpshooting",
+      "stat": "DEX",
       "glyph": "o",
-      "color": "#cfd4dc"
+      "color": "#8ac070"
+    },
+    "ring_tenacity": {
+      "cat": "ring",
+      "name": "Ring of Tenacity",
+      "tier": 1,
+      "effect": "tenacity",
+      "stat": "RES",
+      "glyph": "o",
+      "color": "#a0a8b0"
+    },
+    "ring_wealth": {
+      "cat": "ring",
+      "name": "Ring of Wealth",
+      "tier": 1,
+      "effect": "wealth",
+      "stat": "LCK",
+      "glyph": "o",
+      "color": "#f0c14b"
     },
     "charm_bone": {
       "cat": "trinket",
@@ -1165,7 +1259,6 @@ window.CANTORI_DATA = {
         "color": "#bfe0ff",
         "proc": 1,
         "slots": [
-          "ring",
           "armor"
         ],
         "desc": "While worn, your attacks cost less time — you act faster. Scales with the item's tier.",
@@ -1187,8 +1280,7 @@ window.CANTORI_DATA = {
         "color": "#bfe0ff",
         "proc": 1,
         "slots": [
-          "armor",
-          "ring"
+          "armor"
         ],
         "desc": "While worn, your steps cost less time — you cover ground faster than your foes. Scales with the item's tier.",
         "effect": {
@@ -1209,8 +1301,7 @@ window.CANTORI_DATA = {
         "color": "#cdd6a0",
         "proc": 0.5,
         "slots": [
-          "armor",
-          "ring"
+          "armor"
         ],
         "desc": "When you're struck, lash back at the attacker for half the damage you took.",
         "effect": {
@@ -1252,7 +1343,6 @@ window.CANTORI_DATA = {
         "proc": 1,
         "slots": [
           "armor",
-          "ring",
           "necklace"
         ],
         "desc": "Increases the amount of damage reduced from incoming attacks (both the min and max block). Scales with the item's tier.",

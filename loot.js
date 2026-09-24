@@ -95,7 +95,11 @@ window.CantoriLoot = function (deps) {
     // proc, and the rank is already the interesting number on the card.
     const GRANTS_SKILL = { trinket: 1, necklace: 1 };
     let grant = null;
-    if (GRANTS_SKILL[base.cat] && !base.noGrant) {
+    // A ring with an `effect` is SPD's kind: what it does is fixed by its type and
+    // how much by its level (rarity + plus), so it rolls bare — no stats, no
+    // enchants. game.js's RING_FX is where its number comes from.
+    if (base.cat === "ring" && base.effect) { /* bare */ }
+    else if (GRANTS_SKILL[base.cat] && !base.noGrant) {
       const ranks = rarity === "purple" ? 2 : rarity === "gold" ? 3 : 1;
       grant = rollGrantHook ? rollGrantHook(base, rarity, ranks) : null;
       if (rarity === "blue" || rarity === "purple") addStat();
@@ -112,7 +116,7 @@ window.CantoriLoot = function (deps) {
     // Jewelry is worthless as a bare item, so a ring always carries at least one
     // property. Necklaces and trinkets have their grant and no longer need this.
     const JEWELRY = { ring: 1 };
-    if (JEWELRY[base.cat] && stats.length === 0 && enchants.length === 0) {
+    if (JEWELRY[base.cat] && !base.effect && stats.length === 0 && enchants.length === 0) {
       if (ekeys.length && Math.random() < 0.5) addEnchant(); else addStat();
     }
     // Identification is paid for in EXPERIENCE (see gainXP), and the price is a

@@ -178,6 +178,39 @@ async function main() {
   check(idGains.worn.length >= 5, `only ${idGains.worn.length} slots could be filled for the identification check`);
   check(idGains.stuck.length === 0, `worn slot(s) gained no identification XP: ${idGains.stuck.join(", ")}`);
 
+  // Rings (SPD's): a ring is a disguised gem until worn, wearing it names it for
+  // the run, and what it does is its effect at its level — not a stat affix. And
+  // the flex slots: a trinket goes in the second ring slot or at the neck.
+  const rings = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, out = { problems: [] };
+    for (const sl of ["ring1", "ring2", "necklace"]) c.unequip(sl);
+    const before = c.ringInfo();
+    c.give("ring_haste");
+    let inv = c.peek().invItems, i = inv.length - 1;
+    const disguised = c.nameOf(i);
+    if (/Haste/.test(disguised)) out.problems.push("an unworn Ring of Haste is not disguised (" + disguised + ")");
+    c.equip(i);
+    const worn = c.ringInfo();
+    if (!worn.ring1 || worn.ring1.key !== "ring_haste") out.problems.push("the ring did not go in the ring slot");
+    else {
+      if (!/Haste/.test(worn.ring1.name)) out.problems.push("wearing the ring did not name it (" + worn.ring1.name + ")");
+      if (!(worn.walkCost < before.walkCost)) out.problems.push(`Ring of Haste did not speed walking (${before.walkCost} -> ${worn.walkCost})`);
+      if (worn.levels.haste < 1) out.problems.push("Ring of Haste has no level");
+    }
+    c.give("ring_accuracy"); inv = c.peek().invItems; c.equip(inv.length - 1);
+    const two = c.ringInfo();
+    if (!two.ring2 || two.ring2.key !== "ring_accuracy") out.problems.push("the second ring did not take the ring/trinket slot");
+    else if (!(two.toHit > worn.toHit)) out.problems.push("Ring of Accuracy did not raise to-hit");
+    const trink = Object.keys(D.gear).find((k) => D.gear[k].cat === "trinket" && !D.gear[k].noDrop);
+    if (trink) {
+      c.give(trink); inv = c.peek().invItems; c.equip(inv.length - 1);
+      if (c.ringInfo().necklace !== trink) out.problems.push("with both ring slots full, a trinket did not go to the neck");
+    }
+    for (const sl of ["ring1", "ring2", "necklace"]) c.unequip(sl);
+    return out;
+  });
+  check(rings.problems.length === 0, "rings: " + rings.problems.join("; "));
+
   // C4: identification costs loot.identifyXp x the item's TIER, and nothing else.
   // Rarity and drop depth must not enter into it — they used to, and a price the
   // player cannot read is the reason the progress bar stopped meaning anything.
