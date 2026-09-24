@@ -4,6 +4,14 @@ A permadeath roguelike that runs as a static site (no build step, no dependencie
 GitHub Pages from `main`. Read `DESIGN.md` for where the game is headed and `README.md` for what it
 does today.
 
+**This repo is GPLv3 and ports from Shattered Pixel Dungeon.** Anything taken from SPD — a
+translated Java class, a sprite, a formula — is fine here, but: note the SPD source file it came from
+in a comment (or in `ART-CREDITS.md` for art), port against the commit pinned in
+`vendor/spd/README.md`, never remove an existing credit, and never call the game "Shattered Pixel
+Dungeon" or reuse its title banner. SPD's audio has its own mixed licences (see `ART-CREDITS.md`) —
+check each file before copying one. Progression here is **insight potions + gear**, not SPD's
+strength potions and upgrade scrolls, and there are no wands; don't port those.
+
 ## Layout
 
 ```

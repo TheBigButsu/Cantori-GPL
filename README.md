@@ -4,6 +4,15 @@ A permadeath roguelike dungeon crawler — in the spirit of Shattered Pixel
 Dungeon — built as a web game so it plays on a phone (iPhone included) with no
 App Store, and eventually offline.
 
+> **This is the GPLv3 line of Cantori.** It started as a full copy of
+> [TheBigButsu/Cantori](https://github.com/TheBigButsu/Cantori) (kept there,
+> untouched, as the original) and ports systems and art from
+> [Shattered Pixel Dungeon](https://github.com/00-Evan/shattered-pixel-dungeon)
+> by Evan Debenham, itself based on Watabou's Pixel Dungeon. Because SPD is
+> GPLv3, so is this repository — see `LICENSE`, and `vendor/spd/README.md` for
+> the SPD version we port from. This is not Shattered Pixel Dungeon and is not
+> affiliated with or endorsed by its authors.
+
 ## Where we are: Milestone 4 — "The Long Way Down"
 
 The full journey. The dungeon is **five biomes of five floors each** (25 floors,

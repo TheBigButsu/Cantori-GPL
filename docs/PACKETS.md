@@ -175,3 +175,43 @@ almost immediately. Everything in B, C, D, E and F is independent once A is done
 **One collision to avoid:** A4 extracts `game.js` lines ~3899–4906 into `ui.js`, which contains
 the Skills and Character-screen code that F1/F2 rewrite. Do **F1 and F2 before A4**, or A4's
 brief has to be written against the new tree renderer. Running them in parallel will conflict.
+
+---
+
+## S-track: ports from Shattered Pixel Dungeon
+
+This repo is the GPLv3 line (see `README.md`), and the S-track brings SPD systems across.
+Each S packet translates one SPD system, pinned to the commit in `vendor/spd/README.md`,
+into the matching `game.js` section. Its content goes in `data.js`, with editor support.
+Name the SPD source file in a comment beside the port. Progression stays **insight
+potions + gear**, so strength potions, upgrade scrolls and wands are out of scope.
+MP already exists.
+
+```
+S1 blobs ──┬── S2 potion actions
+           ├── S3 grass, plants, seeds
+           └── S6 special rooms + their guaranteed key item
+S4 hunger & food      (independent)
+S5 rings with effects (independent)
+S8 multi-rank skills  (independent; needs the editor cell-shape change)
+S7 SPD art pass       (last; every sprite credited in ART-CREDITS.md)
+```
+
+- **S1 Blobs.** SPD `actors/blobs/Blob.java`: a per-tile volume that spreads and decays
+  each turn. Add Fire (burns grass and doors), ToxicGas, ParalyticGas, Freezing, and Web.
+  Burning terrain goes through every map predicate in CLAUDE.md rule 5.
+- **S2 Potion actions.** Thrown or shattered potions release blobs: liquid flame, frost,
+  toxic gas, paralytic gas, levitation, invisibility, mind vision, purity.
+- **S3 Grass, plants, seeds.** Tall and trampled grass, seeds that plant, and plants that
+  fire when stepped on (SPD `plants/`).
+- **S4 Hunger & food.** SPD `actors/buffs/Hunger.java`, rations, mystery meat, and a
+  per-floor food guarantee. The rates live in `data.js` so it can be tuned or switched off.
+- **S5 Rings with effects.** SPD `items/rings/`, with Energy driving skill cooldowns and
+  MP regen instead of wands.
+- **S6 Special rooms.** SPD `levels/rooms/special/`, plus the rule that each room's
+  solution spawns on the same floor (fire wall → frost potion, piranhas → invisibility,
+  and so on). Pass the connectivity checks from rule 5.
+- **S7 SPD art pass.**
+- **S8 Multi-rank skills.** An optional `ranks` per skill-tree cell, as SPD talents have.
+
+Briefs are written into `docs/packets/` as each packet is picked up.

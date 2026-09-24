@@ -43,3 +43,30 @@ licensing changes by mixing the two. They are composed from simple shapes at
 32×32 and are deliberately plain: they exist so no data row renders as a bare
 glyph, and any of them can be replaced with a better tile — DCSS or otherwise —
 by dropping a new PNG over the same filename. Nothing in the code needs to know.
+
+## Shattered Pixel Dungeon (GPLv3)
+
+This repository ports game systems and may use art from **Shattered Pixel
+Dungeon** (https://github.com/00-Evan/shattered-pixel-dungeon), released under
+the **GNU GPL v3**, the licence this repository is distributed under. The SPD
+commit we port from is pinned in `vendor/spd/README.md`. Credits, as SPD's own
+About screen gives them — these must never be removed:
+
+- **Shattered Pixel Dungeon** — developed by Evan Debenham (ShatteredPixel.com)
+- **Pixel Dungeon** — developed by Watabou (watabou.itch.io), inspired by Brian
+  Walker's Brogue
+- Splash & dungeon art: Aleksandar Komitov
+- Item pixel art: PumpkinVolt
+- Additional pixel art: Alastair Braun
+- Composer: Lumine Haaristo; Pixel Dungeon music: Cube Code
+- Sound effects: Celesti, plus freesound.org samples under CC-BY and CC0 (listed
+  in SPD's `AboutScene.java`) — the CC-BY ones need their own attribution here
+  if any is ever copied in
+- Pixel Dungeon GDX: Edu García; Shattered GDX help: Kevin MacMartin
+
+Every SPD sprite added to `assets/tiles/` must be listed below with the SPD
+asset file it was cut from.
+
+### SPD sprites used
+
+_None yet._
