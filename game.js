@@ -4153,9 +4153,18 @@
       const c = DATA.classes[k] || {};
       const btn = document.createElement("button");
       btn.className = "class-choice"; btn.type = "button";
-      btn.innerHTML = `<span class="b-icon">${c.icon || "⚔"}</span>` +
+      // The card shows the hero as it will start the run — its SPD strip, cropped to
+      // the row its starting armour selects, at 3x (36x45). This card is up before
+      // the strips have loaded on a first visit, so it can't wait on ready(): it
+      // shows the strip and swaps to the emoji only if the strip turns out missing,
+      // since a blank card reads as a broken one.
+      const strip = SPRITES["hero_" + k];
+      btn.innerHTML = `<span class="b-icon b-hero" style="background-image:url('${strip.src}');` +
+          `background-position:0 ${-heroRow(c.start && c.start.armor) * HERO_FH * 3}px"></span>` +
         `<span class="b-text"><span class="b-name">${c.name || k}</span>` +
         `<span class="b-desc">${c.blurb || ""}</span></span>`;
+      const toEmoji = () => { const f = btn.querySelector(".b-hero"); if (f) { f.className = "b-icon"; f.removeAttribute("style"); f.textContent = c.icon || "⚔"; } };
+      if (strip.complete && !strip.naturalWidth) toEmoji(); else strip.addEventListener("error", toEmoji);
       btn.addEventListener("click", () => choose(k));
       wrap.appendChild(btn);
     }
@@ -6023,6 +6032,9 @@
     ...Object.keys(DATA.gear).filter((k) => DATA.gear[k].cat === "weapon" || DATA.gear[k].cat === "armor"),
     ...DATA.biomes.flatMap((b) => [b.floor, b.wall]),   // per-biome terrain
     ...DATA.biomes.map((b) => b.exitSprite).filter(Boolean),
+    // One hero strip per class (SPD art — tools/cut_hero_sprites.py). A class with
+    // no strip 404s here harmlessly and falls back to "player" in drawHero.
+    ...Object.keys(DATA.classes || {}).map((k) => "hero_" + k),
   ]));
   const SPRITES = {};
   for (const n of SPRITE_NAMES) {
@@ -6393,6 +6405,32 @@
   function drawItemIcon(px, py, it) { renderIconInto(ctx, px, py, tile, it); }
   // Draw a sprite preserving its aspect, bottom-anchored in the tile (bosses
   // can be taller than one tile and scale > 1).
+  // The hero, drawn from the class's SPD strip: 12x15 idle frames stacked one per
+  // SPD armour row — 0 bare, 1 cloth, 2 leather, 3 mail, 4 scale, 5 plate, 6 class
+  // armour. Cantori's armour is light/medium/heavy x tier 1-5, so the row is picked
+  // from that: the hero visibly changes clothes when you do, as in SPD. Tier 5 of
+  // any weight is the top of its line, and wears the class's own outfit.
+  const HERO_FW = 12, HERO_FH = 15;
+  function heroRow(armorKey) {
+    const g = armorKey && GEAR[armorKey];
+    if (!g) return 0;
+    if ((g.tier || 1) >= 5) return 6;
+    if (g.sub === "light") return 1;
+    if (g.sub === "medium") return g.tier >= 3 ? 4 : 2;
+    if (g.sub === "heavy") return g.tier >= 3 ? 5 : 3;
+    return 1;
+  }
+  // Draws at a whole multiple of the 12x15 frame whenever the tile allows it, so pixels
+  // stay square at every zoom; bottom-aligned and centred like drawSpriteFit.
+  function drawHero(px, py) {
+    const img = SPRITES["hero_" + player.cls];
+    if (!ready(img)) return drawImg(SPRITES.player, px, py);
+    const k = tile >= HERO_FH ? Math.floor(tile / HERO_FH) : tile / HERO_FH;
+    const w = HERO_FW * k, h = HERO_FH * k;
+    const row = heroRow(player.armor && player.armor.key);
+    ctx.drawImage(img, 0, row * HERO_FH, HERO_FW, HERO_FH, px + (tile - w) / 2, py + tile - h, w, h);
+    return true;
+  }
   function drawSpriteFit(img, px, py, scale) {
     if (!ready(img)) return false;
     const h = tile * scale;
@@ -6763,7 +6801,7 @@
       const dx = SX(dc.x), dy = SY(dc.y);
       ctx.save();
       ctx.globalAlpha = dc.turns <= 5 ? 0.25 : 0.5;    // fading as it runs out
-      if (!drawSpriteFit(SPRITES.player, dx, dy, 1)) drawGlyphInto(ctx, dx, dy, tile, "@", "#9ad0ff");
+      if (!drawHero(dx, dy)) drawGlyphInto(ctx, dx, dy, tile, "@", "#9ad0ff");
       ctx.restore();
       ctx.strokeStyle = "rgba(154,208,255,0.55)"; ctx.lineWidth = Math.max(1, tile * 0.04);
       ctx.strokeRect(dx + 1, dy + 1, tile - 2, tile - 2);
@@ -6782,7 +6820,7 @@
     // (it pulses rather than sitting at a flat alpha, so it never reads as a bug).
     const invis = player.invisible > 0;
     if (invis) ctx.globalAlpha = 0.3 + 0.12 * Math.abs(Math.sin(now / 300));
-    if (!drawImg(SPRITES.player, px, py)) {
+    if (!drawHero(px, py)) {
       ctx.fillStyle = "#f6b845";
       ctx.font = `700 ${Math.floor(tile * 0.8)}px ${bodyFont()}`;
       ctx.textAlign = "center";

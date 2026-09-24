@@ -722,6 +722,7 @@ body{
 .boon-choice:hover,.boon-choice:focus,.class-choice:hover,.class-choice:focus{border-color:var(--amber);outline:none}
 .boon-choice:active,.class-choice:active{transform:scale(.99)}
 .boon-choice .b-icon,.class-choice .b-icon{font-size:28px;line-height:1;flex:0 0 auto;width:34px;text-align:center}
+.class-choice .b-hero{width:36px;height:45px;background-repeat:no-repeat;background-size:36px 315px;image-rendering:pixelated}
 .boon-choice .b-text,.class-choice .b-text{flex:1;min-width:0}
 /* Both are <span>, so without display:block they sit on one line and the
    margin-top below is silently ignored — the name ran straight into its own

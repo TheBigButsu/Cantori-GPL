@@ -12,6 +12,10 @@ App Store, and eventually offline.
 > GPLv3, so is this repository — see `LICENSE`, and `vendor/spd/README.md` for
 > the SPD version we port from. This is not Shattered Pixel Dungeon and is not
 > affiliated with or endorsed by its authors.
+>
+> The four heroes use SPD's hero art: Chadwick wears the Warrior, Brynn the
+> Rogue (blue-skinned), ToneTum the Mage and Sera the Huntress. Their outfit
+> follows the armour you have on, as in SPD.
 
 ## Where we are: Milestone 4 — "The Long Way Down"
 
