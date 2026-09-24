@@ -43,10 +43,34 @@
   const CHASM = 6;             // fall-through gap — declared for C2/C3, not placed yet
   const RUBBLE = 7;            // broken stone — declared for C2/C3, not placed yet
   const GRASS = 8;             // tall grass — declared for C2/C3, not placed yet
+  // Terrain the SPD floor builder paints (spdlevel.js). Each is a TILE row below, so
+  // passable / passableFor / isWall / blocksSight / floodReach all answer for it
+  // without a case of their own — see CLAUDE.md rule 5.
+  const SHALLOW = 9;           // SPD's water: wadeable. Painted as random patches, so it must never stop feet
+  const LAWN = 10;             // SPD's short grass — floor you can see over
+  const SPFLOOR = 11;          // SPD's EMPTY_SP: the "special" floor of a study, a platform, a bridge
+  const STATUE = 12;           // blocks feet and arrows, not eyes
+  const BOOKSHELF = 13;        // a wall with books in it
+  const EMBERS = 14;           // scorched floor — decoration
+  const PEDESTAL = 15;         // floor that a room's prize sits on
+  const WELL = 16;             // a magic well: bump it to drink, once
+  const LOCKED = 17;           // a locked door: bump it holding this floor's iron key
 
   // What a tile IS, rather than which constant it equals. Every predicate below reads
   // this table, so a new tile is a row here plus a draw case — not a hunt through the file.
   const TILE = {
+    [SHALLOW]:   {},
+    [LAWN]:      {},
+    [SPFLOOR]:   {},
+    [EMBERS]:    {},
+    [PEDESTAL]:  {},
+    [STATUE]:    { solid: true },
+    [BOOKSHELF]: { solid: true, opaque: true },
+    [WELL]:      { solid: true },
+    // Solid AND opaque: a vault is not visible through its own locked door. The
+    // generator never routes the way onward through one (spdlevel.js's special
+    // rooms have exactly one door), so floodReach treating it as a wall is right.
+    [LOCKED]:    { solid: true, opaque: true, locked: true },
     [WALL]:   { solid: true, opaque: true },
     [FLOOR]:  {},
     [STAIRS]: {},
@@ -389,7 +413,10 @@
   const trapAt = (x, y) => traps.find((t) => t.x === x && t.y === y) || null;
 
   const inBounds = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
-  const isWall = (x, y) => !inBounds(x, y) || map[y][x] === WALL;
+  // "Stops an arrow", which is every solid tile — a statue or a bookshelf as much as
+  // stone. (It used to be `=== WALL`, which was the same thing while WALL was the
+  // only solid tile.)
+  const isWall = (x, y) => !inBounds(x, y) || !!tileProp(x, y, "solid");
   const isDoor = (x, y) => inBounds(x, y) && map[y][x] === DOOR;
   const isThorn = (x, y) => inBounds(x, y) && map[y][x] === THORN;
   const shuns = (x, y) => !!tileProp(x, y, "shun");     // monsters (and drops/teleports) avoid these tiles
@@ -1994,6 +2021,167 @@
     else buildHallArena(rooms);
   }
 
+  // ---- SPD floors: Shattered Pixel Dungeon's level builder (spdlevel.js) ----
+  //
+  // An ordinary floor is now built by the port of SPD's builder: rooms placed
+  // around a loop (or a figure eight) and joined edge to edge, with tunnels,
+  // bridges and walkways between them, each room painted as one of SPD's types,
+  // and one to three special rooms — most behind a locked door whose iron key
+  // lies elsewhere on the floor. Boss arenas and the merchant floor are untouched.
+  // A biome opts out with `spd: false`, and gets the old generator back.
+  //
+  // spdlevel.js returns abstract terrain; this is where each code becomes a
+  // Cantori tile. WATER (a designed pool) is deep; SHALLOW (the painter's random
+  // patches) is not, because only the designed pools are guaranteed a way round.
+  const SPD = window.CantoriSPD || null;
+  const SPD_TILE = SPD ? {
+    [SPD.T.WALL]: WALL, [SPD.T.EMPTY]: FLOOR, [SPD.T.EMPTY_SP]: SPFLOOR, [SPD.T.WATER]: WATER,
+    [SPD.T.SHALLOW]: SHALLOW, [SPD.T.GRASS]: LAWN, [SPD.T.HIGH_GRASS]: GRASS, [SPD.T.CHASM]: CHASM,
+    [SPD.T.STATUE]: STATUE, [SPD.T.BOOKSHELF]: BOOKSHELF, [SPD.T.EMBERS]: EMBERS, [SPD.T.PEDESTAL]: PEDESTAL,
+    [SPD.T.WELL]: WELL, [SPD.T.DOOR]: DOOR, [SPD.T.LOCKED_DOOR]: LOCKED, [SPD.T.SECRET_DOOR]: WALL,
+    [SPD.T.ENTRANCE]: FLOOR, [SPD.T.EXIT]: STAIRS, [SPD.T.DECO]: RUBBLE,
+  } : {};
+  const useSpdFloors = () => !!SPD && !!biome && biome.spd !== false;
+  // Ground a monster, an item or a key may be put down on. The old generator only
+  // ever made FLOOR; an SPD room is as often lawn, special floor or a shallow pool.
+  const openGround = (x, y) => { const t = map[y][x]; return t === FLOOR || t === SPFLOOR || t === LAWN || t === SHALLOW || t === EMBERS; };
+  let ironKeys = 0;               // this floor's iron keys in hand — SPD keys only open their own floor
+  let wells = [];                 // { x, y, water: "health"|"awareness", used }
+  let spdInfo = null;             // the last SPD floor's room list, for the dev surface
+
+  // Builds the floor into `map` and returns the Cantori room rects, entrance
+  // first and exit last, or null if the builder gave up (the caller then falls
+  // back to the old generator rather than leaving a blank floor).
+  function buildSpdFloor() {
+    const cfg = (biome.spd && typeof biome.spd === "object") ? biome.spd : {};
+    const lv = SPD.generate({
+      rand: Math.random, depth, region: biomeIndex,
+      standard: cfg.standard, special: cfg.special, water: cfg.water, grass: cfg.grass,
+      rooms: cfg.rooms, specials: cfg.specials,
+      maxW: MAP_W - 2, maxH: MAP_H - 2,
+    });
+    if (!lv) return null;
+    const ox = Math.floor((MAP_W - lv.w) / 2), oy = Math.floor((MAP_H - lv.h) / 2);
+    for (let y = 0; y < lv.h; y++) for (let x = 0; x < lv.w; x++) {
+      const code = lv.map[x + y * lv.w];
+      map[y + oy][x + ox] = SPD_TILE[code] != null ? SPD_TILE[code] : FLOOR;
+    }
+    // Room rects, SPD's inclusive-wall rect → Cantori's interior {x,y,w,h}.
+    const toRect = (r) => ({ x: r.left + 1 + ox, y: r.top + 1 + oy, w: r.right - r.left - 1, h: r.bottom - r.top - 1, spd: r.name, locked: r.locked, special: r.kind === "special" });
+    const real = lv.rooms.filter((r) => r.kind !== "connection");
+    const ent = real.find((r) => r.entrance), ext = real.find((r) => r.exit);
+    const rooms = [toRect(ent)].concat(real.filter((r) => r !== ent && r !== ext).map(toRect), [toRect(ext)]);
+    // A hidden door is a wall that opens on a search — Cantori's own secret doors.
+    for (let y = 0; y < lv.h; y++) for (let x = 0; x < lv.w; x++) {
+      if (lv.map[x + y * lv.w] !== SPD.T.SECRET_DOOR) continue;
+      const room = rooms.find((r) => x + ox >= r.x - 1 && x + ox <= r.x + r.w && y + oy >= r.y - 1 && y + oy <= r.y + r.h) || null;
+      secretDoors.push({ x: x + ox, y: y + oy, room });
+    }
+    player.x = lv.entrance.x + ox; player.y = lv.entrance.y + oy;
+    wells = (lv.wells || []).map((w) => ({ x: w.x + ox, y: w.y + oy, water: w.water, used: false }));
+    for (const d of lv.drops) spdDrop(d.kind, d.x + ox, d.y + oy);
+    for (const m of lv.mobs) if (m.kind === "statue") spawnStatue(m.x + ox, m.y + oy);
+    for (const t of lv.traps) {
+      const key = pickTrapKey();
+      if (key && map[t.y + oy][t.x + ox] !== STAIRS) traps.push({ x: t.x + ox, y: t.y + oy, key, revealed: !t.hidden, sprung: false });
+    }
+    spdInfo = { w: lv.w, h: lv.h, ox, oy, rooms: lv.rooms.map((r) => ({ name: r.name, kind: r.kind, locked: r.locked })), keys: lv.keys };
+    rooms.keysNeeded = lv.keys;
+    return rooms;
+  }
+  // What a room's painter asked to have lying there, as a Cantori item.
+  function spdDrop(kind, x, y) {
+    const gearOf = (cat, rarity) => {
+      const tier = _loot.pickTier(depth);
+      const key = _loot.pickTypeInTierCat(cat, tier) || _loot.pickAnyInCat(cat, tier);
+      return key ? _loot.rollItem(key, depth, rarity) : null;
+    };
+    let it = null;
+    if (kind === "gold") it = { key: "gold", amount: randInt(5, 12) + depth };
+    else if (kind === "goldBig") it = { key: "gold", amount: randInt(20, 40) + depth * 4 };
+    else if (kind === "weapon") it = gearOf("weapon");
+    else if (kind === "armor") it = gearOf("armor");
+    else if (kind === "armorGood") it = gearOf("armor", Math.random() < 0.5 ? "blue" : "purple");
+    // A prize is SPD's findPrizeItem: something better than the floor's usual scatter.
+    else if (kind === "prize") it = Math.random() < 0.6 ? Object.assign({}, rollGearDrop(depth + 2)) : { key: weightedConsumKey() };
+    else if (kind === "random") it = Math.random() < 0.5 ? Object.assign({}, rollGearDrop(depth)) : { key: weightedConsumKey() };
+    else if (kind === "scrollIdentify" || kind === "scroll") it = { key: consumOfCat("scroll") };
+    else if (kind === "potionOrScroll") it = { key: consumOfCat(Math.random() < 0.5 ? "potion" : "scroll") };
+    else it = { key: weightedConsumKey() };                     // consumable, food (until food exists)
+    if (!it || !it.key) return;
+    items.push(Object.assign(it, { x, y }));
+  }
+  // A random droppable consumable of one category — the room asked for a scroll,
+  // not for whatever the floor's weights happen to favour.
+  function consumOfCat(cat) {
+    const keys = Object.keys(CONSUM).filter((k) => CONSUM[k].cat === cat && !CONSUM[k].noDrop);
+    return keys.length ? keys[randInt(0, keys.length - 1)] : weightedConsumKey();
+  }
+  // SPD's StatueRoom guardian: an animated statue that wakes when you come close,
+  // scaled to the depth (it is one row in data.js and appears at every depth), and
+  // standing on the weapon it drops — SPD's statue carries its weapon too.
+  function spawnStatue(x, y) {
+    if (!VERMIN.animated_statue) return;
+    const m = makeMonster("animated_statue", x, y);
+    const k = 1 + (depth - 1) * 0.35;
+    m.hp = m.maxHp = Math.round(m.hp * k);
+    m.atkMin = Math.round((m.atkMin || 0) * k); m.atkMax = Math.round((m.atkMax || 1) * k);
+    monsters.push(m);
+    spdDrop("weapon", x, y);
+  }
+  // Keys go on open ground outside every locked room, reachable from the start
+  // without passing a locked door — which is simply floodReach, since LOCKED is solid.
+  function placeIronKeys(rooms, n) {
+    const reach = floodReach(player.x, player.y, true);
+    const open = rooms.filter((r) => !r.locked);
+    for (let i = 0; i < n; i++) {
+      for (let t = 0; t < 200; t++) {
+        const r = open[randInt(0, open.length - 1)];
+        const x = randInt(r.x, r.x + r.w - 1), y = randInt(r.y, r.y + r.h - 1);
+        if (!openGround(x, y) || !reach.has(y * MAP_W + x) || itemAt(x, y) || (x === player.x && y === player.y)) continue;
+        items.push({ x, y, key: "iron_key" });
+        break;
+      }
+    }
+  }
+
+  // Everything generateLevel does after the layout, for an SPD floor. The layout is
+  // already final — SPD's builder loops and leaves no spurs, so none of the old
+  // generator's packing passes (connectRooms, addLoops, resolveDeadEnds, trees,
+  // thorn vaults) run. What stays is Cantori's: its spawners, its traps and
+  // torches, and the backstops that make sure the floor can be finished.
+  function finishSpdFloor(rooms) {
+    lastRooms = rooms; lastAttach = 0;
+    bossActive = false; bossRoom = null;
+    if (floorInBiome(depth) === 1 || !biomeScrollFloors) {
+      const floors = [1, 2, 3, 4, 5];
+      for (let i = floors.length - 1; i > 0; i--) { const j = randInt(0, i); const t = floors[i]; floors[i] = floors[j]; floors[j] = t; }
+      biomeScrollFloors = new Set(floors.slice(0, 2));
+    }
+    // A vault is sealed on purpose, so it is left out of every "is this room
+    // reachable" question — its interior is reachable only with its key.
+    const open = rooms.filter((r) => !r.locked);
+    fixOpenCorners(open);
+    // The way onward, checked the way the old floors are: deep water first (SPD's
+    // designed pools are shaped never to cut a floor, but a pinch fixOpenCorners
+    // walled can still leave one doing so), then carve.
+    const st = findStairs();
+    const cut = () => !!st && !floodReach(player.x, player.y, false).has(st.y * MAP_W + st.x);
+    if (cut()) {
+      for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (map[y][x] === WATER) map[y][x] = SHALLOW;
+      if (cut()) { _genRepaired++; carveCorridor({ x: player.x, y: player.y }, { x: st.x, y: st.y }); if (cut()) carveCorridor({ x: player.x, y: player.y }, { x: st.x, y: st.y }); }
+    }
+    spawnMonsters(open);
+    spawnItems(open);
+    placeIronKeys(open, rooms.keysNeeded || 0);
+    placeTraps();
+    // No thorns on an SPD floor, so the old "one torch per thorn" would light
+    // nothing; a few, in the open rooms, keep the torch-glow look of a floor.
+    const restricted = new Set(rooms.map((r, i) => (r.locked ? i : -1)).filter((i) => i >= 0));
+    placeTorches(rooms, restricted, 2 + Math.floor(open.length / 3));
+    floorEpilogue(rooms);
+  }
+
   function generateLevel() {
     map = blankGrid(WALL);
     explored = blankGrid(false);
@@ -2023,6 +2211,15 @@
     // layout is built, not after it.
     biomeIndex = biomeOf(depth);
     biome = DATA.biomes[biomeIndex];
+
+    ironKeys = 0; wells = []; spdInfo = null;
+    if (!isBossDepth(depth) && useSpdFloors()) {
+      const spdRooms = buildSpdFloor();
+      if (spdRooms) { finishSpdFloor(spdRooms); return; }
+      // The builder gave up (it has not in 10,000 test floors, but a biome's `spd`
+      // block is hand-editable): wipe whatever it left and use the old generator.
+      map = blankGrid(WALL); items = []; monsters = []; traps = []; secretDoors = []; wells = [];
+    }
 
     const rooms = [];
     const attachEdges = [];   // [roomIdx, partnerIdx, doorTile] for attached rooms (doorway, no hall)
@@ -2173,6 +2370,10 @@
     resealVaults(rooms, restricted);   // last word: brambles are the only way into a vault
     if (!isBossDepth(depth)) placeTraps();             // hidden traps (never on a boss floor)
     placeTorches(rooms, restricted, countThorns());   // 1 torch per thorn on the level
+    floorEpilogue(rooms);
+  }
+  // The end of every generated floor, whichever builder made it.
+  function floorEpilogue(rooms) {
     genStats = computeFill(rooms);
     computeFOV();
     setDepthLabel();
@@ -2826,7 +3027,7 @@
       const room = rooms[randInt(0, rooms.length - 1)];
       const x = randInt(room.x, room.x + room.w - 1);
       const y = randInt(room.y, room.y + room.h - 1);
-      if (map[y][x] !== FLOOR) continue;
+      if (!openGround(x, y)) continue;
       if (x === player.x && y === player.y) continue;
       if (itemAt(x, y) || monsterAt(x, y)) continue;
       return { x, y };
@@ -2912,7 +3113,7 @@
       for (let t = 0; t < 20; t++) {
         const x = randInt(room.x, room.x + room.w - 1);
         const y = randInt(room.y, room.y + room.h - 1);
-        if (map[y][x] !== FLOOR) continue;
+        if (!openGround(x, y)) continue;
         if (x === player.x && y === player.y) continue;
         if (!reachable.has(y * MAP_W + x)) continue;   // never strand one on an island
         if (monsterAt(x, y)) continue;
@@ -4369,6 +4570,57 @@
     return true;
   }
 
+  // SPD's locked door: bump it holding one of this floor's iron keys and it opens
+  // for good (it becomes an ordinary door). Keys are counted, not carried — SPD's
+  // keys are per floor, and one left over on the next floor would open nothing.
+  function openLocked(x, y) {
+    if (ironKeys <= 0) {
+      floatText(x, y, "locked", "#c9c2b0");
+      log("The door is locked. Its iron key is somewhere on this floor.");
+      return false;                                     // no turn spent — you only tried the handle
+    }
+    ironKeys--;
+    map[y][x] = DOOR;
+    floatText(x, y, "\u26b7", "#e6d8a8");
+    log("You turn the iron key. The door unlocks." + (ironKeys ? " (" + ironKeys + " key" + (ironKeys > 1 ? "s" : "") + " left)" : ""), "hit");
+    computeFOV();
+    worldTurn();
+    return true;
+  }
+  // SPD's MagicWellRoom: one drink per well. Water of Health heals fully and
+  // clears what ails you; Water of Awareness maps the floor like the scroll.
+  function drinkWell(x, y) {
+    const w = wells.find((o) => o.x === x && o.y === y);
+    if (!w || w.used) { log("The well is dry."); return false; }
+    w.used = true;
+    if (w.water === "health") {
+      player.hp = player.maxHp; player.poison = 0; player.burn = null; player.healPending = 0;
+      floatText(player.x, player.y, "+" + player.maxHp, "#7ec98a");
+      log("You drink from the well. The water is warm, and your wounds close.", "hit");
+    } else {
+      applyEffect("map");
+      log("You drink from the well. The water is cold and clear \u2014 so, suddenly, is this floor.", "hit");
+    }
+    spawnBurst(x, y, "#9ad0ff");
+    updateHUD();
+    worldTurn();
+    return true;
+  }
+  // SPD's chasm: step in and you fall to the floor below, landing hurt. It takes up
+  // to a quarter of your health and it can kill \u2014 permadeath is real, and a chasm
+  // you could fall into for free would just be a staircase.
+  function fallThrough() {
+    walkPath = [];
+    log("You fall into the chasm!", "hurt");
+    descend();
+    const dmg = Math.max(1, randInt(Math.floor(player.maxHp / 8), Math.ceil(player.maxHp / 4)));
+    player.hp -= dmg;
+    flash(player); floatText(player.x, player.y, "-" + dmg, "#ff8f84");
+    log("You land hard. (-" + dmg + ")", "hurt");
+    updateHUD();
+    if (player.hp <= 0) die();
+  }
+
   // Returns true if a turn was spent.
   function playerAct(dx, dy) {
     if (dead || (dx === 0 && dy === 0)) return false;
@@ -4421,6 +4673,8 @@
     if (!canStep(player.x, player.y, dx, dy)) {          // walking into a wall-mounted torch lifts it off
       const torchThere = torches.find((t) => t.x === nx && t.y === ny);
       if (torchThere) { takeTorch(torchThere); return true; }
+      if (inBounds(nx, ny) && map[ny][nx] === LOCKED) return openLocked(nx, ny);
+      if (inBounds(nx, ny) && map[ny][nx] === WELL) return drinkWell(nx, ny);
     }
 
     if (canStep(player.x, player.y, dx, dy)) {
@@ -4444,6 +4698,7 @@
       const tr = trapAt(player.x, player.y);
       if (tr && !tr.sprung) { triggerTrap(tr); if (dead) return true; }
       if (map[player.y][player.x] === STAIRS) { descend(); return true; }  // fresh level, no world turn
+      if (map[player.y][player.x] === CHASM) { fallThrough(); return true; }
       worldTurn(walkCost());     // Metrognome (walk) → you cover ground faster than your foes. Terrain never costs extra time: it shapes the route instead of taxing it, and a costlier step used to hand every monster in earshot a free second action.
       return true;
     }
@@ -4512,6 +4767,12 @@
   function pickUp() {
     const it = itemAt(player.x, player.y);
     if (!it) return;
+    if (it.key === "iron_key") {
+      ironKeys++;
+      items = items.filter((x) => x !== it);
+      log("You pick up an iron key. It opens a locked door on this floor.", "hit");
+      return;
+    }
     if (it.key === "gold") {
       player.gold += it.amount;
       items = items.filter((x) => x !== it);
@@ -6032,9 +6293,12 @@
     ...Object.keys(DATA.gear).filter((k) => DATA.gear[k].cat === "weapon" || DATA.gear[k].cat === "armor"),
     ...DATA.biomes.flatMap((b) => [b.floor, b.wall]),   // per-biome terrain
     ...DATA.biomes.map((b) => b.exitSprite).filter(Boolean),
-    // One hero strip per class (SPD art — tools/cut_hero_sprites.py). A class with
+    // One hero strip per class (SPD art — tools/cut_spd_sprites.py). A class with
     // no strip 404s here harmlessly and falls back to "player" in drawHero.
     ...Object.keys(DATA.classes || {}).map((k) => "hero_" + k),
+    // Optional per-biome art for the SPD terrain — only names a biome actually
+    // lists, so an undrawn one is a drawn shape rather than a 404.
+    ...DATA.biomes.flatMap((b) => (b.spd && b.spd.tiles ? Object.values(b.spd.tiles) : [])),
   ]));
   const SPRITES = {};
   for (const n of SPRITE_NAMES) {
@@ -6186,6 +6450,67 @@
   }
   const hintedSecretAt = (x, y) => secretsHinted.has(y * MAP_W + x) && secretDoors.some((d) => d.x === x && d.y === y);
   function drawGrass(px, py, b) { ctx.fillStyle = shade("#3a6b2e", b); ctx.fillRect(px, py, tile, tile); }
+  // The SPD terrain. Each looks up an optional per-biome sprite first — a biome's
+  // `spd.tiles` names one, e.g. { "statue": "forest_statue" } → assets/tiles/
+  // forest_statue.png — and falls back to a drawn shape, so every biome can give
+  // the same SPD room its own look without the code knowing which.
+  const SPD_TILE_NAME = { [SHALLOW]: "shallow", [LAWN]: "lawn", [SPFLOOR]: "floor_sp", [STATUE]: "statue", [BOOKSHELF]: "bookshelf",
+    [EMBERS]: "embers", [PEDESTAL]: "pedestal", [WELL]: "well", [LOCKED]: "locked_door" };
+  const SPD_MAP_COL = { [SHALLOW]: ["#5a86a8", "#2e4658"], [LAWN]: ["#5a7a44", "#2e4024"], [SPFLOOR]: ["#9a8a6a", "#4e4636"],
+    [STATUE]: ["#b8b4a8", "#5c5a54"], [BOOKSHELF]: ["#7a5a3a", "#3e2e1e"], [EMBERS]: ["#8a5a3a", "#45301e"],
+    [PEDESTAL]: ["#d8c890", "#6c6448"], [WELL]: ["#6ab0e0", "#35587a"], [LOCKED]: ["#e0c060", "#705f30"] };
+  function drawSpdTerrain(t, mx, my, px, py, b, now) {
+    const tiles = biome && biome.spd && biome.spd.tiles;
+    const name = tiles && tiles[SPD_TILE_NAME[t]];
+    if (name && drawImg(SPRITES[name], px, py)) return;
+    const T0 = tile;
+    if (t === SHALLOW) {
+      ctx.fillStyle = shade("#3f6f94", b * 0.55); ctx.fillRect(px, py, T0, T0);
+      ctx.fillStyle = shade("#7fb0d0", b * 0.5); ctx.fillRect(px + T0 * 0.15, py + T0 * 0.35, T0 * 0.3, T0 * 0.05); ctx.fillRect(px + T0 * 0.55, py + T0 * 0.7, T0 * 0.3, T0 * 0.05);
+    } else if (t === LAWN) {
+      ctx.fillStyle = shade("#4f7a3a", b * 0.6); ctx.fillRect(px, py, T0, T0);
+    } else if (t === SPFLOOR) {
+      ctx.fillStyle = shade("#8a7654", b * 0.45); ctx.fillRect(px, py, T0, T0);
+      ctx.fillStyle = shade("#5f5038", b * 0.45); ctx.fillRect(px, py + T0 * 0.48, T0, T0 * 0.04); ctx.fillRect(px + T0 * 0.48, py, T0 * 0.04, T0);
+    } else if (t === STATUE) {
+      ctx.fillStyle = shade("#3a3834", b); ctx.fillRect(px + T0 * 0.2, py + T0 * 0.8, T0 * 0.6, T0 * 0.14);
+      ctx.fillStyle = shade("#aaa69a", b); ctx.fillRect(px + T0 * 0.3, py + T0 * 0.3, T0 * 0.4, T0 * 0.52);
+      ctx.beginPath(); ctx.arc(px + T0 * 0.5, py + T0 * 0.24, T0 * 0.13, 0, Math.PI * 2); ctx.fill();
+    } else if (t === BOOKSHELF) {
+      ctx.fillStyle = shade("#4a3220", b); ctx.fillRect(px, py, T0, T0);
+      const cols = ["#8a3a2a", "#3a5a8a", "#6a7a3a", "#8a7a3a", "#5a3a6a"];
+      for (let row = 0; row < 3; row++) for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = shade(cols[(i + row + mx + my) % cols.length], b);
+        ctx.fillRect(px + T0 * (0.08 + i * 0.17), py + T0 * (0.08 + row * 0.31), T0 * 0.13, T0 * 0.24);
+      }
+    } else if (t === EMBERS) {
+      ctx.fillStyle = shade("#3a2a20", b * 0.7); ctx.fillRect(px, py, T0, T0);
+      ctx.fillStyle = shade("#c0602a", b * (0.6 + 0.2 * Math.sin(now / 300 + mx + my)));
+      ctx.fillRect(px + T0 * 0.3, py + T0 * 0.4, T0 * 0.1, T0 * 0.1); ctx.fillRect(px + T0 * 0.6, py + T0 * 0.65, T0 * 0.08, T0 * 0.08);
+    } else if (t === PEDESTAL) {
+      ctx.fillStyle = shade("#8a8272", b); ctx.fillRect(px + T0 * 0.2, py + T0 * 0.55, T0 * 0.6, T0 * 0.35);
+      ctx.fillStyle = shade("#b0a890", b); ctx.fillRect(px + T0 * 0.14, py + T0 * 0.5, T0 * 0.72, T0 * 0.1);
+    } else if (t === WELL) {
+      const w = wells.find((o) => o.x === mx && o.y === my);
+      ctx.fillStyle = shade("#6a6660", b); ctx.beginPath(); ctx.arc(px + T0 / 2, py + T0 / 2, T0 * 0.42, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = shade(w && !w.used ? (w.water === "health" ? "#4a9a5a" : "#4a7ab0") : "#1a1a1a", b);
+      ctx.beginPath(); ctx.arc(px + T0 / 2, py + T0 / 2, T0 * 0.3, 0, Math.PI * 2); ctx.fill();
+    } else if (t === LOCKED) {
+      drawDoor(px, py, true, b);
+      ctx.fillStyle = shade("#e0c060", b);
+      ctx.beginPath(); ctx.arc(px + T0 / 2, py + T0 * 0.45, T0 * 0.09, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(px + T0 * 0.46, py + T0 * 0.45, T0 * 0.08, T0 * 0.2);
+    }
+  }
+  // An iron key lying on the floor: bow, shank, two teeth.
+  function drawIronKey(px, py) {
+    const T0 = tile;
+    ctx.strokeStyle = "#d8d0b8"; ctx.lineWidth = Math.max(1.5, T0 * 0.08);
+    ctx.beginPath(); ctx.arc(px + T0 * 0.32, py + T0 * 0.5, T0 * 0.13, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#d8d0b8";
+    ctx.fillRect(px + T0 * 0.44, py + T0 * 0.47, T0 * 0.36, T0 * 0.07);
+    ctx.fillRect(px + T0 * 0.66, py + T0 * 0.52, T0 * 0.06, T0 * 0.12); ctx.fillRect(px + T0 * 0.76, py + T0 * 0.52, T0 * 0.06, T0 * 0.16);
+  }
   // Wall-mounted torch: a bracket and a flickering flame, with a soft glow pool.
   function drawTorch(px, py, b, now) {
     const cx = px + tile / 2;
@@ -6610,6 +6935,7 @@
           else if (t === CHASM) drawChasm(px, py, b);
           else if (t === RUBBLE) drawRubble(px, py, b);
           else if (t === GRASS) drawGrass(px, py, b);
+          else if (t >= SHALLOW) drawSpdTerrain(t, mx, my, px, py, b, now);
         }
         dim(px, py, 1 - b);                                   // torch falloff / memory
         if (!vis) { ctx.fillStyle = "rgba(70,90,130,0.10)"; ctx.fillRect(px, py, tile, tile); }
@@ -6679,6 +7005,7 @@
       if (!inBounds(it.x, it.y) || !visible[it.y][it.x]) continue;
       const px = SX(it.x), py = SY(it.y);
       if (it.key === "gold") drawCoin(px, py);
+      else if (it.key === "iron_key") drawIronKey(px, py);
       else {
         // no rarity glow on the ground — gear is unidentified until you use it, so a
         // dropped item shouldn't telegraph how good it is
@@ -6991,6 +7318,7 @@
         else if (t === CHASM) { mctx.fillStyle = been ? "#1a1a1e" : "#0c0c0e"; mctx.fillRect(px, py, sz, sz); }
         else if (t === RUBBLE) { mctx.fillStyle = been ? "#8a8578" : "#4e4a40"; mctx.fillRect(px, py, sz, sz); }
         else if (t === GRASS) { mctx.fillStyle = been ? "#4a7a3a" : "#2a4520"; mctx.fillRect(px, py, sz, sz); }
+        else if (SPD_MAP_COL[t]) { mctx.fillStyle = been ? SPD_MAP_COL[t][0] : SPD_MAP_COL[t][1]; mctx.fillRect(px, py, sz, sz); }
         // A hollow wall you have found but not yet opened, in the stairs' own gold:
         // the map is where you decide what to walk back to, so it has to be on it.
         // Inset, not the whole cell: filled it read as another player pip when the
@@ -9235,6 +9563,14 @@
         t === CHASM ? "A chasm — step in and you'll fall straight through to the floor below." :
         t === RUBBLE ? "Loose rubble — broken stone underfoot." :
         t === GRASS ? "Tall grass — thick enough to hide in." :
+        t === SHALLOW ? "Shallow water — it laps at your ankles." :
+        t === LAWN ? "Short grass." :
+        t === STATUE ? "A statue. It blocks the way and any arrow, but not your eyes." :
+        t === BOOKSHELF ? "Shelves of mouldering books." :
+        t === EMBERS ? "Embers — something burned here." :
+        t === PEDESTAL ? "A pedestal, set for something worth finding." :
+        t === WELL ? ((wells.find((w) => w.x === x && w.y === y) || {}).used ? "A dry well." : "A magic well. Bump it to drink.") :
+        t === LOCKED ? "A locked door. An iron key on this floor opens it." :
         "Open ground.");
   }
 
@@ -9824,6 +10160,16 @@
     })),
     rooms: () => lastRooms.map((r) => ({ x: r.x, y: r.y, w: r.w, h: r.h })),
     attachInfo: () => ({ attached: lastAttach, total: lastRooms.length }),
+    // The last SPD floor: its size, room list (name/kind/locked) and how many iron
+    // keys it needed — plus what is actually lying on the floor, so a test can check
+    // every locked door has a key it can walk to.
+    spdFloor: () => spdInfo && Object.assign({}, spdInfo, {
+      lockedDoors: (() => { const o = []; for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (map[y][x] === LOCKED) o.push({ x, y }); return o; })(),
+      keysOnFloor: items.filter((it) => it.key === "iron_key").map((it) => ({ x: it.x, y: it.y })),
+      ironKeys,
+    }),
+    giveKeys: (n) => { ironKeys += (n == null ? 1 : n); return ironKeys; },
+    reveal: () => { applyEffect("map"); computeFOV(); },
     grant: (n) => { player.statPoints += (n || 1); renderChar(); updateHotbar(); },
     learn: (k) => learnSkill(k),
     doSkill: (k) => useSkill(k),

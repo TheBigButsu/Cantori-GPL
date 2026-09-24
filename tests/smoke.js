@@ -204,6 +204,7 @@ async function main() {
   });
   check(idCost.length === 0, `identification cost is not identifyXp x tier: ${idCost.slice(0, 3).join("; ")}`);
 
+  let spdFloors = 0, spdSpecials = 0;
   for (let d = 1; d <= DEPTHS; d++) {
     const state = await page.evaluate(() => window.cantori.peek());
 
@@ -230,6 +231,14 @@ async function main() {
           startStuck: !window.cantori.passableAt(s.x, s.y),
           drowning: s.mlist.filter((m) => !(data[m.type] && data[m.type].flying) && !window.cantori.passableAt(m.x, m.y))
             .map((m) => `${m.type} at ${m.x},${m.y}`),
+          // SPD floors: every locked door needs an iron key lying somewhere you can
+          // walk to without opening any locked door first.
+          spd: (() => {
+            const f = window.cantori.spdFloor();
+            if (!f) return null;
+            return { specials: f.rooms.filter((q) => q.kind === "special").length, locked: f.lockedDoors.length,
+                     keys: f.keysOnFloor.length, keysReachable: f.keysOnFloor.every((k) => window.cantori.reach(k.x, k.y)) };
+          })(),
         };
       }, bossKeys);
 
@@ -245,6 +254,11 @@ async function main() {
         check(!!r.stairs, `${at}: no stairs on the floor`);
         if (r.stairs) check(r.stairsReachable, `${at}: stairs at ${r.stairs.x},${r.stairs.y} are unreachable on foot`);
         check(r.monsters > 0, `${at}: no monsters spawned`);
+        if (r.spd) {
+          spdFloors++; spdSpecials += r.spd.specials;
+          check(r.spd.keys >= r.spd.locked, `${at}: ${r.spd.locked} locked door(s) but only ${r.spd.keys} iron key(s) on the floor`);
+          check(r.spd.keysReachable, `${at}: an iron key lies somewhere you cannot walk to`);
+        }
       }
     }
 
@@ -306,6 +320,11 @@ async function main() {
   await browser.close();
   server.close();
 
+  // The SPD builder must actually be the thing making ordinary floors — a silent
+  // fall back to the old generator would pass every check above.
+  check(spdFloors > 0, "no ordinary floor was built by the SPD builder (spdlevel.js)");
+  check(spdSpecials > 0, "SPD floors were built, but not one special room appeared");
+
   if (failures.length) {
     console.error(`\nFAIL — ${failures.length} of ${checks} checks failed:\n`);
     const seen = new Map();
@@ -314,7 +333,7 @@ async function main() {
     console.error("");
     process.exit(1);
   }
-  console.log(`ok — ${checks} checks passed across ${DEPTHS} depths × ${ITERATIONS} regenerations`);
+  console.log(`ok — ${checks} checks passed across ${DEPTHS} depths × ${ITERATIONS} regenerations (${spdFloors} SPD floors, ${spdSpecials} special rooms)`);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

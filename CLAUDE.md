@@ -19,6 +19,7 @@ index.html          the page — also carries the ?v= cache-buster (so does edit
 data.js             ALL editable content: monsters, gear, consumables, biomes, bosses,
                     boons, loot config, classes + skill trees, stats, gods
 loot.js             loot roll engine (rarity / tier / affix / identify)
+spdlevel.js         port of SPD's level builder: rooms, loops, painters (headless-testable)
 game.js             the engine — map, FOV, combat, AI, bosses, render, UI
 editor.html/.js     no-backend content editor that reads and writes data.js
 assets/tiles/       sprites (CC0 Dungeon Crawl Stone Soup — see ART-CREDITS.md)
@@ -61,7 +62,7 @@ needs editor support or it will be lost.
 public domain, and credited in `ART-CREDITS.md`.
 
 **4. Bump the `?v=` cache-buster in `index.html` AND `editor.html`** whenever `game.js`, `data.js`,
-`loot.js`, `bosses.js`, `styles.css` or `editor.js` changes. Every query string in both files moves
+`loot.js`, `bosses.js`, `spdlevel.js`, `styles.css` or `editor.js` changes. Every query string in both files moves
 together, to the same number. Phones aggressively cache; skipping this means the user tests stale
 code and reports phantom bugs.
 
@@ -72,8 +73,11 @@ everything that had landed since. The editor now refuses to commit over a `data.
 but that is the backstop, not the fix. Move both files.
 
 **5. New terrain must be added to every map predicate.**
-Tiles are `WALL / FLOOR / STAIRS / DOOR / THORN / WATER / CHASM / RUBBLE / GRASS`, each a row in the
-`TILE` property table. A tile with no properties is walkable, sighted-through and harmless by
+Tiles are `WALL / FLOOR / STAIRS / DOOR / THORN / WATER / CHASM / RUBBLE / GRASS` plus the SPD set
+`SHALLOW / LAWN / SPFLOOR / STATUE / BOOKSHELF / EMBERS / PEDESTAL / WELL / LOCKED`, each a row in the
+`TILE` property table. Ordinary floors come from `spdlevel.js` (SPD's builder): it paints abstract
+terrain codes and `SPD_TILE` in `game.js` maps them to tiles — so a new SPD terrain is a code there, a
+row in `SPD_TILE`, and a `TILE` row here. A tile with no properties is walkable, sighted-through and harmless by
 default, so declare what it *is* rather than special-casing the constant. Any new tile must be
 considered in:
 
@@ -90,7 +94,8 @@ onward once doors, thorns and trees are down, calling `unpaintTerrain()` if it's
 new that blocks movement needs the same treatment. Miss one and levels become unwinnable in ways
 that only surface on rare seeds. This is the single most common way to break the game.
 
-**6. Run the tests before committing:** `node tests/smoke.js` and `node tests/editor.js`.
+**6. Run the tests before committing:** `node tests/smoke.js` and `node tests/editor.js` — and
+`node tests/spdlevel.js` after touching `spdlevel.js` (it builds 2,000 floors headless in seconds).
 
 **7. Keep the run deterministic-ish and permadeath real.** Death clears progress. Don't add anything
 that silently rescues the player.

@@ -317,6 +317,17 @@ window.CANTORI_DATA = {
       "range": 4,
       "ranged": true,
       "minFloor": 8
+    },
+    "animated_statue": {
+      "name": "Animated Statue",
+      "glyph": "S",
+      "color": "#b8b4a8",
+      "hp": 30,
+      "speed": 1,
+      "ac": 16,
+      "atkMin": 3,
+      "atkMax": 8,
+      "toHit": 3
     }
   },
   "gear": {
@@ -1673,7 +1684,50 @@ window.CANTORI_DATA = {
       },
       "spawnEvery": 35,
       "spawnCap": 12,
-      "horror": "Goblin"
+      "horror": "Goblin",
+      "spd": {
+        "standard": [
+          4,
+          6
+        ],
+        "special": [
+          1,
+          2
+        ],
+        "water": [
+          0.3,
+          5
+        ],
+        "grass": [
+          0.3,
+          4
+        ],
+        "rooms": {
+          "Empty": 8,
+          "Ring": 8,
+          "WaterBridge": 8,
+          "Plants": 6,
+          "CircleBasin": 4,
+          "Aquarium": 1,
+          "Platform": 1,
+          "Burned": 1,
+          "Fissure": 1,
+          "GrassyGrave": 2,
+          "Striped": 1,
+          "Study": 1
+        },
+        "specials": [
+          "Garden",
+          "Library",
+          "Armory",
+          "Treasury",
+          "Storage",
+          "Crypt",
+          "Statue",
+          "MagicWell",
+          "Runestone"
+        ]
+      }
     },
     {
       "key": "cave",
@@ -1709,7 +1763,51 @@ window.CANTORI_DATA = {
         10
       ],
       "spawnEvery": 35,
-      "horror": "rat"
+      "horror": "rat",
+      "spd": {
+        "standard": [
+          6,
+          7
+        ],
+        "special": [
+          2,
+          3
+        ],
+        "water": [
+          0.3,
+          6
+        ],
+        "grass": [
+          0.15,
+          3
+        ],
+        "rooms": {
+          "Cave": 16,
+          "CirclePit": 8,
+          "CircleWall": 8,
+          "Chasm": 4,
+          "Empty": 4,
+          "Plants": 1,
+          "Aquarium": 1,
+          "Platform": 1,
+          "Burned": 1,
+          "Fissure": 1,
+          "GrassyGrave": 1,
+          "Striped": 1,
+          "Study": 1
+        },
+        "specials": [
+          "Garden",
+          "Library",
+          "Armory",
+          "Treasury",
+          "Storage",
+          "Crypt",
+          "Statue",
+          "MagicWell",
+          "Runestone"
+        ]
+      }
     },
     {
       "key": "crypt",
@@ -1812,7 +1910,48 @@ window.CANTORI_DATA = {
         10,
         10
       ],
-      "spawnEvery": 35
+      "spawnEvery": 35,
+      "spd": {
+        "standard": [
+          5,
+          6
+        ],
+        "special": [
+          1,
+          3
+        ],
+        "water": [
+          0.2,
+          4
+        ],
+        "grass": [
+          0.1,
+          3
+        ],
+        "rooms": {
+          "Segmented": 10,
+          "Pillars": 10,
+          "ChasmBridge": 10,
+          "CellBlock": 5,
+          "StatueLine": 5,
+          "GrassyGrave": 2,
+          "Burned": 1,
+          "Fissure": 1,
+          "Study": 1,
+          "Platform": 1
+        },
+        "specials": [
+          "Garden",
+          "Library",
+          "Armory",
+          "Treasury",
+          "Storage",
+          "Crypt",
+          "Statue",
+          "MagicWell",
+          "Runestone"
+        ]
+      }
     },
     {
       "key": "town",
@@ -1828,7 +1967,50 @@ window.CANTORI_DATA = {
       "bossCount": 3,
       "door": "door",
       "spawnEvery": 50,
-      "spawnCap": 11
+      "spawnCap": 11,
+      "spd": {
+        "standard": [
+          6,
+          8
+        ],
+        "special": [
+          2,
+          3
+        ],
+        "water": [
+          0.3,
+          4
+        ],
+        "grass": [
+          0.2,
+          3
+        ],
+        "rooms": {
+          "Statues": 16,
+          "Study": 8,
+          "Pillars": 8,
+          "Segmented": 4,
+          "Ring": 4,
+          "Plants": 1,
+          "Aquarium": 1,
+          "Platform": 1,
+          "Burned": 1,
+          "Fissure": 1,
+          "GrassyGrave": 1,
+          "Striped": 1
+        },
+        "specials": [
+          "Garden",
+          "Library",
+          "Armory",
+          "Treasury",
+          "Storage",
+          "Crypt",
+          "Statue",
+          "MagicWell",
+          "Runestone"
+        ]
+      }
     },
     {
       "key": "lake",
@@ -1856,7 +2038,48 @@ window.CANTORI_DATA = {
         }
       },
       "spawnEvery": 50,
-      "spawnCap": 12
+      "spawnCap": 12,
+      "spd": {
+        "standard": [
+          7,
+          9
+        ],
+        "special": [
+          2,
+          3
+        ],
+        "water": [
+          0.35,
+          6
+        ],
+        "grass": [
+          0.1,
+          3
+        ],
+        "rooms": {
+          "Ruins": 10,
+          "Chasm": 10,
+          "Skulls": 10,
+          "Ritual": 5,
+          "WaterBridge": 5,
+          "Aquarium": 2,
+          "Platform": 1,
+          "Burned": 1,
+          "Fissure": 1,
+          "CirclePit": 1
+        },
+        "specials": [
+          "Garden",
+          "Library",
+          "Armory",
+          "Treasury",
+          "Storage",
+          "Crypt",
+          "Statue",
+          "MagicWell",
+          "Runestone"
+        ]
+      }
     }
   ],
   "stats": {

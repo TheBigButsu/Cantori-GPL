@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Cut Cantori's hero sprites out of Shattered Pixel Dungeon's hero sheets.
+"""Cut Cantori's SPD-derived sprites out of Shattered Pixel Dungeon's sheets.
 
     pip install pillow
-    python3 tools/cut_hero_sprites.py
+    python3 tools/cut_spd_sprites.py
 
-Writes assets/tiles/hero_<classkey>.png for each class below. Pillow is a tool
+Writes assets/tiles/hero_<classkey>.png for each class below, and a 32x32
+assets/tiles/<key>.png for each monster in MONSTERS. Pillow is a tool
 dependency only; the game loads the finished PNGs and never runs this.
 
 SPD's hero sheet (sprites/<hero>.png, 256x128) is a grid of 12x15 frames: each
@@ -72,6 +73,21 @@ def cut(sheet, blue):
     return strip
 
 
+# Cantori monster key -> (SPD sprite sheet, frame column). SPD mob frames are
+# 12x15 in a single row; the idle frame is column 0. Written at 2x, bottom-centred
+# on a transparent 32x32 tile — the size every other monster sprite is.
+MONSTERS = {
+    "animated_statue": ("statue", 0),   # SPD Statue (sprites/statue.png)
+}
+
+
+def cut_monster(sheet, col):
+    frame = sheet.crop((col * FRAME_W, 0, (col + 1) * FRAME_W, FRAME_H)).resize((FRAME_W * 2, FRAME_H * 2), Image.NEAREST)
+    tile = Image.new("RGBA", (32, 32))
+    tile.paste(frame, ((32 - FRAME_W * 2) // 2, 32 - FRAME_H * 2), frame)
+    return tile
+
+
 def main():
     out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "tiles")
     for key, (hero, blue) in HEROES.items():
@@ -80,6 +96,12 @@ def main():
         path = os.path.join(out_dir, "hero_" + key + ".png")
         cut(sheet, blue).save(path)
         print("wrote", os.path.relpath(path), "from", hero + ".png", "(blue skin)" if blue else "")
+    for key, (sheet_name, col) in MONSTERS.items():
+        with urllib.request.urlopen(SHEET_URL.format(sheet_name)) as r:
+            sheet = Image.open(io.BytesIO(r.read())).convert("RGBA")
+        path = os.path.join(out_dir, key + ".png")
+        cut_monster(sheet, col).save(path)
+        print("wrote", os.path.relpath(path), "from", sheet_name + ".png")
     return 0
 
 

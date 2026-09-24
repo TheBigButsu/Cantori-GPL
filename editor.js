@@ -627,6 +627,26 @@
     wrap.appendChild(inp);
     return wrap;
   }
+  // The SPD floor builder's knobs for this biome (spdlevel.js): room counts, water
+  // and grass fill, the weighted standard-room table and the special-room pool —
+  // plus optional `tiles` sprite names for the new terrain (e.g. "statue":
+  // "forest_statue"). Edited as JSON because it is a nested table; an unparseable
+  // edit is held back (red border) rather than written, so a typo never drops it.
+  function spdField(b) {
+    const wrap = document.createElement("label"); wrap.className = "bfield"; wrap.style.gridColumn = "1 / -1";
+    const span = document.createElement("span");
+    span.textContent = "SPD floors (JSON) — standard/special room counts [min,max], water/grass [fill, smoothing], rooms {name: weight}, specials [names], tiles {terrain: sprite}; blank = spdlevel.js defaults";
+    wrap.appendChild(span);
+    const ta = document.createElement("textarea"); ta.className = "codebox"; ta.rows = 6; ta.spellcheck = false;
+    ta.value = b.spd ? JSON.stringify(b.spd, null, 1) : "";
+    ta.oninput = () => {
+      const v = ta.value.trim();
+      if (v === "") { delete b.spd; ta.style.borderColor = ""; return; }
+      try { b.spd = JSON.parse(v); ta.style.borderColor = ""; } catch (e) { ta.style.borderColor = "#e05a5a"; }
+    };
+    wrap.appendChild(ta);
+    return wrap;
+  }
   function renderBiomes() {
     const wrap = document.createElement("div");
     const bar = document.createElement("div"); bar.className = "collbar";
@@ -671,6 +691,7 @@
       grid.appendChild(terrainField(b, "water", "pools"));
       grid.appendChild(terrainField(b, "grass", "patches"));
       grid.appendChild(terrainField(b, "rubble", "patches"));
+      grid.appendChild(spdField(b));
       card.appendChild(grid);
 
       const ml = document.createElement("div"); ml.className = "bmons";

@@ -3724,3 +3724,45 @@ and never drop from the floor — only boss trinkets reach them, and those are
 picked by key rather than by tier. So the 80 and 100 columns above are real but
 currently only reachable from a boss. Left alone: it is a loot-table question, not
 an identification one.
+
+## Floors are Shattered Pixel Dungeon's now — DONE
+
+Ordinary floors are built by `spdlevel.js`, a port of SPD v4.0.0's level builder
+(`LoopBuilder` / `FigureEightBuilder`, the connection rooms, 25 standard room
+painters, `Patch`, and `RegularPainter`'s doors, merges and water/grass fill). Boss
+arenas and the merchant den still use Cantori's own code.
+
+What a floor is now:
+
+- **Rooms around a loop, or a figure eight.** Rooms touch wall to wall through
+  doors, with tunnels, perimeter paths, bridges over chasms and ring tunnels
+  between them. SPD's builder already makes loops and leaves no dead-end spurs,
+  so the old generator's packing passes (attach, connect, loops, dead ends, trees)
+  do not run.
+- **Every room has a type.** Ring rooms with a prize in the middle, water
+  bridges, chasm platforms, studies lined with bookshelves, statue halls, grassy
+  graves, burned rooms with fire traps, caves, ruins, rituals, cell blocks and the
+  rest. Each biome weights its own table in `data.js` → `biomes[].spd.rooms`.
+- **Special rooms, locked.** 1–3 per floor from `spd.specials`: Garden, Library,
+  Armory, Treasury, Storage, Crypt, Statue (with an Animated Statue guardian),
+  Magic Well and Runestone. Each has one door. All are locked, and the floor
+  holds one iron key per lock, somewhere you can walk to. Keys belong to their
+  floor, as in SPD.
+- **Water and grass are patches, not blobs.** SPD's cellular-automaton fill,
+  per biome (`spd.water`, `spd.grass`). It paints *shallow* water, which never
+  blocks. Only designed pools (aquarium, water bridge) are deep, because those
+  rooms guarantee a way round or across.
+- **Chasms drop you.** Step in and you fall to the next floor, taking up to a
+  quarter of your health. That can kill you.
+- **Hidden doors** follow SPD's odds (depth / 20). Only doors whose loss leaves
+  the room graph connected become hidden, and they use Cantori's search.
+
+Deferred until their systems exist: seeds and plants in Plants/Garden rooms,
+piranhas in aquariums, barricades (Storage is locked for now), and the rooms
+that need fire or gas (MagicalFire, ToxicGas, Traps, Pool, Sentry, WeakFloor,
+Sacrifice, the Crystal rooms, Laboratory). They are the S-track packets.
+
+`node tests/spdlevel.js` builds 2,000 floors headless in about 7 seconds. It
+checks every floor fits the map and has a walkable way from the entrance to the
+exit that uses no locked door, deep water or chasm, and that every vault is
+reachable once opened.

@@ -69,9 +69,10 @@ asset file it was cut from.
 
 ### SPD sprites used
 
-Hero strips, cut by `tools/cut_hero_sprites.py` from SPD's hero sheets at the
-pinned commit. Each is the idle frame (column 0) of every armour-tier row, and
-nothing else, stacked into a 12×105 strip:
+Cut by `tools/cut_spd_sprites.py` from SPD's sprite sheets at the pinned commit.
+Each hero strip is the idle frame (column 0) of every armour-tier row, and nothing
+else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto a
+32×32 tile:
 
 | File | SPD source | Class | Changes |
 |---|---|---|---|
@@ -79,6 +80,8 @@ nothing else, stacked into a 12×105 strip:
 | `hero_monk.png` | `core/src/main/assets/sprites/rogue.png` | Brynn | skin recoloured blue |
 | `hero_mage.png` | `core/src/main/assets/sprites/mage.png` | ToneTum | none |
 | `hero_bard.png` | `core/src/main/assets/sprites/huntress.png` | Sera | none |
+
+| `animated_statue.png` | `core/src/main/assets/sprites/statue.png` (idle frame, 2x) | Animated Statue | none |
 
 `hero_monk.png` is a modified version of SPD's art, released under GPLv3 like
 the rest. The DCSS `player.png` stays as the fallback for any class without a
