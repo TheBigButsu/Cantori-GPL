@@ -111,6 +111,8 @@
       // it. Both scale with the ring's level (rarity + plus) — see RING_FX in game.js.
       { f: "effect", label: "ring effect", type: "select", opts: ["", "accuracy", "arcana", "elements", "energy", "evasion", "force", "furor", "haste", "might", "sharpshooting", "tenacity", "wealth"] },
       { f: "stat", label: "ring stat", type: "select", opts: [""].concat(STAT_KEYS) },
+      // Artifacts (SPD's): which one it is — the behaviour lives in ART in game.js.
+      { f: "art", label: "artifact", type: "select", opts: ["", "cloak", "armband", "cape", "talisman", "hourglass", "beacon", "chains", "chalice", "sandals", "rose", "tome", "key"] },
       { f: "glyph", type: "text" }, { f: "color", type: "color" },
     ],
     // Armour's own column set. There is no AC column: armour grants no flat AC.

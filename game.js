@@ -378,6 +378,7 @@
     activeWalls = []; pullZone = null;
     assignPotionLooks();                        // scramble unidentified potion colours for this run
     assignRingLooks();                          // and deal the ring gems
+    artifactsSeen = new Set();                  // every artifact can turn up again
     for (const k in _skillCache) delete _skillCache[k];   // force a rebuild (a Playtest draft can change a tree)
     player.skills = {};
     const sk = treeSkills(key).skills;
@@ -547,7 +548,20 @@
   const rollRarity = _loot.rollRarity;
   const maxPlusForFloor = _loot.maxPlusForFloor;
   const rollItem = _loot.rollItem;
-  const rollGearDrop = _loot.rollGearDrop;
+  // Every artifact exists once a run, as in SPD: a roll that lands on one already
+  // found is rolled again, and once all have turned up the category is spent.
+  const rollGearDrop = (floor) => {
+    for (let t = 0; t < 8; t++) {
+      const it = _loot.rollGearDrop(floor);
+      if (GEAR[it.key].cat !== "artifact") return it;
+      if (artifactsSeen.has(it.key)) continue;
+      artifactsSeen.add(it.key);
+      return it;
+    }
+    let it;
+    do { it = _loot.rollGearDrop(floor); } while (GEAR[it.key].cat === "artifact");
+    return it;
+  };
   const rollTrinket = _loot.rollTrinket;
 
   // Pick the skill a necklace or trinket hands over. A necklace draws from the
@@ -683,6 +697,299 @@
     floatText(m.x, m.y, "✦", "#f0c14b");
   }
   const GEAR_KEYS_ANY = () => Object.keys(GEAR).find((k) => GEAR[k].cat === "weapon");
+
+  // ---- Artifacts: SPD's (items/artifacts/*.java) ------------------------------
+  //
+  // One artifact slot. An artifact has no rarity or plus: it LEVELS UP BY USE
+  // (0–10, SPD's levelCap) and most run on a CHARGE that refills over time. It
+  // keeps both when taken off, so a Cloak of Shadows worn all run is a better
+  // cloak than one picked up on floor 20. Every artifact is found at most once a
+  // run, as in SPD (see rollGearDrop below).
+  //
+  // Each entry: name, icon, `cap(a)` (max charge; 0 = no charge), `regen(a)`
+  // (charge per turn), `target` (the button arms a tap), `use(a)` or
+  // `useAt(a, x, y)`, `text(a)` for the card. Passive hooks are read where the
+  // behaviour lives (mitigateDamage, regenTick, pickUp, openLocked …) via artLvl().
+  //
+  // Simplified from SPD where Cantori lacks the system SPD leans on: the Dried
+  // Rose's ghost does not follow you downstairs, Lloyd's Beacon returns you
+  // within a floor (there is no going back up), the Holy Tome casts one spell,
+  // and the Sandals root foes rather than growing SPD's plants. The Horn of
+  // Plenty (needs hunger), Alchemist's Toolkit (needs alchemy) and Unstable
+  // Spellbook (needs a scroll pool) wait for their systems.
+  const artOf = () => (player.artifact && GEAR[player.artifact.key] && GEAR[player.artifact.key].cat === "artifact" ? player.artifact : null);
+  const artKind = (a) => (a ? GEAR[a.key].art : null);
+  // The level of the worn artifact if it is this kind, else -1 (so "is it worn"
+  // is artLvl(k) >= 0, and a level-0 artifact still counts).
+  const artLvl = (kind) => { const a = artOf(); return a && artKind(a) === kind ? a.lvl || 0 : -1; };
+  const ART_LVL_CAP = 10;
+  let artPending = false;             // a targeted artifact is armed, awaiting a tap
+  let artifactsSeen = new Set();      // artifact keys dropped this run — each exists once
+  let floorSerial = 0;                // which floor a Lloyd's Beacon mark belongs to
+  function artCharge(a) {
+    const d = ART[artKind(a)], cap = d && d.cap ? d.cap(a) : 0;
+    if (a.charge == null || a.charge < 0) a.charge = cap;        // a fresh artifact arrives charged
+    return Math.min(a.charge, cap);
+  }
+  function artGainExp(a, n) {
+    if ((a.lvl || 0) >= ART_LVL_CAP) return;
+    a.exp = (a.exp || 0) + n;
+    const need = () => 4 + 3 * (a.lvl || 0);
+    while (a.exp >= need() && (a.lvl || 0) < ART_LVL_CAP) {
+      a.exp -= need(); a.lvl = (a.lvl || 0) + 1;
+      log("Your " + GEAR[a.key].name + " grows stronger. (level " + a.lvl + ")", "hit");
+    }
+  }
+  const ART = {
+    // SPD CloakOfShadows: spend the stored shadow to go unseen, 3 turns a charge.
+    cloak: { name: "Cloak of Shadows", icon: "🌫", cap: (a) => 3 + Math.floor(a.lvl / 2), regen: (a) => 1 / Math.max(10, 35 - 2 * a.lvl),
+      text: (a) => "vanish for 3 turns per charge; striking ends it",
+      use(a) {
+        const c = artCharge(a);
+        if (c < 1) { log("The cloak has no shadow left in it."); return false; }
+        player.invisible = Math.max(player.invisible || 0, 3 * c);
+        for (const m of monsters) if (m.state !== SLEEPING && !m.dominated) { setState(m, WANDERING); m.target = null; }
+        a.charge = 0; artGainExp(a, c);
+        floatText(player.x, player.y, "◌", "#9a9ac0");
+        log("You draw the cloak about you and fade from sight. (" + 3 * c + " turns)", "hit");
+        return true;
+      } },
+    // SPD MasterThievesArmband: steal from an adjacent foe; gold you find is richer.
+    armband: { name: "Master Thieves' Armband", icon: "🖐", cap: (a) => 3 + Math.floor(a.lvl / 3), regen: (a) => 1 / Math.max(15, 50 - 3 * a.lvl), target: true,
+      text: (a) => "steal from a foe beside you (" + Math.round(stealChance(a, true) * 100) + "% if it hasn't seen you); gold found ×" + (1 + 0.1 * a.lvl).toFixed(1),
+      useAt(a, x, y) {
+        const m = monsterAt(x, y);
+        if (!m || m.hp <= 0 || cheb(x, y, player.x, player.y) !== 1) { log("Steal from a foe right beside you."); return false; }
+        if (artCharge(a) < 1) { log("The armband needs time before it will work again."); return false; }
+        a.charge--;
+        if (Math.random() < stealChance(a, !m.aware)) {
+          if (Math.random() < 0.5) { const g = randInt(5, 12) + depth * 3; player.gold += g; log("You lift " + g + " gold off the " + monName(m) + ".", "hit"); }
+          else { const k = weightedConsumKey(); if (invAdd({ key: k, count: 1 })) log("You lift a " + displayName(k) + " off the " + monName(m) + ".", "hit"); }
+          floatText(m.x, m.y, "stolen!", "#f0c14b");
+          artGainExp(a, 2);
+        } else {
+          startHunting(m);
+          floatText(m.x, m.y, "caught!", "#e07a5a");
+          log("The " + monName(m) + " catches your hand!", "hurt");
+        }
+        return true;
+      } },
+    // SPD CapeOfThorns: blows you take charge it; full, it deflects for 10 turns.
+    cape: { name: "Cape of Thorns", icon: "🌵", cap: () => 100, regen: () => 0,
+      text: (a) => player.capeTurns > 0 ? "deflecting! (" + player.capeTurns + " turns)" : "charges as you are hit; full, it turns blows back for 10 turns",
+      use() { log("The cape charges itself as you are hit."); return false; } },
+    // SPD TalismanOfForesight: senses hidden traps and doors near you; full, scry the floor.
+    talisman: { name: "Talisman of Foresight", icon: "👁", cap: () => 100, regen: (a) => 0.5 + 0.1 * a.lvl,
+      text: (a) => "reveals hidden traps and doors within " + (2 + Math.floor(a.lvl / 3)) + "; full, it maps the floor",
+      use(a) {
+        if (artCharge(a) < 100) { log("The talisman is not yet ready to scry. (" + Math.floor(artCharge(a)) + "%)"); return false; }
+        a.charge = 0;
+        applyEffect("map");
+        for (const t of traps) t.revealed = true;
+        artGainExp(a, 3);
+        log("The talisman's eye opens, and the whole floor lies before you — traps and all.", "hit");
+        return true;
+      } },
+    // SPD TimekeepersHourglass: stop time — the world waits while you act.
+    hourglass: { name: "Timekeeper's Hourglass", icon: "⌛", cap: (a) => 5 + Math.floor(a.lvl / 2), regen: (a) => 1 / Math.max(12, 40 - 2 * a.lvl),
+      text: () => "freeze time: nothing else moves for 1 turn per charge",
+      use(a) {
+        const c = artCharge(a);
+        if (c < 1) { log("The sand has run out."); return false; }
+        player.timeFreeze = (player.timeFreeze || 0) + c;
+        a.charge = 0; artGainExp(a, c);
+        flashScreen("#e0c060", 300);
+        log("You turn the hourglass. The world holds its breath. (" + c + " turns)", "hit");
+        return true;
+      } },
+    // SPD LloydsBeacon: mark a spot, and return to it (within the floor).
+    beacon: { name: "Lloyd's Beacon", icon: "📍", cap: () => 3, regen: (a) => 1 / Math.max(20, 60 - 4 * a.lvl),
+      text: (a) => (a.mark && a.mark.floor === floorSerial ? "return to your mark" : "set a mark on this floor to return to"),
+      use(a) {
+        if (!a.mark || a.mark.floor !== floorSerial) { a.mark = { floor: floorSerial, x: player.x, y: player.y }; log("You set the beacon's mark here."); return true; }
+        if (artCharge(a) < 1) { log("The beacon is dark."); return false; }
+        if (monsterAt(a.mark.x, a.mark.y) || !passable(a.mark.x, a.mark.y)) { log("Something stands on your mark."); return false; }
+        a.charge--;
+        spawnBurst(player.x, player.y, "#c0c0a0");
+        player.x = a.mark.x; player.y = a.mark.y; computeFOV(); snapPlayer();
+        spawnBurst(player.x, player.y, "#c0c0a0");
+        artGainExp(a, 1);
+        log("The beacon pulls you back to your mark.", "hit");
+        return true;
+      } },
+    // SPD EtherealChains: pull a foe to you, or yourself to a spot you can see.
+    chains: { name: "Ethereal Chains", icon: "⛓", cap: (a) => 5 + Math.floor(a.lvl / 2), regen: (a) => 1 / Math.max(10, 25 - a.lvl), target: true,
+      text: () => "tap a foe to drag it to you, or open ground to drag yourself there (1 charge per 3 tiles)",
+      useAt(a, x, y) {
+        if (!inBounds(x, y) || !visible[y][x] || !lineOfSight(player.x, player.y, x, y)) { log("The chains need a clear line."); return false; }
+        const dist = cheb(x, y, player.x, player.y);
+        if (dist < 2 || dist > 8) { log("Too " + (dist < 2 ? "close" : "far") + " for the chains."); return false; }
+        const cost = Math.max(1, Math.ceil(dist / 3));
+        if (artCharge(a) < cost) { log("The chains need " + cost + " charge."); return false; }
+        const m = monsterAt(x, y);
+        if (m) {
+          if (m.boss) { log("The " + monName(m) + " is too heavy to pull."); return false; }
+          // Walk the line back toward you and set it down on the last free tile.
+          let best = null;
+          const n = dist;
+          for (let i = 1; i < n; i++) {
+            const px = Math.round(player.x + (x - player.x) * i / n), py = Math.round(player.y + (y - player.y) * i / n);
+            if (passable(px, py) && !monsterAt(px, py) && !(px === player.x && py === player.y)) { best = { x: px, y: py }; break; }
+          }
+          if (!best) { log("There is nowhere to drag it to."); return false; }
+          m.x = best.x; m.y = best.y; m.rx = best.x; m.ry = best.y;
+          startHunting(m);
+          floatText(m.x, m.y, "⛓", "#6ac08a");
+          log("The chains drag the " + monName(m) + " to you.", "hit");
+        } else {
+          if (!passable(x, y) || shuns(x, y)) { log("You can't pull yourself there."); return false; }
+          player.x = x; player.y = y; computeFOV(); snapPlayer();
+          log("The chains haul you across.", "hit");
+        }
+        a.charge -= cost; artGainExp(a, cost);
+        return true;
+      } },
+    // SPD ChaliceOfBlood: prick yourself to strengthen it; it strengthens your healing.
+    chalice: { name: "Chalice of Blood", icon: "🍷", cap: () => 0,
+      text: (a) => "HP regenerates ×" + (1 + 0.2 * a.lvl).toFixed(1) + (a.lvl < ART_LVL_CAP ? "; prick yourself (" + chaliceCost(a) + " HP) to raise it" : ""),
+      use(a) {
+        if ((a.lvl || 0) >= ART_LVL_CAP) { log("The chalice is full."); return false; }
+        const c = chaliceCost(a);
+        if (c >= player.hp) { log("You are too weak to prick yourself — it would take " + c + " HP."); return false; }
+        player.hp -= c; flash(player); floatText(player.x, player.y, "-" + c, "#c03040");
+        a.lvl = (a.lvl || 0) + 1;
+        log("You prick yourself on the chalice. (-" + c + " HP) It drinks, and grows stronger. (level " + a.lvl + ")", "hurt");
+        return true;
+      } },
+    // SPD SandalsOfNature: grass feeds them; they root foes around you.
+    sandals: { name: "Sandals of Nature", icon: "🌿", cap: () => 100, regen: () => 0,
+      text: (a) => "walking on grass charges them; at 50, root every foe beside you for " + (2 + Math.floor(a.lvl / 2)) + " turns",
+      use(a) {
+        if (artCharge(a) < 50) { log("The sandals need more grass underfoot. (" + Math.floor(artCharge(a)) + "/50)"); return false; }
+        let n = 0;
+        for (const m of monsters) if (m.hp > 0 && !m.dominated && cheb(m.x, m.y, player.x, player.y) === 1) { m.para = Math.max(m.para || 0, 2 + Math.floor(a.lvl / 2)); floatText(m.x, m.y, "rooted", "#8aa060"); n++; }
+        if (!n) { log("Nothing beside you to root."); return false; }
+        a.charge -= 50; artGainExp(a, 1 + n);
+        log("Roots burst from the ground around you.", "hit");
+        return true;
+      } },
+    // SPD DriedRose: call the ghost of a fallen hero to fight beside you.
+    rose: { name: "Dried Rose", icon: "🥀", cap: () => 100, regen: (a) => 0.4 + 0.06 * a.lvl,
+      text: (a) => "at full charge, summon a ghost ally (" + roseGhostHp(a) + " HP) to fight for you on this floor",
+      use(a) {
+        if (monsters.some((m) => m.roseGhost && m.hp > 0)) { log("Your ghost is already here."); return false; }
+        if (artCharge(a) < 100) { log("The rose is not ready. (" + Math.floor(artCharge(a)) + "%)"); return false; }
+        const spot = DIRS8.map(([dx, dy]) => ({ x: player.x + dx, y: player.y + dy })).find((p) => passable(p.x, p.y) && !monsterAt(p.x, p.y));
+        if (!spot || !VERMIN.rose_ghost) { log("There is no room for the ghost."); return false; }
+        const g = makeMonster("rose_ghost", spot.x, spot.y);
+        g.hp = g.maxHp = roseGhostHp(a);
+        g.atkMin = 2 + Math.floor(a.lvl / 2); g.atkMax = 4 + a.lvl; g.toHit = 3 + Math.floor(a.lvl / 2);
+        g.dominated = true; g.roseGhost = true;
+        monsters.push(g); startHunting(g);
+        a.charge = 0; artGainExp(a, 3);
+        floatText(spot.x, spot.y, "✦", "#d8e0f0");
+        log("A ghost rises from the rose's petals and stands with you.", "hit");
+        return true;
+      } },
+    // SPD HolyTome: a spell of holy light at a foe you can see.
+    tome: { name: "Holy Tome", icon: "📖", cap: (a) => 2 + Math.floor(a.lvl / 3), regen: (a) => 1 / Math.max(10, 30 - a.lvl), target: true,
+      text: (a) => "Guiding Light: " + (2 + a.lvl) + "–" + (6 + 2 * a.lvl) + " holy damage to a foe in sight",
+      useAt(a, x, y) {
+        const m = monsterAt(x, y);
+        if (!m || m.hp <= 0 || !visible[y][x] || !lineOfSight(player.x, player.y, x, y)) { log("Guiding Light needs a foe you can see."); return false; }
+        if (artCharge(a) < 1) { log("The tome's pages are dim."); return false; }
+        a.charge--;
+        const dmg = randInt(2 + a.lvl, 6 + 2 * a.lvl);
+        spawnProjectile(player.x, player.y, x, y, "#ffe9a8");
+        m.hp -= dmg; flash(m); floatText(m.x, m.y, "-" + dmg, "#ffe9a8"); startHunting(m);
+        log("Guiding Light strikes the " + monName(m) + ". (-" + dmg + ")", "hit");
+        if (m.hp <= 0) killMonster(m, "is burned away by the light");
+        artGainExp(a, 1);
+        return true;
+      } },
+    // SPD SkeletonKey: opens a locked door without its iron key.
+    key: { name: "Skeleton Key", icon: "🗝", cap: (a) => 1 + Math.floor(a.lvl / 3), regen: (a) => 1 / Math.max(40, 150 - 10 * a.lvl),
+      text: () => "opens a locked door with no iron key in hand, one charge a door",
+      use() { log("Walk into a locked door and the key will try it."); return false; } },
+  };
+  const stealChance = (a, unseen) => Math.min(0.95, (0.35 + 0.06 * (a.lvl || 0)) * (unseen ? 2 : 1));
+  const chaliceCost = (a) => Math.max(3, Math.round(player.maxHp * (0.12 + 0.03 * (a.lvl || 0))));
+  const roseGhostHp = (a) => 15 + 6 * (a.lvl || 0);
+  // Once a world turn: recharge the worn artifact, and run the passives that
+  // watch the world rather than a single event.
+  function artifactTick(cost) {
+    const a = artOf();
+    if (player.capeTurns > 0 && --player.capeTurns === 0) log("The cape's thorns settle.");
+    if (!a) return;
+    const d = ART[artKind(a)];
+    if (!d) return;
+    const cap = d.cap ? d.cap(a) : 0;
+    if (cap > 0 && d.regen) {
+      artCharge(a);
+      if (a.charge < cap) {
+        a.part = (a.part || 0) + d.regen(a) * (cost || 1);
+        if (a.part >= 1) { const n = Math.floor(a.part); a.part -= n; a.charge = Math.min(cap, a.charge + n); }
+      }
+    }
+    if (artKind(a) === "talisman") {
+      const r = 2 + Math.floor(a.lvl / 3);
+      for (const t of traps) if (!t.revealed && cheb(t.x, t.y, player.x, player.y) <= r) { t.revealed = true; floatText(t.x, t.y, "!", "#7ab0c0"); log("The talisman warns you of a trap.", ""); }
+      for (const sd of secretDoors) if (cheb(sd.x, sd.y, player.x, player.y) <= r) secretsHinted.add(sd.y * MAP_W + sd.x);
+    }
+  }
+  // Cape of Thorns: charged by what hits you; while deflecting, a share of each
+  // blow is taken off and sent back at whatever swung.
+  function capeAbsorb(dmg, from) {
+    const a = artOf();
+    if (!a || artKind(a) !== "cape" || dmg <= 0) return dmg;
+    if (player.capeTurns > 0) {
+      const back = randInt(0, Math.ceil(dmg * (0.5 + 0.03 * a.lvl)));
+      if (back > 0) {
+        dmg -= back;
+        if (from && from.hp > 0) { from.hp -= back; flash(from); floatText(from.x, from.y, "-" + back, "#c89a60"); if (from.hp <= 0) killMonster(from, "is torn by the thorns"); }
+      }
+      return Math.max(0, dmg);
+    }
+    artCharge(a);
+    a.charge = Math.min(100, a.charge + dmg * (4 + a.lvl / 2));
+    if (a.charge >= 100) {
+      a.charge = 0; player.capeTurns = 10;
+      artGainExp(a, 4);
+      floatText(player.x, player.y, "thorns!", "#c89a60");
+      log("Your cape bristles with thorns!", "hit");
+    }
+    return dmg;
+  }
+  // The hotbar button's arm/fire.
+  function useArtifact(fromTest) {
+    if (dead || (!fromTest && (mapOpen || invOpen || charOpen || boonPending || classPending))) return;
+    const a = artOf();
+    if (!a) return;
+    const d = ART[artKind(a)];
+    if (!d) return;
+    if (d.target) {
+      artPending = !artPending;
+      log(artPending ? d.name + " — tap a target." : d.name + " put away.");
+      updateHotbar();
+      return;
+    }
+    if (d.use(a)) { updateHUD(); updateHotbar(); worldTurn(); }
+    else updateHotbar();
+  }
+  function artifactTarget(x, y) {
+    artPending = false;
+    const a = artOf(), d = a && ART[artKind(a)];
+    if (!d || !d.useAt) { updateHotbar(); return; }
+    if (d.useAt(a, x, y)) { updateHUD(); updateHotbar(); worldTurn(); }
+    else updateHotbar();
+  }
+  // What the hotbar shows on the artifact button: the charge, however it counts.
+  function artBadge(a) {
+    const d = ART[artKind(a)], cap = d && d.cap ? d.cap(a) : 0;
+    if (!cap) return "L" + (a.lvl || 0);
+    const c = artCharge(a);
+    return cap === 100 ? Math.floor(c) + "%" : "×" + c;
+  }
 
   // Sum a stat bonus across every equipped item (weapon, armor, rings, trinket, necklace).
   function equipStat(statKey) {
@@ -941,6 +1248,10 @@
       // read silently showed nothing for every weapon, including the ones whose
       // to-hit is the most important thing about them (dagger +3, bow −3, axe −5).
       if (g.toHit) parts.push("to hit " + (g.toHit > 0 ? "+" : "") + g.toHit);
+    }
+    if (GEAR[inst.key].cat === "artifact" && ART[GEAR[inst.key].art]) {
+      const d = ART[GEAR[inst.key].art], cap = d.cap ? d.cap(inst) : 0;
+      return "level " + (inst.lvl || 0) + "/" + ART_LVL_CAP + (cap ? ", charge " + (cap === 100 ? Math.floor(artCharge(inst)) + "%" : artCharge(inst) + "/" + cap) : "") + " — " + d.text(inst);
     }
     if (isRing(inst) && ringFx(inst)) {
       if (!ringKnown.has(inst.key)) return "an unknown ring — put it on to learn what it does";
@@ -2270,6 +2581,7 @@
   }
 
   function generateLevel() {
+    floorSerial++; artPending = false; player.timeFreeze = 0; player.capeTurns = 0;
     map = blankGrid(WALL);
     explored = blankGrid(false);
     beenSeen = blankGrid(false);
@@ -4059,6 +4371,7 @@
     // health is already gone, so it does nothing at full HP and most near death.
     const ten = ringL("tenacity");
     if (ten > 0) dmg = Math.max(1, Math.round(dmg * Math.pow(0.85, ten * (1 - player.hp / Math.max(1, player.maxHp)))));
+    dmg = capeAbsorb(dmg, o.from);                 // Cape of Thorns: charges, or deflects
     // Rung 5 and 6, both of them yours rather than your gear's, and both able to
     // take a blow to nothing — which is the only reason either is worth a tier-4
     // or tier-5 node. The 1-damage floor above still applies to everything the
@@ -4670,6 +4983,15 @@
   // for good (it becomes an ordinary door). Keys are counted, not carried — SPD's
   // keys are per floor, and one left over on the next floor would open nothing.
   function openLocked(x, y) {
+    const sk = artOf();
+    if (ironKeys <= 0 && sk && artKind(sk) === "key" && artCharge(sk) >= 1) {
+      sk.charge--; artGainExp(sk, 2);
+      map[y][x] = DOOR;
+      floatText(x, y, "\ud83d\udddd", "#d8d0a0");
+      log("The skeleton key turns in the lock.", "hit");
+      computeFOV(); worldTurn();
+      return true;
+    }
     if (ironKeys <= 0) {
       floatText(x, y, "locked", "#c9c2b0");
       log("The door is locked. Its iron key is somewhere on this floor.");
@@ -4795,6 +5117,7 @@
       if (tr && !tr.sprung) { triggerTrap(tr); if (dead) return true; }
       if (map[player.y][player.x] === STAIRS) { descend(); return true; }  // fresh level, no world turn
       if (map[player.y][player.x] === CHASM) { fallThrough(); return true; }
+      { const sa = artOf(); if (sa && artKind(sa) === "sandals" && (map[player.y][player.x] === GRASS || map[player.y][player.x] === LAWN)) { artCharge(sa); sa.charge = Math.min(100, sa.charge + 5 + sa.lvl); } }
       worldTurn(walkCost());     // Metrognome (walk) → you cover ground faster than your foes. Terrain never costs extra time: it shapes the route instead of taxing it, and a costlier step used to hand every monster in earshot a free second action.
       return true;
     }
@@ -4870,9 +5193,10 @@
       return;
     }
     if (it.key === "gold") {
-      player.gold += it.amount;
+      const amt = artLvl("armband") >= 0 ? Math.round(it.amount * (1 + 0.1 * artLvl("armband"))) : it.amount;   // Master Thieves' Armband
+      player.gold += amt;
       items = items.filter((x) => x !== it);
-      log("You find " + it.amount + " gold.");
+      log("You find " + amt + " gold.");
       return;
     }
     // carry the item minus its map position (gear keeps its rolled affixes + id progress)
@@ -4999,7 +5323,7 @@
     // to magic, and taking both would just end runs quietly.
     if (player.hp < player.maxHp && !sparkGone) {
       const effTurns = Math.max(1, (cls.regenTurns != null ? cls.regenTurns : 600) - mod("VIT") * (cls.vitRegen != null ? cls.vitRegen : 2) * 5);
-      player.regenAcc = (player.regenAcc || 0) + (player.maxHp / effTurns) * earlyRegenMult() * meditateMult() * retributionRegen();
+      player.regenAcc = (player.regenAcc || 0) + (player.maxHp / effTurns) * earlyRegenMult() * meditateMult() * retributionRegen() * (1 + 0.2 * Math.max(0, artLvl("chalice")));
       while (player.regenAcc >= 1 && player.hp < player.maxHp) { player.regenAcc -= 1; player.hp++; healed++; }
       if (player.hp >= player.maxHp) player.regenAcc = 0;
       if (healed) changed = true;
@@ -6006,7 +6330,11 @@
     tickBombs(); if (dead) return;              // armed bomb traps count down and detonate
     _boss.tick(); if (dead) return;             // a boss's delayed effects (e.g. the Golem's node blasts)
     panX = 0; panY = 0; enemyFocusIdx = -1; pendingThrow = null;   // any action recenters the camera on you
-    for (const m of monsters.slice()) {
+    artifactTick(cost);
+    // Timekeeper's Hourglass: while time is stopped, nothing else gets a turn.
+    const frozen = player.timeFreeze > 0;
+    if (frozen && --player.timeFreeze === 0) log("Time lurches back into motion.");
+    for (const m of (frozen ? [] : monsters.slice())) {
       if (m.hp <= 0) continue;
       // Energy banks at the world's rate; what the monster DOES sets the price.
       // (It used to bank speed × cost and pay a flat 1 per action, which gave a
@@ -6136,6 +6464,7 @@
     if (player.stun > 0 && !examineMode) { player.stun--; floatText(player.x, player.y, "stunned", "#e0a848"); log("You're too dazed to act!", "hurt"); worldTurn(); return; }
     if (examineMode) { describeTile(tx, ty); toggleExamine(false); updateHotbar(); return; }
     if (pendingThrow != null) { const idx = pendingThrow; executeThrow(idx, tx, ty); return; }
+    if (artPending) { artifactTarget(tx, ty); return; }
     if (pendingSkill && skillDef(pendingSkill) && (skillDef(pendingSkill).kind === "rush" || skillDef(pendingSkill).kind === "dragonkick")) {
       const kk = pendingSkill, kd = skillDef(kk).kind;
       const dir = [Math.sign(tx - player.x), Math.sign(ty - player.y)];
@@ -6390,7 +6719,7 @@
     // through to the vector primitives. Jewelry is deliberately still drawn:
     // drawJewelInto tints a ring/gem/pendant with the item's own rarity colour,
     // which a fixed sprite cannot do.
-    ...Object.keys(DATA.gear).filter((k) => DATA.gear[k].cat === "weapon" || DATA.gear[k].cat === "armor"),
+    ...Object.keys(DATA.gear).filter((k) => DATA.gear[k].cat === "weapon" || DATA.gear[k].cat === "armor" || DATA.gear[k].cat === "artifact"),
     ...DATA.biomes.flatMap((b) => [b.floor, b.wall]),   // per-biome terrain
     ...DATA.biomes.map((b) => b.exitSprite).filter(Boolean),
     // One hero strip per class (SPD art — tools/cut_spd_sprites.py). A class with
@@ -6805,7 +7134,15 @@
       else drawArmorInto(c, ox, oy, s, d.color || "#b9c0c8");
       return;
     }
+    if (d.cat === "artifact") {
+      const img = SPRITES[key];
+      if (ready(img)) { c.drawImage(img, ox, oy, s, s); return; }
+      drawGlyphInto(c, ox, oy, s, d.glyph || "\u25c6", d.color || "#cfc3a0"); return;
+    }
     if (d.cat === "ring" || d.cat === "necklace" || d.cat === "trinket") {
+      // An unworn SPD ring shows its GEM, never its type's own colour — each ring
+      // row has a distinct colour, and drawing it would name the ring for free.
+      if (d.cat === "ring" && ringLook[key] && !ringKnown.has(key)) { drawJewelInto(c, ox, oy, s, d.cat, ringLook[key][1]); return; }
       const col = (isGear(e) && itemIdentified(e)) ? itemColor(e) : (d.color || "#cfc3a0");
       drawJewelInto(c, ox, oy, s, d.cat, col); return;
     }
@@ -9729,7 +10066,7 @@
       `<div class="cline">To hit <b>${sgnNum(playerToHit())}</b> (~${accPct}% against an average foe) · Armour Class <b>${playerAC()}</b> (~${evaPct}% to be missed)</div>` +
       `<div class="cline cformula">a hit is d20 + to-hit ≥ the target's AC · natural 1 always misses, natural 20 always hits · to-hit = ${BASE_TO_HIT} base + what your levels bought (${sgnNum(player.lvlAcc || 0)}) + DEX mod + weapon</div>` +
       `<div class="cline">Walk haste <b>${walkHasteTxt}</b> — a step costs <b>${walkCost().toFixed(2)}</b> turns · Attack haste <b>${atkHasteTxt}</b> — a swing costs <b>${attackCost().toFixed(2)}</b></div>` +
-      `<div class="cline cformula">step = 1 ÷ (1 + walk haste + Metrognome-walk) · swing = 1 ÷ (weapon speed × (1 + attack haste) + Metrognome-attack) · Ourn's blessings count toward both · under 1.00 you act more often than your foes</div>` +
+      `<div class="cline cformula">step = 1 ÷ (1 + walk haste + Metrognome-walk) ÷ 1.1^(Ring of Haste level) · swing = 1 ÷ (weapon speed × (1 + attack haste) + Metrognome-attack) ÷ 1.08^(Ring of Furor level) · Ourn's blessings count toward both · under 1.00 you act more often than your foes</div>` +
       `<div class="cline cformula">incoming dmg ×(1 − RESmod ÷ (RESmod + 10)), then armor block subtracted — block rolls between the two Defense numbers${lvlMitMax() ? ", whose ceiling your levels raised by " + lvlMitMax() : ""}</div>` +
       `<div class="cstat-grid">${cells}</div>` +
       `<div class="cline">${pts}</div>`;
@@ -9964,6 +10301,13 @@
       // next one is only interesting when the rack is empty.
       const badge = ch !== null ? (ch > 0 ? "\u00d7" + ch : (st.cd > 0 ? st.cd : 0)) : (st.cd > 0 ? st.cd : 0);
       bar.appendChild(makeSlot(d.icon, d.name, ready, badge, pendingSkill === key, () => useSkill(key)));
+    }
+    // The worn artifact gets a button of its own, badged with its charge.
+    const art = artOf();
+    if (art && ART[artKind(art)]) {
+      const d = ART[artKind(art)], cap = d.cap ? d.cap(art) : 0;
+      const ready = !cap || artCharge(art) >= (cap === 100 ? (artKind(art) === "sandals" ? 50 : 100) : 1);
+      bar.appendChild(makeSlot(d.icon, d.name, ready, artBadge(art), artPending, () => useArtifact()));
     }
     // Wrap rather than overflow. The class (not a media query) because what
     // matters is how many buttons there ARE, not how wide the screen is.
@@ -10284,6 +10628,15 @@
       levels: Object.keys(RING_FX).reduce((o, k) => { o[k] = ringL(k); return o; }, {}),
     }),
     nameOf: (i) => (player.inv[i] ? itemName(player.inv[i]) : null),
+    // Artifacts: the worn one's state, fire it, aim it, and charge it for a test.
+    artInfo: () => { const a = artOf(); return a && { key: a.key, lvl: a.lvl || 0, exp: a.exp || 0, charge: artCharge(a), text: itemAffixText(a), pending: artPending,
+      freeze: player.timeFreeze || 0, cape: player.capeTurns || 0, ghost: monsters.some((m) => m.roseGhost && m.hp > 0), invisible: player.invisible || 0 }; },
+    useArtifact: () => useArtifact(true),
+    // Drop the newest pack entries (a test that gives lots of gear would otherwise
+    // hit the 25-slot limit and silently stop receiving items).
+    trimInv: (n) => { player.inv.splice(Math.max(0, player.inv.length - (n == null ? 1 : n))); return player.inv.length; },
+    artTarget: (x, y) => artifactTarget(x, y),
+    chargeArtifact: () => { const a = artOf(); if (a) { const d = ART[artKind(a)]; a.charge = d && d.cap ? d.cap(a) : 0; updateHotbar(); } },
     grant: (n) => { player.statPoints += (n || 1); renderChar(); updateHotbar(); },
     learn: (k) => learnSkill(k),
     doSkill: (k) => useSkill(k),

@@ -3803,3 +3803,31 @@ necklace enchants only now). Two rings with the same effect stack.
 level still has to be learned through XP, like any gear's plus. The numbers
 live in `RING_FX` in `game.js`; the rows are `ring_*` in `data.js`, with `effect`
 and `stat` columns in the editor.
+
+## Artifacts are SPD's — DONE
+
+The artifact slot takes SPD's artifacts. An artifact has no rarity or plus. It
+**levels up by use** (0–10), keeps its level and charge when taken off, and most
+run on a **charge** that refills with time. Each one turns up at most once a run.
+Artifacts are 3% of gear drops (`loot.categoryWeights.artifact`). The worn
+artifact gets a hotbar button badged with its charge; targeted ones arm on tap,
+like a skill.
+
+| Artifact | What it does (Cantori's version) |
+|---|---|
+| Cloak of Shadows | spend all charge: unseen for 3 turns a charge |
+| Master Thieves' Armband | steal gold or a consumable from an adjacent foe (double odds if unseen); gold found ×(1 + 0.1L) |
+| Cape of Thorns | charged by blows you take; full, it deflects part of each blow back for 10 turns |
+| Talisman of Foresight | reveals hidden traps and doors nearby; full, scries the floor (map + all traps) |
+| Timekeeper's Hourglass | stop time: nothing else acts for 1 turn a charge |
+| Lloyd's Beacon | mark a spot, recall to it (within the floor — floors are not revisited) |
+| Ethereal Chains | drag a foe to you, or yourself to open ground in sight (1 charge / 3 tiles) |
+| Chalice of Blood | prick yourself (a share of max HP, never lethal) to level it; HP regen ×(1 + 0.2L) |
+| Sandals of Nature | grass underfoot charges them; spend 50 to root every adjacent foe |
+| Dried Rose | at full charge, summon a ghost ally for the floor, scaling with level |
+| Holy Tome | Guiding Light: (2+L)–(6+2L) holy damage to a foe in sight |
+| Skeleton Key | opens a locked door with no iron key in hand, one charge a door |
+
+Deferred until their systems exist: Horn of Plenty (hunger), Alchemist's Toolkit
+(alchemy), Unstable Spellbook (a scroll pool worth reading at random). The
+behaviour lives in `ART` in `game.js`; the rows are `art_*` in `data.js`.

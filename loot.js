@@ -62,6 +62,12 @@ window.CantoriLoot = function (deps) {
   }
   function rollItem(key, floor, forcedRarity) {
     const base = GEAR[key];
+    // An SPD artifact is not rolled at all: it has no rarity, plus or affixes. It
+    // levels up by being used (lvl 0-10) and runs on a charge, which starts full.
+    // It is identified on sight, as in SPD. game.js's ART table is what it does.
+    if (base.cat === "artifact") {
+      return { key, rarity: "white", plus: 0, stats: [], enchants: [], idNeed: 1, idXp: 0, identified: true, lvl: 0, exp: 0, charge: -1, part: 0 };
+    }
     const tier = base.tier || 1;
     const rarity = forcedRarity || (base.minRarity ? rollRarityAtLeast(base.minRarity) : rollRarity());
     const overridePlus = rollPlusOverride && rollPlusOverride(floor);

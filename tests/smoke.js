@@ -211,6 +211,37 @@ async function main() {
   });
   check(rings.problems.length === 0, "rings: " + rings.problems.join("; "));
 
+  // Artifacts (SPD's): each one goes in the artifact slot, fires without an
+  // error, and the ones with a visible effect show it.
+  const arts = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, problems = [], fired = [];
+    const keys = Object.keys(D.gear).filter((k) => D.gear[k].cat === "artifact");
+    for (const k of keys) {
+      c.give(k);
+      const inv = c.peek().invItems;
+      c.equip(inv.length - 1);
+      const info = c.artInfo();
+      if (!info || info.key !== k) { problems.push(k + " did not go in the artifact slot"); continue; }
+      c.chargeArtifact();
+      const before = c.artInfo();
+      c.useArtifact();
+      const after = c.artInfo();
+      if (after.pending) c.useArtifact();       // a targeted one arms rather than fires — put it away
+      fired.push(k);
+      const art = D.gear[k].art;
+      if (art === "hourglass" && !(after.freeze > 0)) problems.push("the hourglass did not stop time");
+      if (art === "cloak" && !(after.invisible > 0)) problems.push("the cloak did not hide you");
+      if (art === "rose" && !after.ghost) problems.push("the rose summoned no ghost");
+      if (art === "chalice" && !(after.lvl > before.lvl) && c.peek().hp > 10) problems.push("the chalice did not level on a prick");
+      if (!/level \d+\/10/.test(after.text)) problems.push(k + " card text is missing its level: " + after.text);
+      c.unequip("artifact");
+      c.trimInv(1);                             // the artifact just unequipped — keep the pack from filling
+    }
+    return { problems, fired: fired.length, total: keys.length };
+  });
+  check(arts.total >= 12, `expected 12 artifacts in data.js, found ${arts.total}`);
+  check(arts.problems.length === 0, "artifacts: " + arts.problems.join("; "));
+
   // C4: identification costs loot.identifyXp x the item's TIER, and nothing else.
   // Rarity and drop depth must not enter into it — they used to, and a price the
   // player cannot read is the reason the progress bar stopped meaning anything.

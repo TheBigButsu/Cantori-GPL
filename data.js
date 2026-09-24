@@ -328,6 +328,18 @@ window.CANTORI_DATA = {
       "atkMin": 3,
       "atkMax": 8,
       "toHit": 3
+    },
+    "rose_ghost": {
+      "name": "Ghost",
+      "glyph": "g",
+      "color": "#d8e0f0",
+      "hp": 15,
+      "speed": 1,
+      "ac": 12,
+      "atkMin": 2,
+      "atkMax": 4,
+      "toHit": 3,
+      "flying": true
     }
   },
   "gear": {
@@ -1014,6 +1026,102 @@ window.CANTORI_DATA = {
       "glyph": "o",
       "color": "#f0c14b"
     },
+    "art_cloak": {
+      "cat": "artifact",
+      "name": "Cloak of Shadows",
+      "tier": 1,
+      "art": "cloak",
+      "glyph": "\u25c6",
+      "color": "#5a5a7a"
+    },
+    "art_armband": {
+      "cat": "artifact",
+      "name": "Master Thieves' Armband",
+      "tier": 1,
+      "art": "armband",
+      "glyph": "\u25c6",
+      "color": "#b04040"
+    },
+    "art_cape": {
+      "cat": "artifact",
+      "name": "Cape of Thorns",
+      "tier": 1,
+      "art": "cape",
+      "glyph": "\u25c6",
+      "color": "#8a6040"
+    },
+    "art_talisman": {
+      "cat": "artifact",
+      "name": "Talisman of Foresight",
+      "tier": 1,
+      "art": "talisman",
+      "glyph": "\u25c6",
+      "color": "#7ab0c0"
+    },
+    "art_hourglass": {
+      "cat": "artifact",
+      "name": "Timekeeper's Hourglass",
+      "tier": 1,
+      "art": "hourglass",
+      "glyph": "\u25c6",
+      "color": "#e0c060"
+    },
+    "art_beacon": {
+      "cat": "artifact",
+      "name": "Lloyd's Beacon",
+      "tier": 1,
+      "art": "beacon",
+      "glyph": "\u25c6",
+      "color": "#c0c0a0"
+    },
+    "art_chains": {
+      "cat": "artifact",
+      "name": "Ethereal Chains",
+      "tier": 1,
+      "art": "chains",
+      "glyph": "\u25c6",
+      "color": "#6ac08a"
+    },
+    "art_chalice": {
+      "cat": "artifact",
+      "name": "Chalice of Blood",
+      "tier": 1,
+      "art": "chalice",
+      "glyph": "\u25c6",
+      "color": "#c03040"
+    },
+    "art_sandals": {
+      "cat": "artifact",
+      "name": "Sandals of Nature",
+      "tier": 1,
+      "art": "sandals",
+      "glyph": "\u25c6",
+      "color": "#8aa060"
+    },
+    "art_rose": {
+      "cat": "artifact",
+      "name": "Dried Rose",
+      "tier": 1,
+      "art": "rose",
+      "glyph": "\u25c6",
+      "color": "#c05070"
+    },
+    "art_tome": {
+      "cat": "artifact",
+      "name": "Holy Tome",
+      "tier": 1,
+      "art": "tome",
+      "glyph": "\u25c6",
+      "color": "#e0b040"
+    },
+    "art_key": {
+      "cat": "artifact",
+      "name": "Skeleton Key",
+      "tier": 1,
+      "art": "key",
+      "glyph": "\u25c6",
+      "color": "#d8d0a0"
+    },
     "charm_bone": {
       "cat": "trinket",
       "name": "Bone Charm",
@@ -1158,7 +1266,8 @@ window.CANTORI_DATA = {
       "weapon": 45,
       "armor": 33,
       "ring": 14,
-      "necklace": 4
+      "necklace": 4,
+      "artifact": 3
     },
     "trinketRarity": {
       "blue": 40,

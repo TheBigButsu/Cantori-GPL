@@ -82,6 +82,8 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 | `hero_bard.png` | `core/src/main/assets/sprites/huntress.png` | Sera | none |
 
 | `animated_statue.png` | `core/src/main/assets/sprites/statue.png` (idle frame, 2x) | Animated Statue | none |
+| `rose_ghost.png` | `core/src/main/assets/sprites/ghost.png` (idle frame, 2x) | Dried Rose ghost | none |
+| `art_*.png` (12) | `core/src/main/assets/sprites/items.png`, the artifact row (index 240 on), 2x | the twelve artifacts | none |
 
 `hero_monk.png` is a modified version of SPD's art, released under GPLv3 like
 the rest. The DCSS `player.png` stays as the fallback for any class without a
