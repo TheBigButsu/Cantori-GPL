@@ -79,6 +79,8 @@ def cut(sheet, blue):
 MONSTERS = {
     "animated_statue": ("statue", 0, 12, 15),   # SPD Statue (sprites/statue.png)
     "rose_ghost": ("ghost", 0, 14, 15),         # SPD GhostSprite — the Dried Rose's ghost
+    "monk": ("monk", 1, 15, 14),                # SPD MonkSprite (idle starts on frame 1)
+    "warlock": ("warlock", 0, 12, 15),          # SPD WarlockSprite
 }
 
 # Cantori item key -> index into SPD's sprites/items.png, a 16x16 grid 16 cells

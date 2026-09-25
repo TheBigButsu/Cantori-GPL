@@ -6,6 +6,7 @@ window.CANTORI_DATA = {
       "name": "Rat",
       "hp": 8,
       "minFloor": 1,
+      "maxLvl": 6,
       "glyph": "r",
       "color": "#c9b48f",
       "speed": 1,
@@ -18,6 +19,7 @@ window.CANTORI_DATA = {
       "name": "Bat",
       "flying": true,
       "minFloor": 1,
+      "maxLvl": 6,
       "glyph": "b",
       "color": "#b491d6",
       "hp": 5,
@@ -25,7 +27,7 @@ window.CANTORI_DATA = {
       "atkMin": 0,
       "atkMax": 4,
       "toHit": 1,
-      "ac": 22
+      "ac": 20
     },
     "snake": {
       "name": "Snake",
@@ -33,9 +35,10 @@ window.CANTORI_DATA = {
       "glyph": "s",
       "color": "#7ec98a",
       "minFloor": 3,
+      "maxLvl": 8,
       "speed": 1,
       "atkMax": 6,
-      "ac": 24,
+      "ac": 21,
       "toHit": 4,
       "atkMin": 0,
       "burstPoison": 25
@@ -45,6 +48,7 @@ window.CANTORI_DATA = {
       "name": "Spider",
       "atkMax": 5,
       "minFloor": 6,
+      "maxLvl": 11,
       "glyph": "x",
       "color": "#d68f8f",
       "speed": 1,
@@ -66,6 +70,7 @@ window.CANTORI_DATA = {
       "atkMax": 6,
       "speed": 1,
       "minFloor": 2,
+      "maxLvl": 7,
       "ac": 14,
       "toHit": 1,
       "atkMin": 1
@@ -83,6 +88,7 @@ window.CANTORI_DATA = {
       "speed": 1,
       "ac": 18,
       "minFloor": 2,
+      "maxLvl": 7,
       "atkMin": 1,
       "burstRadius": 1
     },
@@ -98,6 +104,7 @@ window.CANTORI_DATA = {
       "color": "#8a6a44",
       "speed": 1,
       "minFloor": 4,
+      "maxLvl": 9,
       "walkSpeed": 1,
       "atkMax": 8,
       "burstStunMax": 2,
@@ -114,6 +121,7 @@ window.CANTORI_DATA = {
       "glyph": "H",
       "color": "#6b6f7a",
       "minFloor": 6,
+      "maxLvl": 11,
       "hp": 25,
       "speed": 1,
       "atkMin": 2
@@ -129,6 +137,7 @@ window.CANTORI_DATA = {
       "glyph": "G",
       "color": "#9fb07a",
       "minFloor": 11,
+      "maxLvl": 16,
       "charge": true,
       "ac": 18
     },
@@ -142,6 +151,7 @@ window.CANTORI_DATA = {
       "glyph": "W",
       "color": "#8fa0c0",
       "minFloor": 12,
+      "maxLvl": 17,
       "toHit": 8,
       "ac": 20
     },
@@ -155,6 +165,7 @@ window.CANTORI_DATA = {
       "glyph": "P",
       "color": "#7ee0d0",
       "minFloor": 13,
+      "maxLvl": 18,
       "ac": 35
     },
     "imp": {
@@ -165,6 +176,7 @@ window.CANTORI_DATA = {
       "glyph": "i",
       "color": "#c0c0e0",
       "minFloor": 14,
+      "maxLvl": 19,
       "hp": 35,
       "atkMin": 0,
       "toHit": 10,
@@ -182,6 +194,7 @@ window.CANTORI_DATA = {
       "toHit": 3,
       "ac": 15,
       "minFloor": 11,
+      "maxLvl": 16,
       "auraRange": 3,
       "auraWalk": 2,
       "auraName": "a red mire",
@@ -200,6 +213,7 @@ window.CANTORI_DATA = {
       "toHit": 3,
       "ac": 20,
       "minFloor": 12,
+      "maxLvl": 17,
       "auraRange": 3,
       "auraAttack": 1.5,
       "auraName": "a black pall",
@@ -217,6 +231,7 @@ window.CANTORI_DATA = {
       "toHit": 4,
       "ac": 15,
       "minFloor": 11,
+      "maxLvl": 16,
       "burstRadius": 1,
       "burstDmg": 0,
       "burstBurn": 50,
@@ -238,6 +253,7 @@ window.CANTORI_DATA = {
       "toHit": 5,
       "ac": 18,
       "minFloor": 12,
+      "maxLvl": 17,
       "charge": true,
       "glyph": "B",
       "color": "#a07850"
@@ -252,6 +268,7 @@ window.CANTORI_DATA = {
       "toHit": 5,
       "ac": 14,
       "minFloor": 13,
+      "maxLvl": 18,
       "ranged": true,
       "range": 5,
       "hexChance": 35,
@@ -267,6 +284,7 @@ window.CANTORI_DATA = {
       "atkMin": 8,
       "atkMax": 12,
       "minFloor": 16,
+      "maxLvl": 21,
       "glyph": "u",
       "color": "#6fb0d0",
       "toHit": 15,
@@ -280,6 +298,7 @@ window.CANTORI_DATA = {
       "glyph": "d",
       "color": "#e07030",
       "minFloor": 17,
+      "maxLvl": 22,
       "toHit": 5,
       "ac": 15
     },
@@ -303,7 +322,8 @@ window.CANTORI_DATA = {
       "attackSpeed": 1,
       "toHit": 2,
       "ac": 18,
-      "minFloor": 7
+      "minFloor": 7,
+    "maxLvl": 12
     },
     "Goblin_archer": {
       "name": "Goblin Archer",
@@ -316,7 +336,40 @@ window.CANTORI_DATA = {
       "ac": 16,
       "range": 4,
       "ranged": true,
-      "minFloor": 8
+      "minFloor": 8,
+    "maxLvl": 13
+    },
+    "monk": {
+      "name": "Monk",
+      "hp": 45,
+      "atkMin": 5,
+      "atkMax": 9,
+      "speed": 1,
+      "attackSpeed": 2,
+      "toHit": 12,
+      "ac": 20,
+      "minFloor": 16,
+      "maxLvl": 21,
+      "parry": true,
+      "glyph": "m",
+      "color": "#d8b060"
+    },
+    "warlock": {
+      "name": "Warlock",
+      "hp": 40,
+      "atkMin": 6,
+      "atkMax": 10,
+      "speed": 1,
+      "toHit": 10,
+      "ac": 16,
+      "minFloor": 17,
+      "maxLvl": 22,
+      "ranged": true,
+      "range": 5,
+      "hexChance": 50,
+      "hexes": "hex",
+      "glyph": "w",
+      "color": "#9a70c8"
     },
     "animated_statue": {
       "name": "Animated Statue",
@@ -1270,41 +1323,51 @@ window.CANTORI_DATA = {
       {
         "upToFloor": 5,
         "weights": [
-          100,
-          0,
+          75,
+          20,
+          4,
+          1,
           0
         ]
       },
       {
         "upToFloor": 10,
         "weights": [
-          70,
-          30,
+          25,
+          50,
+          20,
+          5,
           0
         ]
       },
       {
         "upToFloor": 15,
         "weights": [
-          30,
-          55,
-          15
+          5,
+          20,
+          50,
+          20,
+          5
         ]
       },
       {
         "upToFloor": 20,
         "weights": [
-          10,
-          45,
-          45
+          0,
+          5,
+          20,
+          50,
+          25
         ]
       },
       {
         "upToFloor": 25,
         "weights": [
           0,
+          0,
+          5,
           25,
-          75
+          70
         ]
       }
     ],
@@ -2361,10 +2424,40 @@ window.CANTORI_DATA = {
       "floor": "arcane_floor",
       "wall": "arcane_wall",
       "monsters": [
-        "jackal",
-        "hornet",
-        "imp"
+        "imp",
+        "monk",
+        "warlock"
       ],
+      "spawnInitial": [
+        8,
+        9,
+        10,
+        10,
+        10
+      ],
+      "spawnMix": {
+        "imp": [
+          70,
+          40,
+          30,
+          30,
+          30
+        ],
+        "monk": [
+          30,
+          40,
+          35,
+          35,
+          35
+        ],
+        "warlock": [
+          0,
+          20,
+          35,
+          35,
+          35
+        ]
+      },
       "boss": "cultist",
       "bossCount": 3,
       "door": "door",

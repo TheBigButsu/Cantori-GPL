@@ -62,6 +62,7 @@
       { f: "attackSpeed", label: "atk spd", type: "num", step: "0.1" },
       { f: "toHit", label: "to-hit", type: "num" }, { f: "ac", label: "AC", type: "num" },
       { f: "range", type: "num" }, { f: "minFloor", type: "num" },
+      { f: "maxLvl", label: "max lvl", type: "num" },
       { f: "charge", type: "bool" }, { f: "ranged", type: "bool" }, { f: "flying", type: "bool" },
       { f: "glyph", type: "text" }, { f: "color", type: "color" },
     ],
@@ -86,6 +87,7 @@
       { f: "burstStunMax", label: "stun max", type: "num" },
       { f: "hexChance", label: "hex %", type: "num" },
       { f: "hexes", label: "hexes", type: "text", cls: "name" },
+      { f: "parry", label: "parry (Monk focus)", type: "bool" },
     ],
     gear: [
       { f: "__key", label: "key", type: "key" },
@@ -1472,7 +1474,7 @@
       rows: [
         { name: "XP to next level", formula: "threshold = current level × 6", note: "So reaching level L costs 3 × L × (L−1) XP in total: 6 to reach level 2, 270 for level 10, 1140 for level 20. Quadratic, the same shape Shattered Pixel Dungeon uses." },
         { name: "On level up", formula: "main stat +1 every 2 levels, secondary +1 every 3, plus the class's flat levelUp gains (hp/mp)", note: "Levels can chain in one XP grant if enough XP is banked at once. It was +2/+1 EVERY level, which drove a main stat to 53 by level 20 — a +21 modifier, nothing like the bounded thing (score − 10) / 2 assumes. Accuracy comes from the proficiency bonus now, not from levelUp." },
-        { name: "Monster XP", formula: "ceil(monster's minFloor / 2)", note: "1 XP for a floor 1–2 monster, 2 for floor 3–4, 3 for floor 5+." },
+        { name: "Monster XP", formula: "ceil(monster's minFloor / 2), or 0 once your level > its maxLvl", note: "1 XP for a floor 1–2 monster, 2 for floor 3–4, 3 for floor 5+. maxLvl is SPD's anti-grind cap (blank = minFloor + 5); two levels past it the monster stops dropping loot too." },
         { name: "Boss XP", formula: "15 + round(boss's max HP × 0.4)", note: "" },
       ],
     },
@@ -2069,7 +2071,7 @@
   }
   function tableHint(coll) {
     return ({
-      monsters: "minFloor is the ON/OFF switch: leave it EMPTY to disable a monster, or set the DEPTH it starts appearing on (1–25, the floor number in the HUD — not a position within the biome). A monster must also be listed in a biome (Biomes tab) to show up there. speed (>1 acts more often, <1 less; blank = 1) is the base for BOTH axes; walk spd / atk spd override it one at a time, so a bear can lumber between tiles (walk 0.8) and still swing normally, or a hornet dart in AND sting fast. Blank to-hit / AC / range / charge / ranged use engine defaults (to-hit +3, AC 11). Auras, death bursts and hexes are on the second table below. Sprite = assets/tiles/<key>.png — a row with no PNG falls back to its glyph in its colour, which works but is not the finished article.",
+      monsters: "minFloor is the ON/OFF switch: leave it EMPTY to disable a monster, or set the DEPTH it starts appearing on (1–25, the floor number in the HUD — not a position within the biome). A monster must also be listed in a biome (Biomes tab) to show up there. speed (>1 acts more often, <1 less; blank = 1) is the base for BOTH axes; walk spd / atk spd override it one at a time, so a bear can lumber between tiles (walk 0.8) and still swing normally, or a hornet dart in AND sting fast. Blank to-hit / AC / range / charge / ranged use engine defaults (to-hit +3, AC 11). max lvl = the player level past which it gives no XP (SPD's maxLvl; blank = minFloor + 5). Auras, death bursts and hexes are on the second table below. Sprite = assets/tiles/<key>.png — a row with no PNG falls back to its glyph in its colour, which works but is not the finished article.",
       abilities: "What a creature DOES, over and above hitting you. All of it optional, all of it blank by default. AURA: auraRange is the Chebyshev radius, aura ×step multiplies what a player's move costs (Red Slime 2) and aura ×swing what an attack costs (Black Slime 1.5); several auras compound. An aura only bites while the creature is IN SIGHT — an unexplained tax arriving from an unlit room is a bug report, not a mechanic — and the tiles it covers are tinted with aura colour. BURST (on death): burst r is the radius, burst dmg the top of a 1..N roll (0 = use the current DEPTH), and burn/poison/MP % are shares of the damage that victim actually took; stun min/max is rolled on top. It catches monsters as well as the player, so a pack can chain. HEXES (on a connecting hit): hex % is the chance one lands, hexes is a comma-separated pick from hex, blind, vertigo, charm, berserk — hex makes half your CONNECTING blows slide off, blind halves sight, vertigo scrambles the direction you press, charm stops you attacking the singer until something hurts you, berserk hands your turns to the AI. hex and charm last the floor number, vertigo 3 turns, berserk 3–5.",
       gear: "cat sets the equip slot; subtype classifies it (weapons: dagger/sword/axe/spear/bow — armor: light/medium/heavy). WEAPONS use dmg min/max, speed, and to-hit (added to the d20 attack roll); ARMOR uses mit min/max (each hit blocks a random amount in that range) and, if LIGHT, its INT and MP columns; JEWELRY uses neither (value = rolled affixes). speed = attacks per turn: >1 attacks faster (cost 1/speed), <1 slower. range = reach: blank/1 is melee, 2+ lets you tap a monster that far away with line of sight to strike (spear 2, bow 5). Armour grants NO flat AC — the subtype IS the identity: light pays in INT/MP, MEDIUM is the only one that turns DEX into AC (up to tier + plus of it), heavy just soaks. tier drives affix size AND groups drops (it also scales any Speed/Poison/Defense enchant the item rolls). rarity % = this type's drop chance within its tier+category; blank = a 'default' that splits the remaining %. Tier-by-floor and category odds live in the Loot tab. Sprites: assets/tiles/<key>.png, else the glyph.",
       consumables: "effect is what it does: heal, strength, vitality, intelligence, dexterity, resonance, stone_skin, poison, paralysis, map, teleport, burn, invisibility, thunderclap, upgrade_item, skill_point. The five that read as a stat name (strength / vitality / intelligence / dexterity / resonance) each add a permanent +1 to that stat and are what the merchant's guaranteed opening slot draws from. Tick 'no drop' to keep one out of the loot pool (e.g. the torch). Drop weight is that row's share of the loot roll (blank = 1); shop weight overrides it on the merchant's shelf only (blank = same as drop weight), which is how poison and paralysis are stocked more rarely than they drop.",

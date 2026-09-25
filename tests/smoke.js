@@ -262,7 +262,7 @@ async function main() {
       if (c.passableAt(x, y) && !c.peek().mlist.some((m) => m.x === x && m.y === y)) { spot = { x, y }; break; }
     }
     if (!spot) return { problems: ["no open tile to test gas on"] };
-    c.placeMonster("rat", spot.x, spot.y);
+    c.spawnMonsterAt("rat", spot.x, spot.y);
     const hp0 = c.monsterHpAt(spot.x, spot.y);
     c.spawnGas("toxic", spot.x, spot.y, 400);
     c.gasTick();
@@ -292,6 +292,69 @@ async function main() {
     return { problems };
   });
   check(gas.problems.length === 0, "gases: " + gas.problems.join("; "));
+
+  // SPD's depth scaling: the XP cap (maxLvl), 5-tier gear bands, the Monk's
+  // parry, Town's roster and the Horror's 600-turn clock.
+  const scale = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, problems = [];
+    c.regenerate(); c.hurt(-999);
+    const p = c.peek();
+    const open = () => {
+      const q = c.peek();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const x = q.x + dx, y = q.y + dy;
+        if (c.passableAt(x, y) && !q.mlist.some((m) => m.x === x && m.y === y)) return { x, y, dx, dy };
+      }
+      return null;
+    };
+    // XP cap: a rat pays at level 1 and nothing once you've outgrown it.
+    let s = open();
+    if (!s) return { problems: ["no open tile beside the player"] };
+    if (p.level <= 1) {
+      c.spawnMonsterAt("rat", s.x, s.y);
+      const xp1 = c.killAt(s.x, s.y);
+      if (!(xp1 > 0)) problems.push("a rat paid no XP at level 1");
+    }
+    c.setLevel(12);
+    c.spawnMonsterAt("rat", s.x, s.y);
+    if (c.monsterFx(s.x, s.y).maxLvl !== D.monsters.rat.maxLvl) problems.push("rat maxLvl does not come from data.js");
+    const xp2 = c.killAt(s.x, s.y);
+    if (xp2 !== 0) problems.push("a rat still paid " + xp2 + " XP at level 12 (maxLvl " + D.monsters.rat.maxLvl + ")");
+    // The Monk: a focused Monk parries the first blow, and can be hit once it's spent.
+    s = open();
+    c.spawnMonsterAt("monk", s.x, s.y);
+    c.setMonsterAt(s.x, s.y, { state: "hunting", aware: true, focus: true, focusCd: 0 });
+    const hp0 = c.monsterFx(s.x, s.y).hp;
+    c.hurt(-999); c.step(s.dx, s.dy);
+    const f1 = c.monsterFx(s.x, s.y);
+    if (!f1) problems.push("the monk vanished after one blow");
+    else {
+      if (f1.hp !== hp0) problems.push("a focused monk took damage instead of parrying");
+      if (f1.focus) problems.push("the monk's parry did not spend its focus");
+      let hit = false;
+      for (let i = 0; i < 40 && !hit; i++) {
+        const m = c.monsterFx(s.x, s.y);
+        if (!m) { hit = true; break; }
+        if (m.hp < hp0) { hit = true; break; }
+        c.setMonsterAt(s.x, s.y, { focus: false, focusCd: 9 });
+        c.hurt(-999); c.step(s.dx, s.dy);
+      }
+      if (!hit) problems.push("an unfocused monk could not be hit in 40 swings");
+    }
+    const mk = c.monsterFx(s.x, s.y); if (mk) c.killAt(s.x, s.y);
+    // Town: every monster it names exists.
+    const town = D.biomes.find((b) => b.key === "town");
+    for (const k of town.monsters) if (!D.monsters[k]) problems.push("Town names a missing monster: " + k);
+    for (const k of ["monk", "warlock"]) if (town.monsters.indexOf(k) < 0) problems.push("Town has no " + k);
+    // Gear: tier 4 and 5 actually drop in the Lake.
+    const h = c.tierHist(22, 2000);
+    if (!(h[4] > 0 && h[5] > 0)) problems.push("no tier 4/5 gear in 2000 drops at depth 22: " + JSON.stringify(h));
+    // The Horror's clock.
+    if (c.floorStages().grant !== 600) problems.push("floor grant is " + c.floorStages().grant + ", not 600");
+    c.hurt(-999);
+    return { problems };
+  });
+  check(scale.problems.length === 0, "scaling: " + scale.problems.join("; "));
 
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.

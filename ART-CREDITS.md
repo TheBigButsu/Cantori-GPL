@@ -83,6 +83,8 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 
 | `animated_statue.png` | `core/src/main/assets/sprites/statue.png` (idle frame, 2x) | Animated Statue | none |
 | `rose_ghost.png` | `core/src/main/assets/sprites/ghost.png` (idle frame, 2x) | Dried Rose ghost | none |
+| `monk.png` | `core/src/main/assets/sprites/monk.png` (idle frame 1, 15×14, 2x) | Monk (Town) | none |
+| `warlock.png` | `core/src/main/assets/sprites/warlock.png` (idle frame, 12×15, 2x) | Warlock (Town) | none |
 | `bag_backpack.png`, `bag_seed.png`, `bag_scroll.png`, `bag_potion.png` | `core/src/main/assets/sprites/items.png`, the bag row (index 481–484), 2x | the bag tabs and bags | none |
 | `trap_*.png` (9) | `core/src/main/assets/environment/terrain_features.png`, rows 0–5 (colour + 16 × shape, per SPD's Trap classes), 2x | the traps | none |
 | `plant_*.png` (11) | `core/src/main/assets/environment/terrain_features.png`, row 7, 2x | the plants | none |

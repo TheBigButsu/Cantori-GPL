@@ -3919,3 +3919,31 @@ Monsters avoid harmful gas. A new floor starts clean.
 
 **Boss patterns** use `spawnGas / gasBurst / gasLine / gasRing / gasAt /
 clearGases`, passed to `bosses.js`. See docs/BOSSES.md.
+
+## Depth scaling, the SPD way — DONE
+
+SPD does not make a monster stronger the deeper it appears. A snake is a snake on
+floor 2 and on floor 7; depth brings *different* monsters, better gear and a
+stronger hero. Cantori already worked that way (a monster's `level` is only used
+for saves), and this pass fills in the rest of SPD's shape:
+
+- **XP cap (`maxLvl`, SPD `Mob.maxLvl`).** Every monster row carries one — by
+  default `minFloor + 5`, SPD's usual gap. Past it the kill pays no XP; two levels
+  past it, no Wealth drop either. Examine says "too weak to teach you anything".
+  It runs *beside* the Horror: the cap stops farming kills you have outgrown, the
+  Horror stops camping on a floor. The Horror now arrives at **600** turns (was
+  700), warnings at 200 / 350 (regen stops) / 450.
+- **Gear tiers use all five tiers.** `loot.tierBands` only ever had three weights,
+  so tier 4 and 5 weapons and armour never dropped at random. The bands are now
+  SPD's `floorSetTierProbs` spread with each biome's own tier as the main one:
+  forest 75/20/4/1/0, caves 25/50/20/5/0, crypt 5/20/50/20/5, town 0/5/20/50/25,
+  lake 0/0/5/25/70.
+- **Guaranteed drops and respawns were already here** — one Potion of Insight a
+  floor, two Scrolls of Upgrade a biome, and `spawnEvery`/`spawnCap` reinforcements
+  — so nothing changed there.
+- **Town's roster** was Imp only (its jackal and hornet had been deleted). It now
+  has SPD's **Monk** (fast double attacks; *Focus* parries the next blow outright,
+  returns after 6–7 turns, faster if it has to chase you) and **Warlock** (ranged
+  bolt, 50% to Hex — standing in for SPD's Degrade).
+- **Bat AC 20, snake AC 21** (were 22 and 24), which puts early to-hit near SPD's
+  snake (~25–30% for Chadwick).

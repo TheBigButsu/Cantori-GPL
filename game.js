@@ -4171,12 +4171,26 @@
     }
     if (target.horror) { horrorDeadAt = turns; xp = 0; }
     else if (target.boss) xp = 15 + Math.round(target.maxHp * 0.4);
+    else if (player.level > monMaxLvl(target)) xp = 0;   // outgrown: SPD's maxLvl
     else { const mf = (VERMIN[target.type] && VERMIN[target.type].minFloor) || 1; xp = Math.max(1, Math.ceil(mf / 2)); }
     if (xp > 0) gainXP(xp);
-    if (!target.boss && !target.horror) wealthDrop(target);
+    // ...and two levels past that it stops paying out at all, as SPD's loot does.
+    if (!target.boss && !target.horror && player.level <= monMaxLvl(target) + 2) wealthDrop(target);
     tickBoonKillCounters();
     _boss.onKill(target);
     if (target.boss && !monsters.some((m) => m.boss)) onBossDefeated(target.x, target.y);
+  }
+
+  // The level past which a monster teaches you nothing — SPD's Mob.maxLvl. The
+  // Horror prices out camping on a floor; this prices out going BACK for the
+  // easy kills: a floor of rats is worth nothing to someone who has outgrown
+  // rats, so the only XP left is further down. Data sets it per row; a row
+  // without one gets SPD's usual gap of five levels past where it first appears.
+  const MAXLVL_GAP = 5;
+  function monMaxLvl(m) {
+    const v = VERMIN[m.type] || {};
+    if (v.maxLvl != null && v.maxLvl !== "") return Number(v.maxLvl);
+    return (v.minFloor || 1) + MAXLVL_GAP;
   }
 
   // Blink rank 2+: every kill takes turns off its cooldown, so a mage who is
@@ -4784,6 +4798,27 @@
   //   full — drop that −1, so each square is worth the whole attack. This is what
   //          "damage reduction is removed" means: the reduction is the −1, and the
   //          capstone is that every square finally lands at full weight.
+  // ---- Focus: the Monk's parry (SPD actors/mobs/Monk.java) ----
+  // A hunting Monk settles into Focus, and a focused Monk turns the next blow
+  // aside outright — SPD gives it infinite evasion until that one parry spends
+  // it. The doorway doesn't beat it (it isn't dodging, it's catching the blow);
+  // an ambush does, because Focus needs it to be hunting you in the first place.
+  // It comes back 6–7 time-units later, and every step it takes knocks a further
+  // 0.67 off that, which is SPD's rule for "kiting a Monk makes it worse".
+  const FOCUS_MIN = 6, FOCUS_MAX = 7, FOCUS_STEP = 0.67;
+  function focusTick(m, spent, moved) {
+    m.focusCd = (m.focusCd || 0) - spent - (moved ? FOCUS_STEP : 0);
+    if (!m.focus && m.state === HUNTING && m.focusCd <= 0) m.focus = true;
+  }
+  function parried(target) {
+    if (!target.parry || !target.focus || (target.stun || 0) > 0 || (target.para || 0) > 0) return false;
+    target.focus = false;
+    target.focusCd = FOCUS_MIN + Math.random() * (FOCUS_MAX - FOCUS_MIN);
+    floatText(target.x, target.y, "parry", "#d8b060");
+    log("The " + monName(target) + " parries your blow!");
+    return true;
+  }
+
   function attack(attacker, target, bonus, opts) {
     bonus = bonus || 0;
     if (attacker === player) {
@@ -4807,6 +4842,7 @@
       // and it is the reliable answer to the genuinely slippery foes (a bee at
       // eva 25) that a fair roll almost never lands on.
       const pinned = isDoor(target.x, target.y);
+      if (!surprise && parried(target)) return;
       if (!surprise && !pinned && !rollHit(playerToHit(), target.ac != null ? target.ac : MON_AC)) {
         floatText(target.x, target.y, "miss", "#cfe6b0");
         log("The " + monName(target) + " evades your blow.");
@@ -6193,22 +6229,26 @@
   // A floor tolerates you for its patience budget. Past that it sends something
   // after you, and it does not stop sending it.
   //
-  // This is the anti-grind, and it is deliberately a MONSTER rather than a rule.
-  // A hard XP cutoff per monster (Shattered Pixel Dungeon's `maxLvl`) or a forced
-  // descent would both work arithmetically, but they teach the player nothing and
-  // they cannot be played around. A hunter can: you can run from it, break line of
-  // sight, fight it if you have the resources, or — the intended read — take the
-  // stairs. Grinding stops being disallowed and starts being expensive, which is
-  // the same answer the surprise/ambush system gives everywhere else in the game.
+  // This is half the anti-grind, and it is deliberately a MONSTER rather than a
+  // rule. A hunter can be played around: you can run from it, break line of sight,
+  // fight it if you have the resources, or — the intended read — take the stairs.
+  // Camping stops being disallowed and starts being expensive, which is the same
+  // answer the surprise/ambush system gives everywhere else in the game.
+  //
+  // The other half is SPD's per-monster XP cap (monMaxLvl): the Horror prices out
+  // STAYING on a floor, the cap prices out the kills you have outgrown. Either one
+  // alone leaves a hole — the Horror alone still pays full XP for rats at level
+  // 20 inside the budget; the cap alone lets you rest forever for free.
   //
   // `turns` already resets in generateLevel, so it IS the per-floor clock; no
   // second counter to keep in sync.
-  // A floor now GRANTS 700 turns and adds whatever you had left when you took the
+  // A floor now GRANTS 600 turns (700 before the SPD scaling pass; the XP cap took
+  // over some of the Horror's job, so it can afford to arrive sooner) and adds whatever you had left when you took the
   // last stairs, so leaving early banks time and camping to the wire spends it.
   // Flat 600 a floor made the optimal play "rest until 150 left, then descend",
   // every floor, forever — the clock reset was a free refill and the anti-grind
   // was only ever a per-floor speed limit.
-  const FLOOR_GRANT = 700;        // fresh turns handed out on arrival
+  const FLOOR_GRANT = 600;        // fresh turns handed out on arrival
   // 1000, not 1400: the point of banking is to reward moving, and a ceiling that
   // holds two floors' worth lets you bank your way back into camping.
   const FLOOR_BANK_MAX = 1000;    // ...and the most that can ever be standing
@@ -6222,9 +6262,9 @@
   // into a run-ender. The first stage is now a warning you can act on — the floor
   // has noticed you — and the price lands at 450, with 150 turns left to leave.
   const FLOOR_STAGES = [
-    { at: 300, msg: "The spark has left this location." },
-    { at: 450, spark: true, msg: "You feel yourself losing your way." },
-    { at: 550, msg: "You must leave now, or you do not think you ever will." },
+    { at: 200, msg: "The spark has left this location." },
+    { at: 350, spark: true, msg: "You feel yourself losing your way." },
+    { at: 450, msg: "You must leave now, or you do not think you ever will." },
   ];
   const FLOOR_WARNING = FLOOR_STAGES[0].at;   // when the TIME bar turns
   const HORROR_RESPAWN = 60;      // turns after a kill before the next one comes
@@ -6731,7 +6771,10 @@
         // in one dash and is really a way of hitting you — at attack speed.
         // Paying after the fact is what lets one monster have two speeds; energy
         // may dip below zero, and the next turn's income digs it back out.
-        m.energy -= 1 / (legs.length > before ? monWalkSpeed(m) : monAtkSpeed(m));
+        const moved = legs.length > before;
+        const spent = 1 / (moved ? monWalkSpeed(m) : monAtkSpeed(m));
+        m.energy -= spent;
+        if (m.parry) focusTick(m, spent, moved);
       }
       legLog = null;
       m.acts = acts;   // actions taken this world turn — a monster may move at most
@@ -7920,6 +7963,14 @@
         ctx.font = `700 ${Math.max(9, Math.floor(tile * 0.34))}px ${bodyFont()}`;
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText("z", px + tile * 0.80, py + tile * 0.18);
+      }
+      // A focused Monk parries the next blow — worth knowing before you spend
+      // a big hit on it, so the Focus shows as a gold diamond in the corner.
+      if (m.parry && m.focus) {
+        ctx.fillStyle = "#e8c060";
+        ctx.font = `700 ${Math.max(9, Math.floor(tile * 0.34))}px ${bodyFont()}`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("\u25c6", px + tile * 0.20, py + tile * 0.18);
       }
     }
 
@@ -10462,8 +10513,10 @@
       if (hexList(m).length) tags.push("hexes: " + hexList(m).map((k) => HEXES[k].name.toLowerCase()).join("/"));
       if ((m.ac != null ? m.ac : MON_AC) >= 15) tags.push("evasive");
       if ((m.toHit != null ? m.toHit : MON_TOHIT) >= 4) tags.push("accurate");
+      if (m.parry) tags.push(m.focus ? "focused — will parry" : "parries");
       if (m.state === SLEEPING) tags.push("asleep");
       else if (!m.aware) tags.push("unaware");
+      if (!m.boss && !m.horror && VERMIN[m.type] && player.level > monMaxLvl(m)) tags.push("too weak to teach you anything");
       log(monName(m) + " — Lv " + (m.level || 1) + ", HP " + Math.max(0, m.hp) + "/" + m.maxHp + (tags.length ? " (" + tags.join(", ") + ")" : ""));
       return;
     }
@@ -11256,7 +11309,16 @@
     gasTick: () => gasTick(),
     trapCount: () => traps.length,
     // Put a monster down (for a gas to work on), by key, at a tile.
-    placeMonster: (k, x, y) => { if (!VERMIN[k] || !passable(x, y) || monsterAt(x, y)) return false; monsters.push(makeMonster(k, x, y)); return true; },
+    // (Not `placeMonster` — that name already moves an existing monster, above,
+    // and a second key in this literal silently replaced it.)
+    spawnMonsterAt: (k, x, y) => { if (!VERMIN[k] || !passable(x, y) || monsterAt(x, y)) return false; monsters.push(makeMonster(k, x, y)); return true; },
+    // Poke a monster's live fields (state, focus, hp …) for a test.
+    setMonsterAt: (x, y, o) => { const m = monsterAt(x, y); if (!m) return false; if (o.state) setState(m, o.state); Object.assign(m, o); return true; },
+    monsterFx: (x, y) => { const m = monsterAt(x, y); return m ? { type: m.type, hp: m.hp, state: m.state, focus: !!m.focus, focusCd: m.focusCd || 0, maxLvl: monMaxLvl(m) } : null; },
+    // Kill whatever stands at (x, y) the ordinary way and report the XP it paid.
+    killAt: (x, y) => { const m = monsterAt(x, y); if (!m) return null; const before = _xpEver; m.hp = 0; killMonster(m); return _xpEver - before; },
+    // Tier histogram of n random gear drops at a depth (weapons and armour only).
+    tierHist: (d, n) => { const h = {}; for (let i = 0; i < n; i++) { const g = rollGearDrop(d); const b = GEAR[g.key]; if (!b || (b.cat !== "weapon" && b.cat !== "armor")) continue; h[b.tier || 1] = (h[b.tier || 1] || 0) + 1; } return h; },
     monsterHpAt: (x, y) => { const m = monsterAt(x, y); return m ? m.hp : null; },
     // Bags: what each holds, give one, and look at a tab.
     bags: () => Object.fromEntries(Object.entries(player.bags || {}).map(([k, a]) => [k, a.map((e) => ({ key: e.key, count: e.count || 1 }))])),
