@@ -40,7 +40,10 @@ window.CantoriBosses = function (deps) {
     spawnBurst = deps.spawnBurst, spawnNear = deps.spawnNear, spawnProjectile = deps.spawnProjectile,
     spawnStreak = deps.spawnStreak, startHunting = deps.startHunting, stepMonsterTo = deps.stepMonsterTo, tileProp = deps.tileProp,
     updateHUD = deps.updateHUD, normalAct = deps.normalAct,
-    incomingDamage = deps.incomingDamage, DMG = deps.DMG;
+    incomingDamage = deps.incomingDamage, DMG = deps.DMG,
+    // Gases (SPD's Blobs) for attack patterns — see docs/BOSSES.md, "Gases".
+    spawnGas = deps.spawnGas, gasBurst = deps.gasBurst, gasLine = deps.gasLine, gasRing = deps.gasRing,
+    gasAt = deps.gasAt, clearGases = deps.clearGases;
 
   // A boss's telegraphed move is still a blow: it enters the incoming-damage
   // ladder at the top (attack roll, evasion, RES, armour) exactly like a wolf's

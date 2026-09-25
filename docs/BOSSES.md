@@ -108,6 +108,47 @@ Don't rebuild any of these — they're passed into `bosses.js` as dependencies a
   near `(x, y)` the same way `spawnNear` does and additionally flags it `summoned: true` (visible
   in `peek().mlist`). `opts: { radius, count }`, both optional (default `3`, `1`).
 
+## Gases
+
+Gases are SPD's Blobs (see `// ---- Gases ----` in `game.js`). A playbook gets six
+functions in its deps. `kind` is one of `toxic`, `paralytic`, `confusion`,
+`corrosive`, `smoke`, `fire` and `frost`. `amount` is per tile.
+
+| Call | Does |
+|---|---|
+| `spawnGas(kind, x, y, amount)` | seeds one tile (walls ignore it) |
+| `gasBurst(kind, cx, cy, r, amount)` | a disc of radius `r`, which does not pass walls when `r > 1` |
+| `gasLine(kind, x0, y0, x1, y1, amount)` | every tile on the line |
+| `gasRing(kind, cx, cy, r, amount)` | a ring of radius `r` around a point |
+| `gasAt(kind, x, y)` | the volume there (0 = none), to aim at gaps or avoid your own cloud |
+| `clearGases()` | wipes every gas on the floor (a phase change) |
+
+How the amounts behave:
+
+- **The spreading gases** (toxic, paralytic, confusion, corrosive, smoke) diffuse
+  every turn and lose 1 per tile. A few hundred on one tile fills a room and
+  lasts 10–20 turns. 20–40 per tile along a line stays a line for a few turns,
+  which is a good telegraph.
+- **Fire** burns each tile for `amount` turns and jumps to flammable neighbours
+  (grass, bushes, doors, brambles, bookshelves). Frost puts it out.
+- **Frost** holds each tile for `amount` turns and freezes whoever is in it.
+- **Monsters avoid harmful gas.** The boss is affected like anything else unless
+  its playbook moves it out. Toxic gas hurts the boss too, so a boss that fills
+  its own arena should stand somewhere `gasAt` says is clear.
+
+```js
+// A pulse: every 8 turns, a ring of paralytic gas three tiles out, with a gap
+// on the player's side for the first two pulses so it can be read and dodged.
+function mothAct(m) {
+  m.pulse = (m.pulse || 0) + 1;
+  if (m.pulse % 8 === 0) {
+    gasRing("paralytic", m.x, m.y, 3, 30);
+    log("The Moth beats its wings — a ring of spores rolls outward!");
+  }
+  normalAct(m);
+}
+```
+
 ## Worked example
 
 A boss that summons two adds and telegraphs a slam once it drops below half HP — nothing here

@@ -3882,3 +3882,40 @@ category out of the backpack. The pack screen has a tab per container (icon and
 fill), and using, throwing and dropping work the same from any tab: `invArr()`
 is the open container, and `findCarried(key)` searches them all. Bag rows are
 `bag_*` in `data.js` (`holds`, `capacity`, `start`, `price`).
+
+## Gases are SPD's Blobs — DONE
+
+A per-tile volume for each gas that moves every world turn. **Spreading gases**
+(toxic, paralytic, confusion, corrosive, smoke) follow SPD's Blob rule: each open
+tile becomes the average of itself and its open orthogonal neighbours, minus one,
+so a cloud pours through doors, thins and dies, and walls hold it. **Fire** burns
+a tile for its volume in turns and jumps to flammable neighbours (grass, lawn,
+bushes, doors, brambles, bookshelves), all of which burn to embers, so fire only
+ever opens the map (rule 5). **Frost** ticks down in place. Fire and frost put
+each other out.
+
+| Gas | Each turn you stand in it |
+|---|---|
+| Toxic | 1 + depth/5 damage (RES softens it, armour does not) |
+| Paralytic | paralysed (with Cantori's RES saves) |
+| Confusion | vertigo; monsters slow and lose the trail |
+| Corrosive | damage that grows each turn you stay |
+| Smoke | nothing, but it blocks sight |
+| Fire | burning |
+| Frost | frozen for the turn |
+
+Monsters avoid harmful gas. A new floor starts clean.
+
+**Sources:**
+
+- **Potions.** A thrown Potion of Poison is a toxic cloud; a thrown Potion of
+  Paralysis is a paralytic cloud (both 1000, SPD's amount). Drinking them keeps
+  Cantori's effects. The new Potions of **Liquid Flame** and **Frost** fill a 3×3
+  where they land (and at your feet if you drink them, as in SPD).
+- **Plants.** Firebloom seeds real fire and Icecap real frost.
+- **Traps.** Toxic, paralytic, confusion, corrosion (from depth 11), burning and
+  chilling gas traps join the pool, with SPD's trap art. The Burned room's traps
+  are burning traps.
+
+**Boss patterns** use `spawnGas / gasBurst / gasLine / gasRing / gasAt /
+clearGases`, passed to `bosses.js`. See docs/BOSSES.md.

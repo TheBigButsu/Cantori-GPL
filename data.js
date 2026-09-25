@@ -1484,7 +1484,9 @@ window.CANTORI_DATA = {
       "weight": 2,
       "shopWeight": 1.5,
       "glyph": "!",
-      "color": "#7ec98a"
+      "color": "#7ec98a",
+      "gas": "toxic",
+      "gasAmount": 1000
     },
     "paralysis": {
       "cat": "potion",
@@ -1493,7 +1495,31 @@ window.CANTORI_DATA = {
       "weight": 2,
       "shopWeight": 1.5,
       "glyph": "!",
-      "color": "#cfd6e6"
+      "color": "#cfd6e6",
+      "gas": "paralytic",
+      "gasAmount": 1000
+    },
+    "liquid_flame": {
+      "cat": "potion",
+      "name": "Potion of Liquid Flame",
+      "effect": "gas",
+      "gas": "fire",
+      "gasAmount": 2,
+      "gasRadius": 1,
+      "weight": 3,
+      "glyph": "!",
+      "color": "#e0602a"
+    },
+    "frost": {
+      "cat": "potion",
+      "name": "Potion of Frost",
+      "effect": "gas",
+      "gas": "frost",
+      "gasAmount": 10,
+      "gasRadius": 1,
+      "weight": 3,
+      "glyph": "!",
+      "color": "#8ad0f0"
     },
     "mapping": {
       "cat": "scroll",
@@ -1724,6 +1750,66 @@ window.CANTORI_DATA = {
       "weight": 1,
       "glyph": "◉",
       "color": "#e0685a"
+    },
+    "toxic": {
+      "name": "Toxic Gas Trap",
+      "effect": "gas",
+      "gas": "toxic",
+      "amount": 300,
+      "perDepth": 20,
+      "weight": 1,
+      "glyph": "^",
+      "color": "#6aaa3a"
+    },
+    "paralytic": {
+      "name": "Paralytic Gas Trap",
+      "effect": "gas",
+      "gas": "paralytic",
+      "amount": 300,
+      "weight": 1,
+      "glyph": "^",
+      "color": "#d2af46"
+    },
+    "confusion": {
+      "name": "Confusion Gas Trap",
+      "effect": "gas",
+      "gas": "confusion",
+      "amount": 300,
+      "perDepth": 20,
+      "weight": 1,
+      "glyph": "^",
+      "color": "#b478d2"
+    },
+    "corrosion": {
+      "name": "Corrosion Trap",
+      "effect": "gas",
+      "gas": "corrosive",
+      "amount": 80,
+      "perDepth": 5,
+      "weight": 1,
+      "minFloor": 11,
+      "glyph": "^",
+      "color": "#a0aa50"
+    },
+    "burning": {
+      "name": "Burning Trap",
+      "effect": "gas",
+      "gas": "fire",
+      "amount": 2,
+      "radius": 1,
+      "weight": 1,
+      "glyph": "^",
+      "color": "#f08228"
+    },
+    "chilling": {
+      "name": "Chilling Trap",
+      "effect": "gas",
+      "gas": "frost",
+      "amount": 10,
+      "radius": 1,
+      "weight": 1,
+      "glyph": "^",
+      "color": "#aad7ff"
     }
   },
   "boons": {

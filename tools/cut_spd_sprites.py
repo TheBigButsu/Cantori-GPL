@@ -111,7 +111,12 @@ for i, k in enumerate(PLANT_ORDER):
 # FLOOR_DECO 1, GRASS 2, EMBERS 3 — the cave floor the forest walks on.
 ENV_URL = ("https://raw.githubusercontent.com/00-Evan/shattered-pixel-dungeon/"
            + SPD_COMMIT + "/core/src/main/assets/environment/{}.png")
-ENV = {"terrain_features": {"plant_" + k: 7 * 16 + i for i, k in enumerate(PLANT_ORDER) if k in PLANTS},
+ENV = {"terrain_features": dict({"plant_" + k: 7 * 16 + i for i, k in enumerate(PLANT_ORDER) if k in PLANTS},
+                             trap_toxic=3 + 16 * 2, trap_paralytic=2 + 16 * 2, trap_confusion=4 + 16 * 2,
+                             trap_corrosion=7 + 16 * 2, trap_burning=1, trap_chilling=6,
+                             trap_teleport=4, trap_arrow=7 + 16 * 5, trap_bomb=1 + 16 * 4),
+       # Traps: terrain_features rows 0-6 are Trap shapes (DOTS 0, GRILL 2, DIAMOND 4,
+       # CROSSHAIR 5 …) and columns its colours (RED 0 … BLACK 8): index = colour + 16 * shape.
        # 122 / 125: RAISED_HIGH_GRASS and its _ALT (DungeonTileSheet RAISED_OTHER = xy(9, 8)).
        "tiles_caves": {"forest_floor": 0, "forest_floor_deco": 1, "forest_lawn": 2, "forest_embers": 3,
                        "forest_grass": 122, "forest_grass_alt": 125}}

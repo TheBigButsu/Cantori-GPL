@@ -430,7 +430,7 @@
   const isWall = (x, y) => !inBounds(x, y) || !!tileProp(x, y, "solid");
   const isDoor = (x, y) => inBounds(x, y) && map[y][x] === DOOR;
   const isThorn = (x, y) => inBounds(x, y) && map[y][x] === THORN;
-  const shuns = (x, y) => !!tileProp(x, y, "shun");     // monsters (and drops/teleports) avoid these tiles
+  const shuns = (x, y) => !!tileProp(x, y, "shun") || (inBounds(x, y) && harmfulGasAt(x, y));     // monsters (and drops/teleports) avoid these tiles — and any harmful gas
   // Walkable on foot. Deep water counts as blocked here, which is what makes every
   // spawn, drop, knockback and auto-travel route dodge it without a special case.
   // Anything that flies asks canStep/passableFor instead.
@@ -452,7 +452,7 @@
   const propDoorOpenAt = (x, y) => { if (inBounds(x, y) && map[y][x] === DOOR) propOpenDoors.add(y * MAP_W + x); };
   // Sight (FOV + line of sight) is blocked by walls and by *closed* doors — so a
   // room stays hidden until you reach its doorway, enabling surprise ambushes.
-  const blocksSight = (x, y) => !inBounds(x, y) || tileProp(x, y, "opaque") || (map[y][x] === DOOR && !doorOpen(x, y));
+  const blocksSight = (x, y) => !inBounds(x, y) || tileProp(x, y, "opaque") || (map[y][x] === DOOR && !doorOpen(x, y)) || smokeAt(x, y);
 
   function blankGrid(fill) {
     const g = [];
@@ -1730,11 +1730,14 @@
   }
   // ---- Traps: hidden on the floor, sprung when stepped on, spotted by chance ----
   function pickTrapKey() {
-    if (!TRAP_KEYS.length) return null;
-    let total = 0; for (const k of TRAP_KEYS) total += (TRAPS[k].weight || 1);
+    // `minFloor` (a depth) holds a trap back until the floors that can bear it —
+    // SPD's corrosion traps are a city thing, not a sewer one.
+    const keys = TRAP_KEYS.filter((k) => TRAPS[k].minFloor == null || TRAPS[k].minFloor <= depth);
+    if (!keys.length) return null;
+    let total = 0; for (const k of keys) total += (TRAPS[k].weight || 1);
     let r = Math.random() * total;
-    for (const k of TRAP_KEYS) { r -= (TRAPS[k].weight || 1); if (r < 0) return k; }
-    return TRAP_KEYS[0];
+    for (const k of keys) { r -= (TRAPS[k].weight || 1); if (r < 0) return k; }
+    return keys[0];
   }
   function placeTraps() {
     if (!TRAP_KEYS.length) return;
@@ -1818,6 +1821,7 @@
       else teleportToFurthestMonster();
     }
     else if (def.effect === "arrow") arrowTrap(t);
+    else if (def.effect === "gas") releaseGas(def.gas, t.x, t.y, (def.amount || 300) + (def.perDepth || 0) * depth, def.radius || 0);
     else if (!remote) applyEffect(def.effect);  // generic (player-centric) effects only when you step on it
   }
   // A remotely-sprung teleport rune seizes the creature standing on it (a monster
@@ -2432,6 +2436,185 @@
   // ever made FLOOR; an SPD room is as often lawn, special floor or a shallow pool.
   const openGround = (x, y) => { const t = map[y][x]; return t === FLOOR || t === SPFLOOR || t === LAWN || t === SHALLOW || t === EMBERS; };
 
+
+  // ---- Gases: SPD's Blobs (actors/blobs/*.java) -------------------------------
+  //
+  // A gas is a volume per tile. Every world turn a spreading gas does what SPD's
+  // Blob.evolve does: each open tile becomes the average of itself and its open
+  // orthogonal neighbours, minus one — so it pours through doors, fills a room,
+  // thins and dies away, and walls hold it. Fire and frost are SPD's own rules
+  // instead: fire burns a tile for its volume in turns and jumps to flammable
+  // neighbours (grass, bushes, doors, brambles, bookshelves — all of which burn
+  // to embers, so fire only ever OPENS the map; CLAUDE.md rule 5), frost ticks
+  // down in place, and each puts the other out.
+  //
+  // Whoever stands in a gas at the end of the turn takes its effect, monsters and
+  // player alike; monsters avoid stepping into a harmful one. Everything is
+  // cleared on a new floor.
+  //
+  // For boss playbooks: spawnGas / gasBurst / gasLine / gasRing / gasAt / clearGases
+  // are passed to bosses.js in its deps. See docs/BOSSES.md.
+  const GAS = {
+    toxic:     { name: "toxic gas",     rgb: [110, 170, 60],  spread: true, harmful: true,
+      affect(w) { gasHurt(w, 1 + Math.floor(depth / 5), "☠", "#9ad06a", "The toxic gas burns your lungs"); } },
+    paralytic: { name: "paralytic gas", rgb: [210, 175, 70],  spread: true, harmful: true,
+      affect(w) { if (w === player) { if (!(player.para > 0)) paralyzePlayer(); } else if (!(w.para > 0)) paralyzeMonster(w); } },
+    confusion: { name: "confusion gas", rgb: [180, 120, 210], spread: true, harmful: true,
+      affect(w) { if (w === player) player.vertigo = Math.max(player.vertigo || 0, 2); else { w.chill = Math.max(w.chill || 0, 2); if (w.state === HUNTING && Math.random() < 0.5) setState(w, WANDERING); } } },
+    // SPD CorrosiveGas: damage that grows every turn you stay in it.
+    corrosive: { name: "corrosive gas", rgb: [160, 170, 80],  spread: true, harmful: true,
+      affect(w) {
+        w.corrode = w.corrodeTurn === turns - 1 ? (w.corrode || 0) + 1 : 1;
+        w.corrodeTurn = turns;
+        gasHurt(w, Math.floor(depth / 5) + w.corrode, "≈", "#c0c060", "The corrosive gas eats at you");
+      } },
+    smoke:     { name: "smoke",         rgb: [120, 120, 125], spread: true, harmful: false, blocksSight: true, affect() {} },
+    fire:      { name: "fire",          rgb: [245, 130, 40],  fire: true,  harmful: true,
+      affect(w) {
+        const heat = 2 + Math.floor(depth / 4);
+        if (w === player) burnPlayer(heat);
+        else if (!(w.dots || []).some((d) => d.tag === "burn")) addDot(w, { tag: "burn", dmg: heat, rounds: 4, icon: "🔥", color: "#ff8f4a" });
+      } },
+    frost:     { name: "frost",         rgb: [170, 215, 255], frost: true, harmful: true,
+      affect(w) {
+        if (w === player) player.para = Math.max(player.para || 0, 1);
+        else w.para = Math.max(w.para || 0, w.boss ? 1 : 2);
+      } },
+  };
+  let gases = {};                 // kind -> Int32Array(MAP_W * MAP_H) of volume
+  const gasSolid = (x, y) => !inBounds(x, y) || !!tileProp(x, y, "solid");
+  const gasAt = (kind, x, y) => (gases[kind] && inBounds(x, y) ? gases[kind][y * MAP_W + x] : 0);
+  const harmfulGasAt = (x, y) => { for (const k in gases) if (GAS[k].harmful && gases[k][y * MAP_W + x] > 0) return true; return false; };
+  const smokeAt = (x, y) => !!(gases.smoke && gases.smoke[y * MAP_W + x] > 0);
+  function spawnGas(kind, x, y, amount) {
+    if (!GAS[kind] || gasSolid(x, y) || !(amount > 0)) return;
+    const g = gases[kind] || (gases[kind] = new Int32Array(MAP_W * MAP_H));
+    g[y * MAP_W + x] += Math.round(amount);
+  }
+  // Boss-pattern shapes. `amount` is per tile.
+  function gasBurst(kind, cx, cy, r, amount) {
+    for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
+      if ((x - cx) * (x - cx) + (y - cy) * (y - cy) > r * r + r) continue;       // a disc, not a square
+      if (r > 1 && !lineOfSight(cx, cy, x, y)) continue;                           // a burst does not pass walls
+      spawnGas(kind, x, y, amount);
+    }
+  }
+  function gasLine(kind, x0, y0, x1, y1, amount) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+    for (let i = 0; i <= n; i++) spawnGas(kind, Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), amount);
+  }
+  function gasRing(kind, cx, cy, r, amount) {
+    for (let a = 0; a < 360; a += Math.max(4, 90 / Math.max(1, r))) {
+      spawnGas(kind, Math.round(cx + Math.cos(a * Math.PI / 180) * r), Math.round(cy + Math.sin(a * Math.PI / 180) * r), amount);
+    }
+  }
+  function clearGases() { gases = {}; }
+  // Damage from a gas: RES softens it, armour does not (it is in your lungs).
+  function gasHurt(w, dmg, icon, color, msg) {
+    if (dmg <= 0) return;
+    if (w === player) {
+      const took = mitigateDamage(dmg, { noArmor: true });
+      if (took <= 0) return;
+      player.hp -= took; flash(player); floatText(player.x, player.y, icon + "-" + took, color);
+      if (!player.gasSaid || player.gasSaid < turns - 5) { log(msg + "! (-" + took + ")", "hurt"); player.gasSaid = turns; }
+      if (player.hp <= 0) { updateHUD(); die(); }
+    } else if (w.hp > 0) {
+      w.hp -= dmg; flash(w); floatText(w.x, w.y, icon + "-" + dmg, color);
+      if (w.hp <= 0) killMonster(w, "chokes and dies");
+    }
+  }
+  const FLAMMABLE = () => [GRASS, LAWN, DOOR, THORN, BOOKSHELF];
+  function evolveSpread(cur) {
+    const off = new Int32Array(cur.length);
+    let vol = 0;
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+      const k = y * MAP_W + x;
+      if (gasSolid(x, y)) continue;
+      let sum = cur[k], count = 1;
+      if (!gasSolid(x - 1, y)) { sum += cur[k - 1]; count++; }
+      if (!gasSolid(x + 1, y)) { sum += cur[k + 1]; count++; }
+      if (!gasSolid(x, y - 1)) { sum += cur[k - MAP_W]; count++; }
+      if (!gasSolid(x, y + 1)) { sum += cur[k + MAP_W]; count++; }
+      const v = sum >= count ? Math.floor(sum / count) - 1 : 0;
+      off[k] = v; vol += v;
+    }
+    return { off, vol };
+  }
+  function evolveFire(cur) {
+    const off = new Int32Array(cur.length), frost = gases.frost, flam = FLAMMABLE();
+    let vol = 0, mapChanged = false;
+    for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+      const k = y * MAP_W + x;
+      const cold = frost && frost[k] > 0;
+      if (cur[k] > 0) {
+        if (cold) { frost[k] = 0; continue; }                       // frost puts fire out, and is spent doing it
+        let f = cur[k] - 1;
+        if (f <= 0 && flam.includes(map[y][x])) { map[y][x] = EMBERS; mapChanged = true; }
+        if (plantAt(x, y)) plants = plants.filter((p) => !(p.x === x && p.y === y));   // a plant burns with its tile
+        off[k] = Math.max(0, f);
+      } else if (!cold && flam.includes(map[y][x]) && (cur[k - 1] > 0 || cur[k + 1] > 0 || cur[k - MAP_W] > 0 || cur[k + MAP_W] > 0)) {
+        off[k] = 4;                                                  // SPD: a flammable tile catches for four turns
+      }
+      vol += off[k];
+    }
+    if (mapChanged) computeFOV();
+    return { off, vol };
+  }
+  function evolveFrost(cur) {
+    const off = new Int32Array(cur.length), fire = gases.fire;
+    let vol = 0;
+    for (let k = 0; k < cur.length; k++) {
+      if (cur[k] <= 0) continue;
+      if (fire && fire[k] > 0) { fire[k] = 0; continue; }            // and fire melts frost
+      off[k] = cur[k] - 1; vol += off[k];
+    }
+    return { off, vol };
+  }
+  // Once a world turn: move every gas on, then let it do its work on whoever is in it.
+  function gasTick() {
+    for (const kind of Object.keys(gases)) {
+      const def = GAS[kind];
+      const r = def.fire ? evolveFire(gases[kind]) : def.frost ? evolveFrost(gases[kind]) : evolveSpread(gases[kind]);
+      if (r.vol > 0) gases[kind] = r.off; else delete gases[kind];
+    }
+    if (!Object.keys(gases).length) return;
+    if (gases.smoke) computeFOV();
+    const who = [player].concat(monsters.filter((m) => m.hp > 0));
+    for (const w of who) {
+      for (const kind of Object.keys(gases)) {
+        if (dead) return;
+        if (w !== player && w.hp <= 0) break;
+        if (gases[kind][w.y * MAP_W + w.x] > 0) GAS[kind].affect(w);
+      }
+    }
+    updateHUD();
+  }
+  // Drawn as a translucent wash over the tile, thicker where the volume is, with a
+  // slow drift so a cloud reads as a cloud and not as paint. Only what you can see.
+  function drawGases(SX, SY, now) {
+    for (const kind of Object.keys(gases)) {
+      const g = gases[kind], [r, gg, b] = GAS[kind].rgb;
+      for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+        const v = g[y * MAP_W + x];
+        if (v <= 0 || !visible[y][x]) continue;
+        const px = SX(x), py = SY(y);
+        const drift = 0.85 + 0.15 * Math.sin(now / 700 + x * 1.7 + y * 2.3);
+        let a;
+        if (GAS[kind].fire) a = Math.min(0.75, 0.35 + 0.1 * v) * (0.8 + 0.2 * Math.sin(now / 90 + x + y));
+        else if (GAS[kind].frost) a = Math.min(0.6, 0.25 + 0.04 * v);
+        else a = Math.min(GAS[kind].blocksSight ? 0.8 : 0.55, 0.12 + Math.log10(v + 1) * 0.14) * drift;
+        ctx.fillStyle = "rgba(" + r + "," + gg + "," + b + "," + a.toFixed(3) + ")";
+        ctx.fillRect(px, py, tile, tile);
+      }
+    }
+  }
+  // A potion, trap or plant letting its gas out at (x, y), sized from its row.
+  function releaseGas(kind, x, y, amount, radius) {
+    if (!GAS[kind]) return;
+    if (radius > 0) gasBurst(kind, x, y, radius, amount); else spawnGas(kind, x, y, amount);
+    spawnBurst(x, y, "rgb(" + GAS[kind].rgb.join(",") + ")");
+  }
+
   // ---- Plants and seeds: SPD's (plants/*.java) --------------------------------
   //
   // A plant grows where a seed is planted and does its one thing to whatever
@@ -2460,25 +2643,10 @@
   const PLANT_FX = {
     // SPD Firebloom: fire. Here: everything in the 3×3 catches alight, and the
     // grass there burns to embers.
-    firebloom: { desc: "bursts into flame around it", go(x, y) {
-      const heat = 3 + Math.floor(depth / 3);
-      for (const [a, b] of around9(x, y)) {
-        if (map[b][a] === GRASS || map[b][a] === LAWN) map[b][a] = EMBERS;
-        const w = whoAt(a, b);
-        if (w === player) { burnPlayer(heat); floatText(a, b, "🔥", "#ff8f4a"); }
-        else if (w && w.hp > 0) { addDot(w, { tag: "burn", dmg: heat, rounds: 4, icon: "🔥", color: "#ff8f4a" }); floatText(a, b, "🔥", "#ff8f4a"); startHunting(w); }
-      }
-      spawnBurst(x, y, "#ff8f4a");
-    } },
+    // SPD Firebloom: Blob.seed(pos, 2, Fire) — real fire, which spreads through grass.
+    firebloom: { desc: "bursts into flame", go(x, y) { releaseGas("fire", x, y, 2, 0); } },
     // SPD Icecap: freezing — everything in the 3×3 is frozen in place.
-    icecap: { desc: "freezes everything around it solid", go(x, y) {
-      for (const [a, b] of around9(x, y)) {
-        const w = whoAt(a, b);
-        if (w === player) paralyzePlayer();
-        else if (w && w.hp > 0) { w.para = Math.max(w.para || 0, w.boss ? PARA_BOSS_MAX : 3 + Math.floor(depth / 5)); floatText(a, b, "❄", "#8ad0f0"); }
-      }
-      spawnBurst(x, y, "#8ad0f0");
-    } },
+    icecap: { desc: "freezes everything around it solid", go(x, y) { releaseGas("frost", x, y, 3, 1); } },
     // SPD Sorrowmoss: poison, 5 + 2/3 of the depth.
     sorrowmoss: { desc: "poisons what treads on it", go(x, y, w) {
       const dose = 5 + Math.round(2 * depth / 3);
@@ -2616,7 +2784,7 @@
       if (kind && plantable(p.x + ox, p.y + oy)) plants.push({ x: p.x + ox, y: p.y + oy, kind });
     }
     for (const t of lv.traps) {
-      const key = pickTrapKey();
+      const key = t.kind === "fire" && TRAPS.burning ? "burning" : pickTrapKey();
       if (key && map[t.y + oy][t.x + ox] !== STAIRS) traps.push({ x: t.x + ox, y: t.y + oy, key, revealed: !t.hidden, sprung: false });
     }
     spdInfo = { w: lv.w, h: lv.h, ox, oy, rooms: lv.rooms.map((r) => ({ name: r.name, kind: r.kind, locked: r.locked })), keys: lv.keys };
@@ -2748,7 +2916,7 @@
     biomeIndex = biomeOf(depth);
     biome = DATA.biomes[biomeIndex];
 
-    ironKeys = 0; wells = []; spdInfo = null; plants = [];
+    ironKeys = 0; wells = []; spdInfo = null; plants = []; gases = {};
     if (!isBossDepth(depth) && useSpdFloors()) {
       const spdRooms = buildSpdFloor();
       if (spdRooms) { finishSpdFloor(spdRooms); return; }
@@ -2938,7 +3106,7 @@
     propOpenDoors = new Set();
     walkPath = [];
     monsters = [];
-    items = []; plants = [];
+    items = []; plants = []; gases = {};
     traps = [];
     decoys = [];
     notes = [];
@@ -5110,7 +5278,7 @@
     // for, and water was never meant to be a wall — see the TILE table, where it is
     // pointedly not `solid`.
     if (dx !== 0 && dy !== 0) {
-      const barrier = (bx, by) => tileProp(bx, by, "solid") || shuns(bx, by);
+      const barrier = (bx, by) => tileProp(bx, by, "solid") || tileProp(bx, by, "shun");   // terrain only: a gas is not a corner
       if (barrier(x + dx, y) && barrier(x, y + dy)) return false;
     }
     return true;
@@ -6527,6 +6695,7 @@
     _boss.tick(); if (dead) return;             // a boss's delayed effects (e.g. the Golem's node blasts)
     panX = 0; panY = 0; enemyFocusIdx = -1; pendingThrow = null;   // any action recenters the camera on you
     artifactTick(cost);
+    gasTick(); if (dead) return;
     if (player.bless && player.bless.turns > 0 && --player.bless.turns === 0) { player.bless = null; log("The starlight fades."); }
     // Timekeeper's Hourglass: while time is stopped, nothing else gets a turn.
     const frozen = player.timeFreeze > 0;
@@ -6929,6 +7098,7 @@
     // Seeds and the plants they grow (SPD's art — tools/cut_spd_sprites.py).
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].cat === "seed" || DATA.consumables[k].cat === "bag"),
     "bag_backpack",                                     // the backpack tab's icon
+    ...Object.keys(DATA.traps || {}).map((k) => "trap_" + k),
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].plant).map((k) => "plant_" + DATA.consumables[k].plant),
   ]));
   const SPRITES = {};
@@ -7223,6 +7393,15 @@
   // fuse shows its countdown while armed.
   function drawTrapMark(t, px, py, now) {
     const def = TRAPS[t.key] || {};
+    // SPD's trap art when there is a sprite for it; a sprung trap is drawn dim.
+    const spr = SPRITES["trap_" + t.key];
+    if (ready(spr)) {
+      if (t.sprung && !t.armed) ctx.globalAlpha = 0.4;
+      ctx.drawImage(spr, px, py, tile, tile);
+      ctx.globalAlpha = 1;
+      if (t.armed > 0) { ctx.fillStyle = "#fff2c0"; ctx.font = `bold ${Math.floor(tile * 0.4)}px ${bodyFont()}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(t.armed), px + tile / 2, py + tile / 2); }
+      return;
+    }
     const cx = px + tile / 2, cy = py + tile / 2;
     const spent = t.sprung && !t.armed;
     const col = spent ? "#6a5a72" : (def.color || "#b491d6");
@@ -7535,6 +7714,8 @@
     // way a wolf's bite does. A playbook that wants a move to land regardless
     // passes DMG.REDUCE (or REDUCE/TICK) instead of DMG.TOHIT and says why.
     incomingDamage, DMG: { TOHIT: DMG_TOHIT, EVADE: DMG_EVADE, REDUCE: DMG_REDUCE },
+    // Gases, for attack patterns (see docs/BOSSES.md): kinds are the keys of GAS.
+    spawnGas, gasBurst, gasLine, gasRing, gasAt, clearGases,
   });
 
   // ---- Draw: dungeon view --------------------------------------------------
@@ -7651,6 +7832,8 @@
       drawTrapMark(t, SX(t.x), SY(t.y), now);
       dim(SX(t.x), SY(t.y), (1 - litBright(t.x, t.y)) * 0.8);
     }
+
+    drawGases(SX, SY, now);
 
     // plants (drawn where they grow, remembered once seen like the floor itself)
     for (const p of plants) {
@@ -8563,7 +8746,10 @@
     identified.add(it.key);      // using an item reveals what it is
     if (wasUnidentified) log("It was a " + (def.name || it.key) + "!", "hit");
     takeOne(idx, arr); selectedInvIdx = -1;
-    applyEffect(def.effect);
+    // A potion whose only effect is its gas (Liquid Flame, Frost) lets it out right
+    // where you stand, as in SPD — they are meant to be thrown.
+    if (def.effect === "gas" && def.gas) { releaseGas(def.gas, player.x, player.y, def.gasAmount || 1000, def.gasRadius || 0); log("It was meant to be thrown — " + GAS[def.gas].name + " bursts out around you!", "hurt"); }
+    else applyEffect(def.effect);
     updateHUD();
     if (dead) { toggleInv(false); return; }
     worldTurn();
@@ -8607,7 +8793,13 @@
     const nm = entryName(one);
     const isPotion = !isGear(one) && CONSUM[one.key] && CONSUM[one.key].cat === "potion";
     spawnProjectile(player.x, player.y, tx, ty, isGear(one) ? "#d8cfa0" : consumColor(one.key));  // the item arcs to its target
-    if (isPotion) {
+    if (isPotion && CONSUM[one.key].gas) {
+      // SPD's potion actions: a gas potion shatters into its cloud where it lands.
+      identified.add(one.key);
+      const d = CONSUM[one.key];
+      releaseGas(d.gas, tx, ty, d.gasAmount || 1000, d.gasRadius || 0);
+      log("The " + CONSUM[one.key].name + " shatters — " + GAS[d.gas].name + " pours out!", "hit");
+    } else if (isPotion) {
       identified.add(one.key);
       floatText(tx, ty, "✸", consumColor(one.key));
       const m = monsterAt(tx, ty);
@@ -10899,7 +11091,7 @@
     offerBoons, pickBoon,
     giveBoon: (k) => pickBoon(k),
     addTrap: (key, x, y) => { traps.push({ x, y, key, revealed: true, sprung: false }); },
-    springTrap: (i) => { if (traps[i]) triggerTrap(traps[i]); },
+    springTrap: (i, remote) => { if (traps[i]) triggerTrap(traps[i], !!remote); },
     throwAt: (idx, x, y) => executeThrow(idx, x, y),
     throwSkillAt: (key, x, y) => executeThrowSkill(key, x, y),
     setClass: (key) => { applyClass(key); renderChar(); updateHotbar(); updateHUD(); },
@@ -11055,6 +11247,17 @@
     // a floor is completable without depending on monster positions or explored state.
     reach: (tx, ty, blockThorns) => inBounds(tx, ty) && floodReach(player.x, player.y, !!blockThorns).has(ty * MAP_W + tx),
     step: (dx, dy) => playerAct(dx, dy),
+    // Gases, for tests and trying patterns in the console.
+    spawnGas: (k, x, y, n) => spawnGas(k, x, y, n),
+    gasBurst: (k, x, y, r, n) => gasBurst(k, x, y, r, n),
+    gasAt: (k, x, y) => gasAt(k, x, y),
+    gasTotal: (k) => (gases[k] ? gases[k].reduce((a, b) => a + b, 0) : 0),
+    gasKinds: () => Object.keys(gases),
+    gasTick: () => gasTick(),
+    trapCount: () => traps.length,
+    // Put a monster down (for a gas to work on), by key, at a tile.
+    placeMonster: (k, x, y) => { if (!VERMIN[k] || !passable(x, y) || monsterAt(x, y)) return false; monsters.push(makeMonster(k, x, y)); return true; },
+    monsterHpAt: (x, y) => { const m = monsterAt(x, y); return m ? m.hp : null; },
     // Bags: what each holds, give one, and look at a tab.
     bags: () => Object.fromEntries(Object.entries(player.bags || {}).map(([k, a]) => [k, a.map((e) => ({ key: e.key, count: e.count || 1 }))])),
     giveBag: (k) => gainBag(k),

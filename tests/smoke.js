@@ -248,6 +248,51 @@ async function main() {
   check(arts.total >= 11, `expected 11 artifacts in data.js, found ${arts.total}`);
   check(arts.problems.length === 0, "artifacts: " + arts.problems.join("; "));
 
+  // Gases (SPD's Blobs): toxic spreads, hurts what stands in it and fades to
+  // nothing; fire burns grass to embers and frost puts it out; a gas trap lets its
+  // gas out; and a new floor starts clean.
+  const gas = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    c.regenerate(); c.hurt(-999);
+    const p = c.peek();
+    // somewhere open, a few tiles from you, to let a cloud loose in
+    let spot = null;
+    for (let r = 3; r <= 6 && !spot; r++) for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+      const x = p.x + dx, y = p.y + dy;
+      if (c.passableAt(x, y) && !c.peek().mlist.some((m) => m.x === x && m.y === y)) { spot = { x, y }; break; }
+    }
+    if (!spot) return { problems: ["no open tile to test gas on"] };
+    c.placeMonster("rat", spot.x, spot.y);
+    const hp0 = c.monsterHpAt(spot.x, spot.y);
+    c.spawnGas("toxic", spot.x, spot.y, 400);
+    c.gasTick();
+    const hp1 = c.monsterHpAt(spot.x, spot.y);
+    if (!(hp1 === null || hp1 < hp0)) problems.push("toxic gas did not hurt the rat standing in it");
+    let spread = 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (c.gasAt("toxic", spot.x + dx, spot.y + dy) > 0) spread++;
+    if (!spread) problems.push("toxic gas did not spread to a neighbouring tile");
+    for (let i = 0; i < 400 && c.gasTotal("toxic") > 0; i++) c.gasTick();
+    if (c.gasTotal("toxic") > 0) problems.push("toxic gas never faded away");
+    // fire through grass, then frost over it
+    c.setTerrain(spot.x, spot.y, "GRASS");
+    c.spawnGas("fire", spot.x, spot.y, 2);
+    for (let i = 0; i < 6; i++) c.gasTick();
+    if (!c.terrainIs(spot.x, spot.y, "EMBERS")) problems.push("fire did not burn the grass to embers");
+    c.spawnGas("fire", spot.x, spot.y, 5);
+    c.spawnGas("frost", spot.x, spot.y, 5);
+    c.gasTick();
+    if (c.gasAt("fire", spot.x, spot.y) > 0) problems.push("frost did not put the fire out");
+    // a gas trap
+    c.addTrap("paralytic", spot.x, spot.y);
+    c.springTrap(c.trapCount() - 1, true);        // remote: a lucky foot cannot skip it
+    if (!(c.gasAt("paralytic", spot.x, spot.y) > 0)) problems.push("a paralytic gas trap let no gas out");
+    c.regenerate();
+    if (c.gasKinds().length) problems.push("gas carried over to a new floor: " + c.gasKinds().join(", "));
+    c.hurt(-999);
+    return { problems };
+  });
+  check(gas.problems.length === 0, "gases: " + gas.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {
