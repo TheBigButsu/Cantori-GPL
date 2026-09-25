@@ -367,6 +367,8 @@ body{
   align-items:center;
   justify-content:center;
   padding:20px;
+  padding-top:calc(20px + env(safe-area-inset-top));
+  padding-bottom:calc(20px + env(safe-area-inset-bottom));
   background:rgba(6,4,2,.82);
   -webkit-backdrop-filter:blur(3px);
   backdrop-filter:blur(3px);
@@ -380,6 +382,29 @@ body{
   border-radius:12px;
   padding:18px 18px 16px;
   box-shadow:0 18px 50px rgba(0,0,0,.5);
+}
+/* The pack grew (six equip slots, bag tabs) past a phone's height, and a
+   centred card taller than the screen has its top — the ✕ — pushed off it
+   with no way to scroll back. So it fits the screen and scrolls inside, with
+   the header pinned at the top and the selected item's actions at the bottom:
+   close and Equip/Use are always in reach, the grid scrolls between them. */
+#inv .inv-card{
+  max-height:calc(100vh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height:calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding-top:0;padding-bottom:0;
+}
+#inv .inv-head{
+  position:sticky;top:0;z-index:2;
+  background:var(--panel);
+  padding:14px 0 8px;
+}
+#inv .inv-detail{
+  position:sticky;bottom:0;z-index:2;
+  background:var(--panel);
+  padding-bottom:12px;
 }
 .inv-head{
   display:flex;
@@ -581,7 +606,8 @@ body{
 .eq-empty{opacity:.5}
 .inv-grid{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(5,minmax(0,58px));
+  justify-content:center;
   gap:6px;
   margin:14px 0 10px;
 }

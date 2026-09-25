@@ -11007,6 +11007,9 @@
   const invOverlay = document.getElementById("inv");
   invOverlay.addEventListener("click", (e) => { if (e.target === invOverlay) toggleInv(false); });
   document.getElementById("invClose").addEventListener("click", () => toggleInv(false));
+  // Tapping the dim backdrop around the card closes it too — a second way out
+  // that cannot scroll off the screen.
+  document.getElementById("inv").addEventListener("click", (e) => { if (e.target.id === "inv") toggleInv(false); });
 
   // merchant floor: shop card + fountain confirm, tap-outside closes either
   { const el = document.getElementById("shop"); if (el) el.addEventListener("click", (e) => { if (e.target === el) toggleShop(false); }); }
