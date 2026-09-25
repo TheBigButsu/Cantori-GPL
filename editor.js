@@ -134,12 +134,18 @@
     ],
     consumables: [
       { f: "__key", label: "key", type: "key" },
-      { f: "cat", type: "select", opts: ["potion", "scroll", "tool", "seed"] },
+      { f: "cat", type: "select", opts: ["potion", "scroll", "tool", "seed", "bag"] },
       { f: "name", type: "text", cls: "name" },
       { f: "effect", type: "text" }, { f: "noDrop", label: "no drop", type: "bool" },
       // Seeds (SPD's): which plant it grows — the effect lives in PLANT_FX in game.js,
       // and the plant's sprite is assets/tiles/plant_<name>.png.
       { f: "plant", type: "select", opts: ["", "firebloom", "icecap", "sorrowmoss", "blindweed", "stormvine", "fadeleaf", "earthroot", "sungrass", "swiftthistle", "starflower", "mageroyal"] },
+      // Bags (SPD's): which category it holds, how many stacks, whether you start
+      // with it, and its price at the merchant.
+      { f: "holds", label: "bag holds", type: "select", opts: ["", "seed", "scroll", "potion"] },
+      { f: "capacity", label: "bag slots", type: "num" },
+      { f: "start", label: "start with", type: "bool" },
+      { f: "price", label: "price", type: "num" },
       // Blank = 1 for weight, and blank shopWeight = whatever weight says. Both are
       // deliberately left empty on most rows so the common case reads as "even odds".
       { f: "weight", label: "drop weight", type: "num" },

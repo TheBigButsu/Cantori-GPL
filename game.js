@@ -354,6 +354,10 @@
     player.weapon = null; player.armor = null;
     player.ring1 = null; player.ring2 = null; player.artifact = null; player.necklace = null;
     player.inv = []; player.gold = 0;
+    // SPD's bags: the Velvet Pouch comes with you; the rest are bought.
+    player.bags = {};
+    for (const k of Object.keys(CONSUM)) if (CONSUM[k].cat === "bag" && CONSUM[k].start) player.bags[k] = [];
+    invTab = "pack";
     player.xp = 0; player.level = 1;
     player.lvlHp = 0; player.lvlAcc = 0; player.lvlEva = 0; player.lvlMp = 0;   // reset per-level bonuses
     player.lvlEvaPct = 0; player.lvlRegenInt = 0; player.lvlMitMax = 0; player.lvlNote = 0;
@@ -1336,7 +1340,7 @@
   }
   function displayName(key) {
     const d = defOf(key);
-    if (d.cat === "weapon" || d.cat === "armor" || d.cat === "tool" || d.cat === "seed" || identified.has(key)) return d.name;
+    if (d.cat === "weapon" || d.cat === "armor" || d.cat === "tool" || d.cat === "seed" || d.cat === "bag" || identified.has(key)) return d.name;
     if (d.cat === "potion") return (potionLook[key] ? potionLook[key].name + " Potion" : "Unidentified Potion");
     return scrollLook[key] ? "Scroll titled \u201c" + scrollLook[key].name + "\u201d" : "Unidentified Scroll";
   }
@@ -2558,11 +2562,12 @@
     plants.push({ x, y, kind: d.plant });
     return true;
   }
-  function useSeed(idx) {
-    const it = player.inv[idx];
+  function useSeed(idx, arr) {
+    arr = arr || invArr();
+    const it = arr[idx];
     if (!it) return;
     if (!plantable(player.x, player.y)) { log("Nothing will grow here."); return; }
-    takeOne(idx); selectedInvIdx = -1;
+    takeOne(idx, arr); selectedInvIdx = -1;
     plantSeed(it.key, player.x, player.y);
     log("You plant the " + plantName(CONSUM[it.key].plant) + ". It will go off when something treads on it.");
     worldTurn();
@@ -5241,7 +5246,7 @@
       if (map[ny][nx] === THORN) {
         const ti = player.inv.findIndex((i) => i.key === "torch");
         if (ti >= 0) {                             // carrying a torch → burn through, no bleeding
-          takeOne(ti);
+          takeOne(ti, player.inv);
           const cells = [[player.x, player.y]].concat(adjacentThorns());
           for (const [x, y] of cells) { map[y][x] = FLOOR; floatText(x, y, "🔥", "#f6b845"); }
           log(cells.length === 1 ? "Your torch burns the brambles away." : "Your torch sets the brambles ablaze — " + cells.length + " burn away.", "hit");
@@ -5309,9 +5314,53 @@
   }
 
   const INV_MAX = 25;                          // 5×5 grid of slots
+  // ---- Bags: SPD's (items/bags/*.java) --------------------------------------
+  //
+  // A bag holds one category of item OUTSIDE the backpack's 25 slots: the Velvet
+  // Pouch takes seeds (you start with it), the Scroll Holder scrolls, the Potion
+  // Bandolier potions — the last two bought from the merchant after a boss. An
+  // owned bag's category goes into it first and only spills into the backpack
+  // when the bag is full. The pack screen gets a tab per bag you own.
+  //
+  // `player.inv` stays the backpack; `player.bags[bagKey]` is each bag's list.
+  // Everything that acts on "the item at idx" acts on whichever container the
+  // open tab shows (invArr) — so using, throwing and dropping from a bag are the
+  // same code as from the backpack, not a second copy of it.
+  let invTab = "pack";                         // "pack" or an owned bag's key
+  const bagDef = (k) => (CONSUM[k] && CONSUM[k].cat === "bag" ? CONSUM[k] : null);
+  const ownedBagFor = (cat) => Object.keys(player.bags || {}).find((k) => bagDef(k) && bagDef(k).holds === cat) || null;
+  const invArr = () => (invTab !== "pack" && player.bags && player.bags[invTab]) ? player.bags[invTab] : player.inv;
+  const invCap = () => (invTab !== "pack" && bagDef(invTab)) ? (bagDef(invTab).capacity || 20) : INV_MAX;
+  // Where a key is carried, anywhere: { arr, i } or null.
+  function findCarried(key) {
+    const conts = [player.inv].concat(Object.values(player.bags || {}));
+    for (const arr of conts) { const i = arr.findIndex((e) => e.key === key); if (i >= 0) return { arr, i }; }
+    return null;
+  }
+  // Buying a bag: it arrives, and sweeps its category out of the backpack.
+  function gainBag(k) {
+    const d = bagDef(k);
+    if (!d || (player.bags && player.bags[k])) return false;
+    player.bags = player.bags || {};
+    const arr = player.bags[k] = [];
+    for (let i = player.inv.length - 1; i >= 0; i--) {
+      const e = player.inv[i];
+      if (!isGear(e) && CONSUM[e.key] && CONSUM[e.key].cat === d.holds && arr.length < (d.capacity || 20)) { arr.unshift(e); player.inv.splice(i, 1); }
+    }
+    return true;
+  }
   // Add an item entry to the pack. Consumables stack by key into a single slot;
   // gear takes its own slot. Returns false when the pack is full.
   function invAdd(entry) {
+    if (!isGear(entry) && CONSUM[entry.key]) {
+      const bk = ownedBagFor(CONSUM[entry.key].cat);
+      if (bk) {
+        const arr = player.bags[bk];
+        const ex = arr.find((e) => e.key === entry.key);
+        if (ex) { ex.count = (ex.count || 1) + (entry.count || 1); return true; }
+        if (arr.length < (bagDef(bk).capacity || 20)) { arr.push(entry); return true; }
+      }
+    }
     if (!isGear(entry)) {
       const ex = player.inv.find((e) => !isGear(e) && e.key === entry.key);
       if (ex) { ex.count = (ex.count || 1) + (entry.count || 1); return true; }
@@ -5321,10 +5370,11 @@
     return true;
   }
   // Remove one unit from the entry at idx; returns a single-unit entry (for drop/throw).
-  function takeOne(idx) {
-    const e = player.inv[idx]; if (!e) return null;
+  function takeOne(idx, arr) {
+    arr = arr || invArr();
+    const e = arr[idx]; if (!e) return null;
     if (!isGear(e) && (e.count || 1) > 1) { e.count -= 1; return { key: e.key }; }
-    player.inv.splice(idx, 1);
+    arr.splice(idx, 1);
     return isGear(e) ? e : { key: e.key };
   }
   function pickUp() {
@@ -6714,7 +6764,7 @@
     // tap an adjacent thorn while carrying a torch → burn it clear instead of bleeding through
     if (adjacent && isThorn(tx, ty)) {
       const ti = player.inv.findIndex((i) => i.key === "torch");
-      if (ti >= 0) { useConsumable(ti); return; }
+      if (ti >= 0) { useConsumable(ti, player.inv); return; }
     }
     // ranged weapon (spear/bow): tap a monster within reach + line of sight to fire
     const reach = weaponRange();
@@ -6877,7 +6927,8 @@
     ...DATA.biomes.flatMap((b) => (b.spd && b.spd.tiles ? Object.values(b.spd.tiles) : [])),
     ...DATA.biomes.map((b) => b.floorDeco).filter(Boolean),
     // Seeds and the plants they grow (SPD's art — tools/cut_spd_sprites.py).
-    ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].cat === "seed"),
+    ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].cat === "seed" || DATA.consumables[k].cat === "bag"),
+    "bag_backpack",                                     // the backpack tab's icon
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].plant).map((k) => "plant_" + DATA.consumables[k].plant),
   ]));
   const SPRITES = {};
@@ -7285,7 +7336,7 @@
       else drawArmorInto(c, ox, oy, s, d.color || "#b9c0c8");
       return;
     }
-    if (d.cat === "seed") {
+    if (d.cat === "seed" || d.cat === "bag") {
       const img = SPRITES[key];
       if (ready(img)) { c.drawImage(img, ox, oy, s, s); return; }
       drawGlyphInto(c, ox, oy, s, d.glyph || "\u2022", d.color || "#cfc3a0"); return;
@@ -7998,10 +8049,39 @@
     const el = document.getElementById("shop");
     if (el) el.hidden = !shopOpen;
   }
+  // The bag on offer this visit: SPD's order — the Scroll Holder at the first
+  // merchant, the Potion Bandolier at the second — then whichever is still missing.
+  function shopBagKey() {
+    const order = Object.keys(CONSUM).filter((k) => bagDef(k) && !bagDef(k).start && !(player.bags && player.bags[k]));
+    return order.length ? order[0] : null;
+  }
+  function buyBag(k) {
+    const d = bagDef(k);
+    if (!d || player.gold < (d.price || 60)) { log("Not enough gold."); return; }
+    player.gold -= d.price || 60;
+    gainBag(k);
+    log("You buy the " + d.name + ". Your " + d.holds + "s have a place of their own now.", "hit");
+    renderShop(); updateHUD();
+  }
   function renderShop() {
     document.getElementById("shopGold").textContent = player.gold + " gold";
     const stockHost = document.getElementById("shopStock");
     stockHost.innerHTML = "";
+    const bk = shopBagKey();
+    if (bk) {
+      const d = bagDef(bk), row = document.createElement("div");
+      row.className = "shop-row" + (player.gold >= (d.price || 60) ? "" : " disabled");
+      const ic = document.createElement("span"); ic.className = "s-ic";
+      const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
+      const cc = cv.getContext("2d"); cc.imageSmoothingEnabled = false;
+      renderIconInto(cc, 0, 0, 48, { key: bk });
+      ic.appendChild(cv);
+      const nm = document.createElement("span"); nm.className = "s-name"; nm.textContent = d.name + " — holds " + (d.capacity || 20) + " " + d.holds + "s";
+      const pr = document.createElement("span"); pr.className = "s-price"; pr.textContent = (d.price || 60) + "g";
+      row.appendChild(ic); row.appendChild(nm); row.appendChild(pr);
+      row.addEventListener("click", () => buyBag(bk));
+      stockHost.appendChild(row);
+    }
     const potions = shopStock.filter(Boolean);
     if (!potions.length) stockHost.innerHTML = '<div class="shop-empty">Sold out.</div>';
     shopStock.forEach((key, i) => {
@@ -8009,7 +8089,7 @@
       const def = CONSUM[key];
       const row = document.createElement("div");
       row.className = "shop-row";
-      const canAfford = player.gold >= SHOP_POTION_PRICE && player.inv.length < INV_MAX;
+      const canAfford = player.gold >= SHOP_POTION_PRICE && (player.inv.length < INV_MAX || !!ownedBagFor("potion"));
       if (!canAfford) row.classList.add("disabled");
       const ic = document.createElement("span"); ic.className = "s-ic";
       const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
@@ -8255,11 +8335,14 @@
       if (inst) row.addEventListener("click", () => { selectedEquip = (selectedEquip === sk ? null : sk); selectedInvIdx = -1; renderInv(); });
       equipHost.appendChild(row);
     }
-    if (selectedInvIdx >= player.inv.length) selectedInvIdx = -1;
+    if (invTab !== "pack" && !(player.bags && player.bags[invTab])) invTab = "pack";
+    const arr = invArr();
+    if (selectedInvIdx >= arr.length) selectedInvIdx = -1;
+    renderInvTabs();
     const grid = document.getElementById("invGrid");
     grid.innerHTML = "";
-    for (let i = 0; i < INV_MAX; i++) {
-      const e = player.inv[i];
+    for (let i = 0; i < invCap(); i++) {
+      const e = arr[i];
       const slot = document.createElement("div");
       slot.className = "inv-slot" + (e ? "" : " empty") + (i === selectedInvIdx ? " sel" : "");
       if (e) {
@@ -8273,6 +8356,28 @@
       grid.appendChild(slot);
     }
     renderInvDetail();
+  }
+  // SPD's bag tabs: the backpack, then one per bag owned, each with its icon and
+  // how full it is.
+  function renderInvTabs() {
+    const host = document.getElementById("invTabs");
+    if (!host) return;
+    host.innerHTML = "";
+    const tabs = [["pack", "bag_backpack", "Backpack", player.inv.length + "/" + INV_MAX]];
+    for (const k of Object.keys(player.bags || {})) tabs.push([k, k, bagDef(k).name, player.bags[k].length + "/" + (bagDef(k).capacity || 20)]);
+    if (tabs.length < 2) { host.hidden = true; return; }
+    host.hidden = false;
+    for (const [k, icon, name, fill] of tabs) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "inv-tab" + (invTab === k ? " on" : ""); b.title = name;
+      const cv = document.createElement("canvas"); cv.width = 32; cv.height = 32;
+      const cc = cv.getContext("2d"); cc.imageSmoothingEnabled = false;
+      if (ready(SPRITES[icon])) cc.drawImage(SPRITES[icon], 0, 0, 32, 32); else drawGlyphInto(cc, 0, 0, 32, "\u25d2", "#cfc3a0");
+      const lab = document.createElement("span"); lab.textContent = fill;
+      b.appendChild(cv); b.appendChild(lab);
+      b.addEventListener("click", () => { invTab = k; selectedInvIdx = -1; selectedEquip = null; renderInv(); });
+      host.appendChild(b);
+    }
   }
   function detailHeaderHTML(e) {
     const def = entryDef(e) || {};
@@ -8303,7 +8408,7 @@
     // is the candidate; show it with a Confirm/Cancel prompt instead of its
     // normal actions, and consume nothing until Confirm is pressed.
     if (pendingUpgrade) {
-      const raw = selectedEquip ? player[selectedEquip] : (isGear(player.inv[selectedInvIdx]) ? player.inv[selectedInvIdx] : null);
+      const raw = selectedEquip ? player[selectedEquip] : (isGear(invArr()[selectedInvIdx]) ? invArr()[selectedInvIdx] : null);
       const target = (raw && GEAR[raw.key].cat !== "trinket") ? raw : null;   // trinkets can't be upgraded
       const acts = document.createElement("div"); acts.className = "inv-actions";
       if (!target) {
@@ -8328,7 +8433,7 @@
       d.appendChild(acts);
       return;
     }
-    const e = player.inv[selectedInvIdx];
+    const e = invArr()[selectedInvIdx];
     if (!e) { d.innerHTML = '<div class="d-empty">Tap an item, or an equipped slot, to see its actions.</div>'; return; }
     const def = entryDef(e) || {};
     const unmet = isGear(e) ? gearReqUnmet(e) : null;
@@ -8370,7 +8475,7 @@
     renderInv();
   }
   function actItem(idx) {
-    const it = player.inv[idx];
+    const it = invArr()[idx];
     if (!it) return;
     if (isGear(it)) equipItem(idx);
     else if (CONSUM[it.key] && CONSUM[it.key].effect === "upgrade_item") beginUpgrade();
@@ -8387,8 +8492,8 @@
   }
   function confirmUpgrade(target) {
     target.plus = (target.plus || 0) + 1;
-    const sIdx = player.inv.findIndex((i) => i.key === "scroll_upgrade");   // re-found by key: robust to any index drift
-    if (sIdx >= 0) takeOne(sIdx);
+    const sc = findCarried("scroll_upgrade");   // re-found by key, in whatever bag holds it: robust to any index drift
+    if (sc) takeOne(sc.i, sc.arr);
     // Every other consumable identifies itself in useConsumable(). This one never
     // reaches that function — actItem routes an upgrade scroll to beginUpgrade()
     // instead, because it has to ask for a target first — so it was the one thing
@@ -8413,7 +8518,7 @@
     renderInv();
   }
   function equipItem(idx) {
-    const it = player.inv[idx];
+    const it = invArr()[idx];
     if (!it || !isGear(it)) return;
     const unmet = gearReqUnmet(it);
     if (unmet) { log("You need " + unmet.need + " " + unmet.stat + " to use the " + itemName(it) + " (have " + unmet.have + ")."); return; }
@@ -8439,14 +8544,15 @@
     if (dead) { toggleInv(false); return; }
     renderInv();
   }
-  function useConsumable(idx) {
-    const it = player.inv[idx];
+  function useConsumable(idx, arr) {
+    arr = arr || invArr();
+    const it = arr[idx];
     if (!it) return;
     const def = CONSUM[it.key];
-    if (def.cat === "seed") { useSeed(idx); return; }
+    if (def.cat === "seed") { useSeed(idx, arr); return; }
     if (def.effect === "burn") {                 // a torch: only spent if there are thorns to burn
       if (!adjacentThorns().length) { log("No thorns within reach to burn."); return; }
-      takeOne(idx); selectedInvIdx = -1;
+      takeOne(idx, arr); selectedInvIdx = -1;
       burnThorns();
       updateHUD(); worldTurn();
       if (dead) { toggleInv(false); return; }
@@ -8456,7 +8562,7 @@
     const wasUnidentified = !identified.has(it.key);
     identified.add(it.key);      // using an item reveals what it is
     if (wasUnidentified) log("It was a " + (def.name || it.key) + "!", "hit");
-    takeOne(idx); selectedInvIdx = -1;
+    takeOne(idx, arr); selectedInvIdx = -1;
     applyEffect(def.effect);
     updateHUD();
     if (dead) { toggleInv(false); return; }
@@ -8474,7 +8580,7 @@
     return null;
   }
   function dropItem(idx) {
-    const e = player.inv[idx]; if (!e) return;
+    const e = invArr()[idx]; if (!e) return;
     const spot = dropSpot();
     if (!spot) { log("Nowhere to drop it here."); return; }
     const one = takeOne(idx); selectedInvIdx = -1;
@@ -8484,18 +8590,20 @@
     if (dead) { toggleInv(false); return; }
     renderInv();
   }
+  let throwFrom = null;          // the container a pending throw was picked from
   function beginThrow(idx) {
-    if (!player.inv[idx]) return;
-    pendingThrow = idx;
+    if (!invArr()[idx]) return;
+    pendingThrow = idx; throwFrom = invArr();
     toggleInv(false);
     log("Throw — tap a tile within sight.");
     updateHotbar();
   }
   function executeThrow(idx, tx, ty) {
-    const e = player.inv[idx];
+    const from = throwFrom || player.inv; throwFrom = null;
+    const e = from[idx];
     if (!e) { pendingThrow = null; return; }
     if (!inBounds(tx, ty) || !visible[ty][tx] || cheb(player.x, player.y, tx, ty) > 6) { log("Too far to throw there."); pendingThrow = null; updateHotbar(); return; }
-    const one = takeOne(idx); selectedInvIdx = -1;
+    const one = takeOne(idx, from); selectedInvIdx = -1;
     const nm = entryName(one);
     const isPotion = !isGear(one) && CONSUM[one.key] && CONSUM[one.key].cat === "potion";
     spawnProjectile(player.x, player.y, tx, ty, isGear(one) ? "#d8cfa0" : consumColor(one.key));  // the item arcs to its target
@@ -10947,6 +11055,11 @@
     // a floor is completable without depending on monster positions or explored state.
     reach: (tx, ty, blockThorns) => inBounds(tx, ty) && floodReach(player.x, player.y, !!blockThorns).has(ty * MAP_W + tx),
     step: (dx, dy) => playerAct(dx, dy),
+    // Bags: what each holds, give one, and look at a tab.
+    bags: () => Object.fromEntries(Object.entries(player.bags || {}).map(([k, a]) => [k, a.map((e) => ({ key: e.key, count: e.count || 1 }))])),
+    giveBag: (k) => gainBag(k),
+    invTab: (t) => { if (t) invTab = t; return invTab; },
+    shopBag: () => shopBagKey(),
     // Terrain and plants, for tests: set a tile by name, plant a seed, read state.
     setTerrain: (x, y, name) => { const t = { FLOOR, CHASM, GRASS, LAWN, WATER, SHALLOW }[name]; if (t != null && inBounds(x, y)) map[y][x] = t; },
     terrainIs: (x, y, name) => inBounds(x, y) && map[y][x] === ({ FLOOR, CHASM, GRASS, LAWN, EMBERS, WATER, SHALLOW }[name]),

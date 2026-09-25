@@ -248,6 +248,25 @@ async function main() {
   check(arts.total >= 11, `expected 11 artifacts in data.js, found ${arts.total}`);
   check(arts.problems.length === 0, "artifacts: " + arts.problems.join("; "));
 
+  // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
+  // takes its category out of the backpack, and new ones go straight into it.
+  const bags = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, problems = [];
+    const seed = Object.keys(D.consumables).find((k) => D.consumables[k].cat === "seed");
+    const potion = Object.keys(D.consumables).find((k) => D.consumables[k].cat === "potion" && !D.consumables[k].noDrop);
+    if (!c.bags().bag_seed) problems.push("the run did not start with the Velvet Pouch");
+    c.give(seed);
+    if (!(c.bags().bag_seed || []).some((e) => e.key === seed)) problems.push("a seed did not go into the pouch");
+    if (c.peek().inv.includes(seed)) problems.push("a seed landed in the backpack while the pouch had room");
+    c.give(potion);
+    if (!c.peek().inv.includes(potion)) problems.push("with no bandolier, a potion did not go in the backpack");
+    c.giveBag("bag_potion");
+    if (c.peek().inv.includes(potion)) problems.push("buying the bandolier did not move the potion out of the backpack");
+    if (!(c.bags().bag_potion || []).some((e) => e.key === potion)) problems.push("the bandolier does not hold the potion");
+    return { problems };
+  });
+  check(bags.problems.length === 0, "bags: " + bags.problems.join("; "));
+
   // A chasm asks before it takes you, and a plant goes off when trodden on.
   const terrain = await page.evaluate(() => {
     const c = window.cantori, problems = [];

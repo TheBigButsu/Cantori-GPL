@@ -1671,6 +1671,36 @@ window.CANTORI_DATA = {
       "weight": 1,
       "glyph": "\u2022",
       "color": "#d070c0"
+    },
+    "bag_seed": {
+      "cat": "bag",
+      "name": "Velvet Pouch",
+      "holds": "seed",
+      "capacity": 20,
+      "start": true,
+      "noDrop": true,
+      "glyph": "\u25d2",
+      "color": "#b08ad0"
+    },
+    "bag_scroll": {
+      "cat": "bag",
+      "name": "Scroll Holder",
+      "holds": "scroll",
+      "capacity": 20,
+      "price": 60,
+      "noDrop": true,
+      "glyph": "\u25d2",
+      "color": "#d8c890"
+    },
+    "bag_potion": {
+      "cat": "bag",
+      "name": "Potion Bandolier",
+      "holds": "potion",
+      "capacity": 20,
+      "price": 60,
+      "noDrop": true,
+      "glyph": "\u25d2",
+      "color": "#c08050"
     }
   },
   "traps": {

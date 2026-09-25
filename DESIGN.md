@@ -3870,3 +3870,15 @@ the new biome field `floorDeco`), short grass, embers, and SPD's raised tall gra
 Walking into a chasm opens a Yes/Stay box first. A fall costs a floor and up to a
 quarter of your HP, and chasms sit among ordinary floor, so a slip of the thumb was
 far too easy. Auto-travel never routes through one anyway.
+
+## Bags are SPD's — DONE
+
+Three bags hold one category each, outside the backpack's 25 slots: the **Velvet
+Pouch** (seeds, 20 stacks, which you start every run with, as in SPD), the **Scroll
+Holder** and the **Potion Bandolier** (20 each, 60 gold at the merchant after a
+boss: the holder at the first, the bandolier at the second). Items go into their
+bag first and spill into the backpack only when it is full. Buying a bag sweeps its
+category out of the backpack. The pack screen has a tab per container (icon and
+fill), and using, throwing and dropping work the same from any tab: `invArr()`
+is the open container, and `findCarried(key)` searches them all. Bag rows are
+`bag_*` in `data.js` (`holds`, `capacity`, `start`, `price`).

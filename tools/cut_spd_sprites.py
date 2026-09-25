@@ -93,6 +93,9 @@ ITEMS = {
 }
 
 
+# SPD's bags: items.png row xy(1, 31) = index 480 (WATERSKIN, BACKPACK, POUCH, HOLDER, BANDOLIER).
+ITEMS.update({"bag_backpack": 481, "bag_seed": 482, "bag_scroll": 483, "bag_potion": 484})
+
 # SPD's seeds: items.png row xy(1, 25) = index 384, in Plant.image order.
 SEEDS = 24 * 16
 PLANT_ORDER = ["rotberry", "firebloom", "swiftthistle", "sungrass", "icecap", "stormvine",

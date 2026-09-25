@@ -83,6 +83,7 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 
 | `animated_statue.png` | `core/src/main/assets/sprites/statue.png` (idle frame, 2x) | Animated Statue | none |
 | `rose_ghost.png` | `core/src/main/assets/sprites/ghost.png` (idle frame, 2x) | Dried Rose ghost | none |
+| `bag_backpack.png`, `bag_seed.png`, `bag_scroll.png`, `bag_potion.png` | `core/src/main/assets/sprites/items.png`, the bag row (index 481–484), 2x | the bag tabs and bags | none |
 | `plant_*.png` (11) | `core/src/main/assets/environment/terrain_features.png`, row 7, 2x | the plants | none |
 | `seed_*.png` (11) | `core/src/main/assets/sprites/items.png`, the seed row (index 384 on), 2x | the seeds | none |
 | `forest_floor.png`, `forest_floor_deco.png`, `forest_lawn.png`, `forest_embers.png`, `forest_grass.png`, `forest_grass_alt.png` | `core/src/main/assets/environment/tiles_caves.png`, cells 0–3, 122 and 125, 2x | the forest's floor (SPD's caves) | none |
