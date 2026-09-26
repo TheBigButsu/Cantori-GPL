@@ -3966,3 +3966,18 @@ for saves), and this pass fills in the rest of SPD's shape:
   have none.
 - **Brighter:** darkest lit tile 0.70 (was 0.42), memory 0.40 (was 0.24), and
   remembered doors/stairs keep a faint outline.
+
+## Boon window, attack button, hero blurbs — DONE
+
+- **Boons** are chosen in SPD's King's Crown window (WndChooseAbility): title
+  bar, message, one wide row per boon with the first sentence of its text and an
+  ⓘ button beside it (full text + which god it belongs to), and a Yes / No
+  before anything is taken. No Cancel (a boon can't be deferred) and no Random.
+- **Attack button** (SPD AttackIndicator): bottom right, shows the foe you can
+  hit now — adjacent, or in reach of a ranged weapon with a clear shot — and
+  strikes it on a tap or `F`. It keeps aim on the last thing you struck while
+  that still qualifies, else the nearest; red corner brackets mark the target.
+- **Stats screen** drops its four formula lines; the numbers stay.
+- **Hero blurbs:** Chadwick the Human knight of Kethara's church, Brynn the
+  Goliath monk of the Western shores, ToneTum the Gnome wizard of the Eastern
+  Highlands, Sera the Elvish bard of Duskhaven.

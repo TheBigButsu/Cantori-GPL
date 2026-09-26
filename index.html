@@ -16,7 +16,7 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="icon" href="./icons/icon-192.png">
 
-  <link rel="stylesheet" href="./styles.css?v=179">
+  <link rel="stylesheet" href="./styles.css?v=180">
 </head>
 <body>
   <div id="app">
@@ -43,6 +43,9 @@
         <button id="btnRest" type="button" aria-label="Rest" title="Rest until something happens (R)">🏕️</button>
         <button id="btnMap" type="button" aria-label="Floor map" title="Floor map (M)">▦</button>
       </div>
+
+      <!-- SPD's attack indicator: the foe you can hit right now; tap to strike. -->
+      <button id="btnAttack" type="button" aria-label="Attack nearest" title="Attack (F)" hidden><canvas width="64" height="64"></canvas></button>
 
       <div id="vitals" style="position:absolute;left:14px;bottom:14px">
         <div class="vbar hp"><span class="vlabel">HP</span><span class="vtrack"><span class="vfill" id="vHp"></span></span><span class="vnum" id="vHpNum">20/20</span></div>
@@ -152,11 +155,21 @@
     </div>
   </div>
 
+  <!-- Laid out like SPD's King's Crown window (WndChooseAbility): title bar,
+       message, one wide button per choice with an info button beside it, and a
+       yes/no before anything is taken. -->
   <div id="boons" hidden>
-    <div class="boon-card">
-      <div class="boon-title">CHOOSE A BOON</div>
-      <div class="boon-sub">A god extends a blessing — take one.</div>
+    <div class="spd-win boon-win">
+      <div class="spd-titlebar"><span class="spd-ticon">✦</span><span class="spd-ttext">CHOOSE A BOON</span></div>
+      <div class="spd-body boon-sub">A god extends a blessing — take one.</div>
       <div class="boon-choices" id="boonChoices"></div>
+    </div>
+    <div id="boonPop" class="spd-pop" hidden>
+      <div class="spd-win">
+        <div class="spd-titlebar"><span class="spd-ticon" id="boonPopIcon"></span><span class="spd-ttext" id="boonPopTitle"></span></div>
+        <div class="spd-body" id="boonPopBody"></div>
+        <div class="spd-btns" id="boonPopBtns"></div>
+      </div>
     </div>
   </div>
 
@@ -176,10 +189,10 @@
     </div>
   </div>
 
-  <script src="./data.js?v=179"></script>
-  <script src="./loot.js?v=179"></script>
-  <script src="./bosses.js?v=179"></script>
-  <script src="./spdlevel.js?v=179"></script>
-  <script src="./game.js?v=179"></script>
+  <script src="./data.js?v=180"></script>
+  <script src="./loot.js?v=180"></script>
+  <script src="./bosses.js?v=180"></script>
+  <script src="./spdlevel.js?v=180"></script>
+  <script src="./game.js?v=180"></script>
 </body>
 </html>

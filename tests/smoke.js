@@ -428,6 +428,69 @@ async function main() {
   });
   check(play.problems.length === 0, "playtest fixes: " + play.problems.join("; "));
 
+  // SPD's King's Crown window for boons (row + ⓘ + confirm), the attack
+  // button (melee and ranged), and the trimmed stats screen.
+  const ui = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    c.regenerate(); c.hurt(-999);
+    // boons
+    const before = (c.peek().boons || []).length;
+    c.offerBoons();
+    const offer = c.boonChoices();
+    if (offer.length !== 3) problems.push("a boon offer showed " + offer.length + " choices");
+    if (document.querySelectorAll("#boonChoices .boon-info").length !== offer.length) problems.push("not every boon row has an info button");
+    document.querySelector("#boonChoices .boon-info").click();
+    if (document.getElementById("boonPop").hidden) problems.push("the boon info button opened nothing");
+    document.querySelector("#boonPopBtns button").click();
+    document.querySelector("#boonChoices .boon-choice").click();
+    if (!document.querySelector("#boonPopBtns button.primary")) problems.push("choosing a boon did not ask to confirm");
+    if (document.getElementById("boons").hidden) problems.push("the boon was taken before it was confirmed");
+    document.querySelector("#boonPopBtns button.primary").click();
+    const after = (c.peek().boons || []).length;
+    if (after !== before + 1) problems.push("confirming a boon did not grant it (" + before + " → " + after + ")");
+    if (!document.getElementById("boons").hidden) problems.push("the boon window stayed open after a pick");
+    // attack button: nothing in reach
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    if (c.attackBtnShown()) problems.push("the attack button shows with nothing in reach");
+    // melee: a rat beside you
+    const p = c.peek();
+    const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => c.passableAt(p.x + dx, p.y + dy));
+    if (side) {
+      const [dx, dy] = side;
+      c.spawnMonsterAt("rat", p.x + dx, p.y + dy);
+      const t = c.attackTarget();
+      if (!t || t.type !== "rat") problems.push("the attack button did not pick the adjacent rat");
+      let hit = false;
+      for (let i = 0; i < 30 && !hit; i++) { c.hurt(-999); c.attackNearest(); const hp = c.monsterHpAt(p.x + dx, p.y + dy); if (hp === null || hp < 8) hit = true; }
+      if (!hit) problems.push("pressing attack never hurt the adjacent rat");
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    }
+    // ranged: with a bow, a rat three tiles off in the open is a target; the
+    // same rat behind a wall is not
+    c.giveGear("shortbow");
+    c.equip(c.peek().invItems.length - 1);
+    if (c.peek().weapon === "shortbow" || (c.peek().weapon && c.peek().weapon.key === "shortbow")) {
+      const q = c.peek();
+      const lane = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => [1, 2, 3].every((k) => c.passableAt(q.x + dx * k, q.y + dy * k) && c.tileAt(q.x + dx * k, q.y + dy * k) !== 3));
+      if (lane) {
+        const [dx, dy] = lane;
+        c.spawnMonsterAt("rat", q.x + dx * 3, q.y + dy * 3);
+        const t = c.attackTarget();
+        if (!t || t.x !== q.x + dx * 3 || t.y !== q.y + dy * 3) problems.push("with a bow, the attack button did not target a rat 3 tiles off");
+        c.setTerrain(q.x + dx * 2, q.y + dy * 2, "WALL");
+        if (c.attackBtnShown()) problems.push("the attack button targets a rat behind a wall");
+        c.setTerrain(q.x + dx * 2, q.y + dy * 2, "FLOOR");
+        for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      }
+    } else problems.push("could not equip a shortbow to test ranged targeting (" + JSON.stringify(c.peek().weapon) + ")");
+    // stats screen
+    const st = c.statsText();
+    for (const w of ["d20", "RESmod", "acts through its modifier", "step = 1"]) if (st.indexOf(w) >= 0) problems.push("the stats screen still says '" + w + "'");
+    c.hurt(-999);
+    return { problems };
+  });
+  check(ui.problems.length === 0, "ui: " + ui.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {

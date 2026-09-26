@@ -4101,6 +4101,7 @@
     });
   }
   function updateHUD() {
+    updateAttackBtn();
     updateHP();
     updateTurnBar();
     const lv = document.getElementById("lv");
@@ -4933,6 +4934,7 @@
   function attack(attacker, target, bonus, opts) {
     bonus = bonus || 0;
     if (attacker === player) {
+      lastStruck = target;                            // the attack button keeps its aim on it
       bump(player, target.x, target.y);
       const surprise = !target.aware;                 // ambush: asleep, or wandering past you
       target.magicSleep = 0;                          // a blow always breaks a magical sleep
@@ -5249,23 +5251,65 @@
     const wrap = document.getElementById("boonChoices");
     if (!wrap) return;
     wrap.innerHTML = "";
+    boonOffer = pick.slice();
     for (const k of pick) {
       const g = all[k];
+      // One row per boon, as SPD's King's Crown lays out an armour ability: a wide
+      // button that reads as the choice, and an info button beside it for the
+      // whole story. The row carries the first sentence; the ⓘ carries the rest.
+      const row = document.createElement("div");
+      row.className = "boon-row";
       const btn = document.createElement("button");
       btn.className = "boon-choice"; btn.type = "button";
       btn.innerHTML = `<span class="b-icon" style="color:${g.color || "#f0c14b"}">${g.icon || "✦"}</span>` +
         `<span class="b-text"><span class="b-name" style="color:${g.color || "#f0c14b"}">${g.name}</span>` +
-        `<span class="b-desc">${g.desc || ""}</span></span>`;
-      btn.addEventListener("click", () => pickBoon(k));
-      wrap.appendChild(btn);
+        `<span class="b-desc">${firstSentence(g.desc)}</span></span>`;
+      btn.addEventListener("click", () => confirmBoon(k));
+      const info = document.createElement("button");
+      info.className = "boon-info"; info.type = "button"; info.textContent = "i";
+      info.setAttribute("aria-label", "About " + g.name);
+      info.addEventListener("click", () => boonInfo(k));
+      row.appendChild(btn); row.appendChild(info);
+      wrap.appendChild(row);
     }
+    closeBoonPop();
     const sub = document.querySelector("#boons .boon-sub");
     if (sub) sub.textContent = subtitle || "A god extends a blessing \u2014 take one.";
     walkPath = [];                  // don't let a queued walk fire under the modal
     boonPending = true;
     document.getElementById("boons").hidden = false;
   }
+  let boonOffer = [];
+  // The row's one-liner: the description up to its first full stop, which is
+  // where every boon in data.js says what it does before it says how.
+  const firstSentence = (t) => { t = String(t || ""); const m = t.match(/^.*?[.!?](\s|$)/); return m ? m[0].trim() : t; };
+  const godOfBoon = (key) => { const gs = DATA.gods || {}; for (const g in gs) if ((gs[g].boons || []).indexOf(key) >= 0) return gs[g].name || g; return null; };
+  // The small window over the choice — SPD opens its info and "are you sure" as
+  // their own windows on top, and so does this: one box, two uses.
+  function boonPop(key, body, buttons) {
+    const g = (DATA.boons || {})[key] || {};
+    const ic = document.getElementById("boonPopIcon");
+    ic.textContent = g.icon || "✦"; ic.style.color = g.color || "#f0c14b";
+    const tt = document.getElementById("boonPopTitle");
+    tt.textContent = g.name || key; tt.style.color = g.color || "#f0c14b";
+    document.getElementById("boonPopBody").innerHTML = body;
+    const btns = document.getElementById("boonPopBtns");
+    btns.innerHTML = "";
+    for (const b of buttons) btns.appendChild(mkBtn(b[0], b[1], b[2]));
+    document.getElementById("boonPop").hidden = false;
+  }
+  const closeBoonPop = () => { const el = document.getElementById("boonPop"); if (el) el.hidden = true; };
+  function boonInfo(key) {
+    const g = (DATA.boons || {})[key] || {}, god = godOfBoon(key);
+    boonPop(key, (god ? `<div class="spd-god">A blessing of ${god}</div>` : "") + `<div>${g.desc || ""}</div>`,
+      [["Close", "", closeBoonPop]]);
+  }
+  function confirmBoon(key) {
+    boonPop(key, "Take this boon? It stays with you for the rest of the run.",
+      [["Yes", "primary", () => { closeBoonPop(); pickBoon(key); }], ["No", "", closeBoonPop]]);
+  }
   function pickBoon(key) {
+    closeBoonPop();
     const el = document.getElementById("boons"); if (el) el.hidden = true;
     boonPending = false;
     if (!player.boons) player.boons = new Set();
@@ -5534,7 +5578,7 @@
         const tgt = monsterAt(tx, ty);
         if (tgt && tgt.hp > 0 && lineOfSight(player.x, player.y, tx, ty)) {
           if (player.charm > 0 && tgt === player.charmSrc) break;   // charmed: the bow won't point at the singer either
-          spawnProjectile(player.x, player.y, tx, ty, "#ffe08a"); attack(player, tgt); worldTurn(attackCost());
+          fireAt(tgt);
           return true;
         }
       }
@@ -7110,7 +7154,7 @@
     if (reach > 1 && !adjacent) {
       const tgt = monsterAt(tx, ty);
       if (tgt && tgt.hp > 0 && cheb(player.x, player.y, tx, ty) <= reach && lineOfSight(player.x, player.y, tx, ty)) {
-        spawnProjectile(player.x, player.y, tx, ty, "#ffe08a"); attack(player, tgt); worldTurn(attackCost()); return;
+        fireAt(tgt); return;
       }
     }
     if (anyMonsterVisible()) { stepToward(tx, ty); return; }   // stay in control near danger
@@ -8014,6 +8058,7 @@
     }
 
     drawGases(SX, SY, now);
+    drawAttackReticle(SX, SY, now);
 
     // plants (drawn where they grow, remembered once seen like the floor itself)
     for (const p of plants) {
@@ -10634,6 +10679,88 @@
     worldTurn();
   }
 
+  // ---- Attack indicator (SPD ui/AttackIndicator.java) -----------------------
+  //
+  // A button at the bottom right that shows the foe you can hit right now and
+  // hits it when pressed — SPD's quality-of-life answer to tapping a moving
+  // target on a phone. Unlike SPD it covers ranged weapons too: anything your
+  // weapon reaches with a clear shot counts. It keeps its aim on the last thing
+  // you struck while that still qualifies (SPD does the same), so a fight does
+  // not flick between targets; otherwise it takes the nearest.
+  let lastStruck = null;
+  let attackTgt = null;
+  function strikeable(m) {
+    if (!m || m.hp <= 0 || m.dominated || !monsters.includes(m)) return false;
+    if (!inBounds(m.x, m.y) || !visible[m.y] || !visible[m.y][m.x]) return false;
+    if (player.charm > 0 && m === player.charmSrc) return false;     // the song will not let you
+    const d = cheb(m.x, m.y, player.x, player.y);
+    if (d === 1) return true;
+    const r = weaponRange();
+    return r > 1 && d <= r && lineOfSight(player.x, player.y, m.x, m.y);
+  }
+  function pickAttackTarget() {
+    if (strikeable(lastStruck)) return lastStruck;
+    let best = null, bd = 1e9;
+    for (const m of monsters) {
+      if (!strikeable(m)) continue;
+      const d = cheb(m.x, m.y, player.x, player.y);
+      if (d < bd) { bd = d; best = m; }
+    }
+    return best;
+  }
+  // One shot at a foe within reach, however it was asked for — a bump along a
+  // line, a tap on the monster, or the attack button.
+  function fireAt(tgt) {
+    spawnProjectile(player.x, player.y, tgt.x, tgt.y, "#ffe08a"); attack(player, tgt); worldTurn(attackCost());
+  }
+  function attackNearest() {
+    if (restBusy()) return false;
+    const m = pickAttackTarget();
+    if (!m) return false;
+    const dx = Math.sign(m.x - player.x), dy = Math.sign(m.y - player.y);
+    // Adjacent goes through the ordinary bump, so charm, berserk and every other
+    // rule on striking in melee applies exactly as if you had walked into it.
+    if (cheb(m.x, m.y, player.x, player.y) === 1) playerAct(dx, dy);
+    else fireAt(m);
+    updateAttackBtn();
+    return true;
+  }
+  function updateAttackBtn() {
+    const btn = document.getElementById("btnAttack");
+    if (!btn) return;
+    attackTgt = restBusy() ? null : pickAttackTarget();
+    btn.hidden = !attackTgt;
+    if (!attackTgt) return;
+    const cv = btn.querySelector("canvas"), c2 = cv.getContext("2d");
+    c2.clearRect(0, 0, cv.width, cv.height);
+    c2.imageSmoothingEnabled = false;
+    const img = SPRITES[attackTgt.type];
+    if (ready(img)) c2.drawImage(img, 0, 0, cv.width, cv.height);
+    else {
+      c2.fillStyle = attackTgt.color || "#e0d0a0";
+      c2.font = `700 ${Math.floor(cv.height * 0.7)}px ${bodyFont()}`;
+      c2.textAlign = "center"; c2.textBaseline = "middle";
+      c2.fillText(attackTgt.glyph || "?", cv.width / 2, cv.height / 2);
+    }
+    btn.title = "Attack the " + monName(attackTgt) + " (F)";
+  }
+  // Corner brackets on the foe the button means.
+  function drawAttackReticle(SX, SY, now) {
+    const m = attackTgt;
+    if (!m || m.hp <= 0 || !visible[m.y] || !visible[m.y][m.x]) return;
+    const px = SX(m.rx != null ? m.rx : m.x), py = SY(m.ry != null ? m.ry : m.y);
+    const k = tile * 0.26, inset = tile * 0.04 + Math.sin(now / 220) * tile * 0.02;
+    ctx.save();
+    ctx.strokeStyle = "rgba(230,80,60,0.9)"; ctx.lineWidth = Math.max(2, tile * 0.07);
+    ctx.beginPath();
+    for (const [cx, cy, sx, sy] of [[px, py, 1, 1], [px + tile, py, -1, 1], [px, py + tile, 1, -1], [px + tile, py + tile, -1, -1]]) {
+      const x = cx + sx * inset, y = cy + sy * inset;
+      ctx.moveTo(x + sx * k, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy * k);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ---- Examine -------------------------------------------------------------
   function toggleExamine(force) {
     examineMode = force === undefined ? !examineMode : force;
@@ -10749,12 +10876,8 @@
     return `<div class="cline"><b>${cname}</b> · Level ${player.level} · ${player.gold} gold</div>` +
       `<div class="cline">Attack <b>${playerAtk()}</b> · Defense <b>${df}</b> · HP <b>${player.hp}/${player.maxHp}</b> · MP <b>${player.mp}/${player.maxMp}</b></div>` +
       `<div class="cline">Crit <b>${Math.round(critChance() * 100)}%</b> for <b>${Math.round(critMult() * 100)}%</b> damage</div>` +
-      `<div class="cline cformula">every stat acts through its modifier, ⌊(score − 10) ÷ 2⌋ · crit% = 5 + DEX mod + LCK mod×2 + skills · crit dmg% = 125 + LCK mod×5</div>` +
       `<div class="cline">To hit <b>${sgnNum(playerToHit())}</b> (~${accPct}% against an average foe) · Armour Class <b>${playerAC()}</b> (~${evaPct}% to be missed)</div>` +
-      `<div class="cline cformula">a hit is d20 + to-hit ≥ the target's AC · natural 1 always misses, natural 20 always hits · to-hit = ${BASE_TO_HIT} base + what your levels bought (${sgnNum(player.lvlAcc || 0)}) + DEX mod + weapon</div>` +
       `<div class="cline">Walk haste <b>${walkHasteTxt}</b> — a step costs <b>${walkCost().toFixed(2)}</b> turns · Attack haste <b>${atkHasteTxt}</b> — a swing costs <b>${attackCost().toFixed(2)}</b></div>` +
-      `<div class="cline cformula">step = 1 ÷ (1 + walk haste + Metrognome-walk) ÷ 1.1^(Ring of Haste level) · swing = 1 ÷ (weapon speed × (1 + attack haste) + Metrognome-attack) ÷ 1.08^(Ring of Furor level) · Ourn's blessings count toward both · under 1.00 you act more often than your foes</div>` +
-      `<div class="cline cformula">incoming dmg ×(1 − RESmod ÷ (RESmod + 10)), then armor block subtracted — block rolls between the two Defense numbers${lvlMitMax() ? ", whose ceiling your levels raised by " + lvlMitMax() : ""}</div>` +
       `<div class="cstat-grid">${cells}</div>` +
       `<div class="cline">${pts}</div>`;
   }
@@ -11064,6 +11187,7 @@
     if (key === "c") { e.preventDefault(); toggleChar(); return; }
     if (charOpen) { if (e.key === "Escape" || key === "c") toggleChar(false); return; }
     if (key === "i") { e.preventDefault(); toggleInv(); return; }
+    if (key === "f") { e.preventDefault(); attackNearest(); return; }
     if (invOpen) { if (e.key === "Escape") toggleInv(false); return; }
     if (key === "m") { e.preventDefault(); toggleMap(); return; }
     if (mapOpen) { if (e.key === "Escape") toggleMap(false); return; }
@@ -11147,6 +11271,7 @@
   const invOverlay = document.getElementById("inv");
   invOverlay.addEventListener("click", (e) => { if (e.target === invOverlay) toggleInv(false); });
   document.getElementById("invClose").addEventListener("click", () => toggleInv(false));
+  document.getElementById("btnAttack").addEventListener("click", () => attackNearest());
   // Tapping the dim backdrop around the card closes it too — a second way out
   // that cannot scroll off the screen.
   document.getElementById("inv").addEventListener("click", (e) => { if (e.target.id === "inv") toggleInv(false); });
@@ -11285,6 +11410,9 @@
     costs: () => ({ walk: walkCost(), attack: attackCost() }),
     turnMeter: () => ({ turnMeter, lastActionCost }),
     offerBoons, pickBoon,
+    boonChoices: () => (boonPending ? boonOffer.slice() : []),
+    // Press row i, then Yes in the confirm — the same two taps a player makes.
+    pickBoonAt: (i) => { const rows = document.querySelectorAll("#boonChoices .boon-choice"); if (!rows[i]) return false; rows[i].click(); const yes = document.querySelector("#boonPopBtns button.primary"); if (!yes) return false; yes.click(); return true; },
     giveBoon: (k) => pickBoon(k),
     addTrap: (key, x, y) => { traps.push({ x, y, key, revealed: true, sprung: false }); },
     springTrap: (i, remote) => { if (traps[i]) triggerTrap(traps[i], !!remote); },
@@ -11458,6 +11586,10 @@
     // Poke a monster's live fields (state, focus, hp …) for a test.
     setMonsterAt: (x, y, o) => { const m = monsterAt(x, y); if (!m) return false; if (o.state) setState(m, o.state); Object.assign(m, o); return true; },
     hexMe: (k) => applyHex(k),
+    statsText: () => { const d = document.createElement("div"); d.innerHTML = charStatsHTML(); return d.textContent; },
+    attackTarget: () => { updateAttackBtn(); return attackTgt ? { type: attackTgt.type, x: attackTgt.x, y: attackTgt.y } : null; },
+    attackNearest: () => attackNearest(),
+    attackBtnShown: () => { updateAttackBtn(); const b = document.getElementById("btnAttack"); return !!b && !b.hidden; },
     huntNow: (x, y) => { const m = monsterAt(x, y); if (!m) return false; startHunting(m); return true; },
     lightAt: (x, y) => litBright(x, y), memLight: () => MEM,
     statusIcons: () => playerStatuses().map((st) => ({ key: st.key, left: st.left, peak: st.peak, inGas: st.inGas })),

@@ -2642,7 +2642,7 @@ window.CANTORI_DATA = {
         "hp": 5,
         "mp": 2
       },
-      "blurb": "Front-line brawler. All around weapons master.",
+      "blurb": "Human knight of the church. Will Smite in the name of Kethara.",
       "skillTree": [
         {
           "id": "rush",
@@ -3053,7 +3053,7 @@ window.CANTORI_DATA = {
         "hp": 5,
         "mp": 2
       },
-      "blurb": "Fights best barehanded — hurls foes aside and lands harder the longer she goes unarmed.",
+      "blurb": "Goliath monk from the Western shores. Mobile fighter that will move quickly around the map.",
       "skillTree": [
         {
           "id": "throw",
@@ -3309,7 +3309,7 @@ window.CANTORI_DATA = {
         "weapon": "dagger",
         "armor": "grass_armor"
       },
-      "blurb": "Frail, and the only thing on the floor that can kill from across the room.",
+      "blurb": "Gnome wizard from the Eastern Highlands. Wide array of tools to solve any problem.",
       "stats": {
         "STR": 8,
         "INT": 15,
@@ -3649,7 +3649,7 @@ window.CANTORI_DATA = {
         "weapon": "shortbow",
         "armor": "grass_armor"
       },
-      "blurb": "Never where the fight is. The fight comes to where she left it.",
+      "blurb": "Elvish bard from Duskhaven. Creates power from song.",
       "stats": {
         "STR": 8,
         "INT": 14,
