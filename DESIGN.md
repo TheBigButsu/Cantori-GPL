@@ -3947,3 +3947,22 @@ for saves), and this pass fills in the rest of SPD's shape:
   bolt, 50% to Hex — standing in for SPD's Degrade).
 - **Bat AC 20, snake AC 21** (were 22 and 24), which puts early to-hit near SPD's
   snake (~25–30% for Chadwick).
+
+## Playtest pass: gases, statuses, hunting, light — DONE
+
+- **Gases** draw as SPD-style drifting puffs over a soft radial cloud (no tile
+  grid), much more opaque; fire throws flame tongues, frost drifts flakes,
+  confusion shimmers purple/pink. A trap or potion letting gas out says so in
+  the log and throws a double ring.
+- **Statuses** sit over the hero's head as icons with a ring that drains as the
+  turns run out. A status the gas under you keeps renewing pulses full and its
+  chip reads "in gas"; the chips spell out "N turns".
+- **Hunting:** a hunter that loses sight of you keeps your trail for 8 turns
+  (`TRACK_TURNS`) if you are within earshot, so a bush closing behind you no
+  longer shakes a pursuer. Breaking contact now means staying out of sight for
+  8 turns, or going invisible. Also fixed a crash when a hunter's step (a trap,
+  a plant) cleared its target mid-turn.
+- **No torches on SPD floors** — they only exist to burn thorns, and SPD floors
+  have none.
+- **Brighter:** darkest lit tile 0.70 (was 0.42), memory 0.40 (was 0.24), and
+  remembered doors/stairs keep a faint outline.

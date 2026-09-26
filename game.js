@@ -2460,7 +2460,7 @@
     paralytic: { name: "paralytic gas", rgb: [210, 175, 70],  spread: true, harmful: true,
       affect(w) { if (w === player) { if (!(player.para > 0)) paralyzePlayer(); } else if (!(w.para > 0)) paralyzeMonster(w); } },
     confusion: { name: "confusion gas", rgb: [180, 120, 210], spread: true, harmful: true,
-      affect(w) { if (w === player) player.vertigo = Math.max(player.vertigo || 0, 2); else { w.chill = Math.max(w.chill || 0, 2); if (w.state === HUNTING && Math.random() < 0.5) setState(w, WANDERING); } } },
+      affect(w) { if (w === player) { if (!(player.vertigo > 0)) { floatText(player.x, player.y, HEXES.vertigo.icon, HEXES.vertigo.color, 1.6); log("The gas sets your head spinning — you can't walk straight!", "hurt"); } player.vertigo = Math.max(player.vertigo || 0, 2); } else { w.chill = Math.max(w.chill || 0, 2); if (w.state === HUNTING && Math.random() < 0.5) setState(w, WANDERING); } } },
     // SPD CorrosiveGas: damage that grows every turn you stay in it.
     corrosive: { name: "corrosive gas", rgb: [160, 170, 80],  spread: true, harmful: true,
       affect(w) {
@@ -2591,28 +2591,77 @@
   }
   // Drawn as a translucent wash over the tile, thicker where the volume is, with a
   // slow drift so a cloud reads as a cloud and not as paint. Only what you can see.
+  // Gas is drawn the way SPD draws its Blobs — as drifting puffs rather than
+  // painted tiles — because a flat tint at 0.12–0.55 was simply missed on a
+  // phone: a confusion trap went off and read as the floor changing colour.
+  // Each gassy tile gets a soft radial blob about 1.7 tiles wide (neighbours
+  // overlap into one cloud with no grid seams), then 1–3 puffs that wander on a
+  // slow per-tile phase and swell and shrink, so the cloud visibly moves. The
+  // thinner the gas, the fewer and fainter the puffs, which is how you see a
+  // cloud about to clear. Fire licks and throws embers upward; frost drifts
+  // pale flakes; confusion shimmers between its two colours.
+  const gasHash = (x, y, i) => { const h = Math.sin(x * 127.1 + y * 311.7 + i * 74.7) * 43758.5453; return h - Math.floor(h); };
+  const rgba = (c, a) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + Math.max(0, Math.min(1, a)).toFixed(3) + ")";
   function drawGases(SX, SY, now) {
+    const t = now / 1000;
+    ctx.save();
     for (const kind of Object.keys(gases)) {
-      const g = gases[kind], [r, gg, b] = GAS[kind].rgb;
+      const G = GAS[kind], g = gases[kind], col = G.rgb;
+      const alt = kind === "confusion" ? [235, 125, 190] : null;
       for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
         const v = g[y * MAP_W + x];
         if (v <= 0 || !visible[y][x]) continue;
-        const px = SX(x), py = SY(y);
-        const drift = 0.85 + 0.15 * Math.sin(now / 700 + x * 1.7 + y * 2.3);
-        let a;
-        if (GAS[kind].fire) a = Math.min(0.75, 0.35 + 0.1 * v) * (0.8 + 0.2 * Math.sin(now / 90 + x + y));
-        else if (GAS[kind].frost) a = Math.min(0.6, 0.25 + 0.04 * v);
-        else a = Math.min(GAS[kind].blocksSight ? 0.8 : 0.55, 0.12 + Math.log10(v + 1) * 0.14) * drift;
-        ctx.fillStyle = "rgba(" + r + "," + gg + "," + b + "," + a.toFixed(3) + ")";
-        ctx.fillRect(px, py, tile, tile);
+        const cx = SX(x) + tile / 2, cy = SY(y) + tile / 2;
+        const dens = (G.fire || G.frost) ? Math.min(1, 0.55 + 0.1 * v) : Math.min(1, 0.22 + Math.log10(v + 1) * 0.3);
+        const baseA = (G.blocksSight ? 0.8 : G.fire ? 0.6 : 0.5) * dens;
+        const rad = tile * 0.85;
+        const grd = ctx.createRadialGradient(cx, cy, tile * 0.1, cx, cy, rad);
+        grd.addColorStop(0, rgba(col, baseA));
+        grd.addColorStop(0.6, rgba(col, baseA * 0.6));
+        grd.addColorStop(1, rgba(col, 0));
+        ctx.fillStyle = grd;
+        ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+        const n = dens > 0.65 ? 3 : dens > 0.4 ? 2 : 1;
+        for (let i = 0; i < n; i++) {
+          const ph = gasHash(x, y, i) * Math.PI * 2;
+          if (G.fire) {
+            // a tongue of flame: rises, narrows and fades, then starts again
+            const life = (t * 1.4 + gasHash(x, y, i + 7)) % 1;
+            const fx = cx + Math.sin(ph + t * 3) * tile * 0.18;
+            const fy = cy + tile * 0.3 - life * tile * 0.7;
+            const fr = tile * 0.2 * (1 - life * 0.7);
+            ctx.fillStyle = rgba([255, 200 - Math.round(life * 120), 60], 0.85 * (1 - life));
+            ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = rgba([255, 240, 170], 0.7 * (1 - life));
+            ctx.beginPath(); ctx.arc(fx, fy + fr * 0.2, fr * 0.45, 0, Math.PI * 2); ctx.fill();
+            continue;
+          }
+          const px = cx + Math.sin(t * 0.7 + ph) * tile * 0.26;
+          const py = cy + Math.cos(t * 0.55 + ph * 1.3) * tile * 0.26;
+          const pr = tile * (0.2 + 0.16 * dens) * (0.85 + 0.15 * Math.sin(t * 1.6 + ph));
+          const pc = alt && Math.sin(t * 1.2 + ph) > 0 ? alt : col;
+          ctx.fillStyle = rgba(pc, (G.blocksSight ? 0.55 : 0.42) * dens);
+          ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = rgba([255, 255, 255], 0.1 * dens);          // a lit edge, so a puff reads as round
+          ctx.beginPath(); ctx.arc(px - pr * 0.25, py - pr * 0.3, pr * 0.45, 0, Math.PI * 2); ctx.fill();
+          if (G.frost) {
+            const fl = (t * 0.5 + gasHash(x, y, i + 3)) % 1;
+            ctx.fillStyle = rgba([245, 250, 255], 0.9 * (1 - fl));
+            const s2 = Math.max(1.5, tile * 0.06);
+            ctx.fillRect(cx + (gasHash(x, y, i + 5) - 0.5) * tile * 0.8, cy - tile * 0.4 + fl * tile * 0.8, s2, s2);
+          }
+        }
       }
     }
+    ctx.restore();
   }
   // A potion, trap or plant letting its gas out at (x, y), sized from its row.
   function releaseGas(kind, x, y, amount, radius) {
     if (!GAS[kind]) return;
     if (radius > 0) gasBurst(kind, x, y, radius, amount); else spawnGas(kind, x, y, amount);
-    spawnBurst(x, y, "rgb(" + GAS[kind].rgb.join(",") + ")");
+    const c = "rgb(" + GAS[kind].rgb.join(",") + ")";
+    spawnBurst(x, y, c); spawnBurst(x, y, c);   // two rings: a cloud going off should be seen
+    if (inBounds(x, y) && visible[y][x]) log(GAS[kind].fire ? "Flames burst out!" : "A cloud of " + GAS[kind].name + " billows out!", "hurt");
   }
 
   // ---- Plants and seeds: SPD's (plants/*.java) --------------------------------
@@ -2660,7 +2709,7 @@
     } },
     // SPD Stormvine: vertigo. Monsters have no vertigo, so they are slowed instead.
     stormvine: { desc: "makes what treads on it stagger", go(x, y, w) {
-      if (w === player) { player.vertigo = Math.max(player.vertigo || 0, 10); log("The world lurches — you can't walk straight!", "hurt"); }
+      if (w === player) { player.vertigo = Math.max(player.vertigo || 0, 10); floatText(player.x, player.y, HEXES.vertigo.icon, HEXES.vertigo.color, 1.6); log("The world lurches — you can't walk straight!", "hurt"); }
       else if (w) { w.chill = Math.max(w.chill || 0, 10); floatText(x, y, "↻", "#6a8ad0"); }
     } },
     // SPD Fadeleaf: teleports what treads on it.
@@ -2878,10 +2927,10 @@
     spawnItems(open);
     placeIronKeys(open, rooms.keysNeeded || 0);
     placeTraps();
-    // No thorns on an SPD floor, so the old "one torch per thorn" would light
-    // nothing; a few, in the open rooms, keep the torch-glow look of a floor.
-    const restricted = new Set(rooms.map((r, i) => (r.locked ? i : -1)).filter((i) => i >= 0));
-    placeTorches(rooms, restricted, 2 + Math.floor(open.length / 3));
+    // No torches: a torch is fuel for burning thorns, and an SPD floor has none,
+    // so any torch here was a pickup with nothing to spend it on — which read as
+    // a puzzle the floor forgot to set. Torches stay where thorns are (the old
+    // generator's floors and the boss arenas, one per bramble).
     floorEpilogue(rooms);
   }
 
@@ -4082,19 +4131,81 @@
   // they are the same kind of thing to the player: a reason this turn will not go
   // the way they meant it to. Without this the crypt is a floor where your steps
   // silently cost double and your blows silently miss.
+  // The timed things on you, in one list the HUD chips and the icons over your
+  // head both read, so the two can never disagree. `left` counts down; `peak` is
+  // the most it has been since it landed (remembered in statusPeak), which is
+  // what the ring over your head drains against — a ring that starts full and
+  // empties is a timer anyone can read, where a bare "2" was not, especially
+  // while a gas kept topping it back up to 2 every turn. `inGas` marks a status
+  // the cloud you are standing in keeps renewing: it will not run down until
+  // you step out, and the icon says so by pulsing full.
+  const GAS_STATUS = { confusion: "vertigo", paralytic: "para", frost: "para", fire: "burn" };
+  const statusPeak = {};
+  function playerStatuses() {
+    const out = [];
+    const add = (key, icon, color, left, name) => { if (left > 0) out.push({ key, icon, color, left, name }); };
+    add("stun", "💫", "#e0a848", player.stun, "Stunned");
+    for (const k of HEX_KEYS) add(k, HEXES[k].icon, HEXES[k].color, player[k], HEXES[k].name);
+    if (player.burn) add("burn", "🔥", "#ff8f4a", player.burn.rounds, "Burning");
+    add("poison", "☠", "#9ad06a", player.poison, "Poisoned");
+    add("toxin", "☠", "#7ec98a", player.toxin, "Poisoned");
+    add("para", "🧊", "#cfd6e6", player.para, "Paralysed");
+    const renewing = {};
+    for (const g in GAS_STATUS) if (gasAt(g, player.x, player.y) > 0) renewing[GAS_STATUS[g]] = true;
+    for (const st of out) {
+      statusPeak[st.key] = Math.max(statusPeak[st.key] || 0, st.left);
+      st.peak = statusPeak[st.key];
+      st.inGas = !!renewing[st.key];
+    }
+    for (const k in statusPeak) if (!out.some((st) => st.key === k)) delete statusPeak[k];
+    return out;
+  }
+  function drawStatusIcons(cx, top, now) {
+    const list = playerStatuses();
+    if (!list.length) return;
+    const size = Math.max(18, tile * 0.6), gap = size * 0.1;
+    const total = list.length * size + (list.length - 1) * gap;
+    let x = cx - total / 2 + size / 2;
+    const y = top - size * 0.55;
+    ctx.save();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const st of list) {
+      const r = size / 2;
+      ctx.fillStyle = "rgba(10,8,5,0.78)";
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      // the timer: a ring that drains clockwise from twelve o'clock
+      const frac = st.inGas ? 1 : Math.max(0, Math.min(1, st.left / Math.max(1, st.peak)));
+      ctx.lineWidth = Math.max(2, size * 0.13);
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = st.color;
+      ctx.globalAlpha = st.inGas ? 0.6 + 0.4 * Math.sin(now / 160) : 1;
+      ctx.beginPath(); ctx.arc(x, y, r - ctx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.font = `700 ${Math.floor(size * 0.58)}px ${bodyFont()}`;
+      ctx.fillStyle = st.color;
+      ctx.fillText(st.icon, x, y + size * 0.03);
+      x += size + gap;
+    }
+    ctx.restore();
+  }
+
   function updateStatusChips() {
     const row = document.getElementById("statuses");
     if (!row) return;
     const chips = [];
-    if (player.stun > 0) chips.push({ t: "💫 " + player.stun, c: "#e0a848", title: "Stunned — your next actions are wasted" });
+    const ren = {};
+    for (const st of playerStatuses()) ren[st.key] = st.inGas;
+    const lasts = (k, n) => (ren[k] ? "in gas" : n + (n === 1 ? " turn" : " turns"));
+    if (player.stun > 0) chips.push({ t: "💫 " + lasts("stun", player.stun), c: "#e0a848", title: "Stunned — your next actions are wasted" });
     for (const k of HEX_KEYS) {
       if (!player[k]) continue;
-      chips.push({ t: HEXES[k].icon + " " + player[k], c: HEXES[k].color, title: HEXES[k].name + " — " + player[k] + " turns" });
+      chips.push({ t: HEXES[k].icon + " " + HEXES[k].name + " · " + lasts(k, player[k]), c: HEXES[k].color, title: HEXES[k].name + " — " + (ren[k] ? "renewed while you stand in the gas" : player[k] + " turns left") });
     }
     if (player.burn) chips.push({ t: "🔥 " + player.burn.dmg, c: "#ff8f4a", title: "Burning — " + player.burn.dmg + " a turn, cooling, " + player.burn.rounds + " turns left" });
     if (player.poison > 0) chips.push({ t: "☠ " + player.poison, c: "#9ad06a", title: "Poisoned — " + player.poison + " a turn, decaying" });
     if (player.toxin > 0) chips.push({ t: "☠ " + player.toxin, c: "#7ec98a", title: "Poisoned by a draught — " + player.toxin + " this turn, halving after" });
-    if (player.para > 0) chips.push({ t: "🧊 " + player.para, c: "#cfd6e6", title: "Paralysed — up to " + player.para + " more turns, RES save vs DC " + paraDc() + " every time you try to act" });
+    if (player.para > 0) chips.push({ t: "🧊 " + lasts("para", player.para), c: "#cfd6e6", title: "Paralysed — up to " + player.para + " more turns, RES save vs DC " + paraDc() + " every time you try to act" });
     if (player.retribution && player.retribution.turns > 0) chips.push({ t: "✵ ×" + player.retribution.thorns, c: "#e0a848", title: "Braced — reflecting " + Math.round(player.retribution.thorns * 100) + "% of every blow" + (player.retribution.regenMult > 1 ? ", regeneration ×" + player.retribution.regenMult : "") + ", " + player.retribution.turns + " turns left" });
     if (player.meditate) chips.push({ t: "☯ ×" + player.meditate.mult, c: "#bcd3e6", title: "Meditating — regeneration ×" + player.meditate.mult + ", " + player.meditate.healed + " HP so far. Moving, striking or being struck ends it." });
     if (player.zen && player.zen.turns > 0) chips.push({ t: "☯ +" + player.zen.dmg, c: "#bcd3e6", title: "Afterglow — +" + player.zen.dmg + " damage, to-hit and AC for " + player.zen.turns + " more turns" });
@@ -4461,7 +4572,7 @@
     // Re-arm the watch at the HP the song took hold at, so the very blow that
     // charmed you doesn't immediately count as the damage that breaks it.
     if (kind === "charm") { player.charmSrc = src || null; charmHpMark = player.hp; }
-    floatText(player.x, player.y, h.icon, h.color);
+    floatText(player.x, player.y, h.icon, h.color, 1.6);
     log(h.msg, "hurt");
   }
   // "Until damaged" has to mean ANY damage — a trap, a burst, the brambles, a burn
@@ -5925,6 +6036,17 @@
   // behind a pillar, let it lose you, come back and land one for free — which is
   // the whole reason those AC numbers are allowed to be that high.
   const HUNT_PATIENCE = 2;        // turns out of sight before the chase is called off
+  // ...but only once it has lost your TRAIL, not merely your outline. For
+  // TRACK_TURNS after it last saw you, a hunter within earshot still knows where
+  // you went — it heard the bush rustle, it heard your feet — and keeps coming.
+  // Without this a forest was unwinnable for the monsters: every room mouth is a
+  // bush that closes behind you, so walking from one room to the next dropped
+  // everything following you, and a bat forgot you at every hedge. The ambush
+  // still exists; it just takes breaking contact for real (TRACK_TURNS out of
+  // sight, or a Scroll of Invisibility) rather than one step round a corner.
+  const TRACK_TURNS = 8;
+  const tracking = (m) => !player.invisible && m.seenAt != null && turns - m.seenAt <= TRACK_TURNS
+    && cheb(m.x, m.y, player.x, player.y) <= SENSE + 2;
   const NOISE_RADIUS = 5;         // how far a scuffle carries
 
   // `aware` is what the rest of the engine asks (surprise attacks, Faith's Pull,
@@ -5937,7 +6059,7 @@
   function startHunting(m, tx, ty) {
     setState(m, HUNTING);
     m.target = { x: tx != null ? tx : player.x, y: ty != null ? ty : player.y };
-    m.wanderBest = null; m.wanderStale = 0; m.huntBlind = 0;
+    m.wanderBest = null; m.wanderStale = 0; m.huntBlind = 0; m.seenAt = turns;
   }
   // Give up the chase: keep looking around where the trail went cold rather than
   // instantly forgetting. A wander target near the last known cell IS the search.
@@ -6029,8 +6151,9 @@
     // clock; running out of it drops the chase wherever it got to.
     // A Horror always knows. Breaking line of sight buys distance and a chance to
     // reach the stairs — it does not buy escape, which is the whole point of it.
-    if (canSee(m) || m.horror) { m.target = { x: player.x, y: player.y }; m.huntBlind = 0; }
+    if (canSee(m) || m.horror) { m.target = { x: player.x, y: player.y }; m.huntBlind = 0; m.seenAt = turns; }
     else if (!m.target) { stopHunting(m); return; }
+    else if (tracking(m)) m.target = { x: player.x, y: player.y };   // lost sight, not the trail
     // A decoy beside it is more interesting than you are. Only adjacency is checked:
     // an image that pulled monsters across the room would be a wall, not a feint.
     const near = nearestDecoy(m.x, m.y, 1);
@@ -6082,6 +6205,10 @@
     // somewhere else. It just has to get there first now.
     const wasX = m.x, wasY = m.y;
     if (m.x !== m.target.x || m.y !== m.target.y) stepMonsterTo(m, m.target.x, m.target.y);
+    // The step itself can change everything: a trap or a plant under its feet can
+    // teleport it, confuse it into wandering, or kill it outright — and any of
+    // those clears `target`. Reading m.target.x after that threw, mid-worldTurn.
+    if (!m.target || m.state !== HUNTING || m.hp <= 0) return;
     const arrived = m.x === m.target.x && m.y === m.target.y;
     const stalled = m.x === wasX && m.y === wasY;
     if (arrived || stalled) { if (++m.huntBlind > HUNT_PATIENCE) { stopHunting(m); return; } }
@@ -7094,11 +7221,15 @@
     return `rgb(${Math.round(((n >> 16) & 255) * amount)},${Math.round(((n >> 8) & 255) * amount)},${Math.round((n & 255) * amount)})`;
   }
   let flick = 0;
-  const MEM = 0.24;
+  // Brighter than it was (0.24 remembered, 0.42 floor, ×0.6 falloff; now 0.40,
+  // 0.70, ×0.35): on a phone the old values left the edge of your sight and
+  // everything remembered too dark to pick out a door against its wall, and a
+  // door you cannot see is a route you do not know you have.
+  const MEM = 0.4;
   function litBright(mx, my) {
     const dx = mx - player.x, dy = my - player.y;
     const d = Math.sqrt(dx * dx + dy * dy);
-    return Math.max(0.42, Math.min(1, 1 - (d / (fovRadius() + 1)) * 0.6 + flick));
+    return Math.max(0.7, Math.min(1, 1 - (d / (fovRadius() + 1)) * 0.35 + flick));
   }
   let _font = null;
   function bodyFont() {
@@ -7690,7 +7821,7 @@
     attacker.bumpAt = performance.now();
   }
   const flash = (e) => { e.hitAt = performance.now(); };
-  const floatText = (x, y, text, color) => floaters.push({ x, y, text, color, at: performance.now() });
+  const floatText = (x, y, text, color, scale) => floaters.push({ x, y, text, color, scale: scale || 1, at: performance.now() });
   // On-screen speech: a quote that hovers over a monster for a beat (the Piper taunts).
   let speeches = [];
   const SPEECH_MS = 2200;
@@ -7815,6 +7946,12 @@
         }
         dim(px, py, 1 - b);                                   // torch falloff / memory
         if (!vis) { ctx.fillStyle = "rgba(70,90,130,0.10)"; ctx.fillRect(px, py, tile, tile); }
+        // A remembered doorway keeps a faint warm outline, so the exits you have
+        // already walked past still stand out from the wall around them.
+        if (!vis && (t === DOOR || t === STAIRS)) {
+          ctx.strokeStyle = "rgba(240,190,110,0.38)"; ctx.lineWidth = Math.max(1, tile * 0.05);
+          ctx.strokeRect(px + tile * 0.12, py + tile * 0.12, tile * 0.76, tile * 0.76);
+        }
       }
     }
 
@@ -8050,6 +8187,7 @@
     }
     if (invis) ctx.globalAlpha = 1;
     hitFlash(player, px, py, now);
+    drawStatusIcons(px + tile / 2, py, now);
 
     // ranged projectiles (a small glowing bolt travelling tile-to-tile)
     for (const pr of projectiles) {
@@ -8115,7 +8253,9 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `700 ${Math.max(11, Math.floor(tile * 0.5))}px ${bodyFont()}`;
+    const floatPx = Math.max(11, Math.floor(tile * 0.5));
     for (const f of floaters) {
+      ctx.font = `700 ${Math.round(floatPx * (f.scale || 1))}px ${bodyFont()}`;
       const p = anim01(now, f.at, FLOAT_MS);
       const fx = SX(f.x) + tile / 2, fy = SY(f.y) + tile / 2 - p * tile * 0.9;
       ctx.globalAlpha = Math.max(0, 1 - p);
@@ -11317,6 +11457,10 @@
     spawnMonsterAt: (k, x, y) => { if (!VERMIN[k] || !passable(x, y) || monsterAt(x, y)) return false; monsters.push(makeMonster(k, x, y)); return true; },
     // Poke a monster's live fields (state, focus, hp …) for a test.
     setMonsterAt: (x, y, o) => { const m = monsterAt(x, y); if (!m) return false; if (o.state) setState(m, o.state); Object.assign(m, o); return true; },
+    hexMe: (k) => applyHex(k),
+    huntNow: (x, y) => { const m = monsterAt(x, y); if (!m) return false; startHunting(m); return true; },
+    lightAt: (x, y) => litBright(x, y), memLight: () => MEM,
+    statusIcons: () => playerStatuses().map((st) => ({ key: st.key, left: st.left, peak: st.peak, inGas: st.inGas })),
     monsterFx: (x, y) => { const m = monsterAt(x, y); return m ? { type: m.type, hp: m.hp, state: m.state, focus: !!m.focus, focusCd: m.focusCd || 0, maxLvl: monMaxLvl(m) } : null; },
     // Kill whatever stands at (x, y) the ordinary way and report the XP it paid.
     killAt: (x, y) => { const m = monsterAt(x, y); if (!m) return null; const before = _xpEver; m.hp = 0; killMonster(m); return _xpEver - before; },
@@ -11329,7 +11473,7 @@
     invTab: (t) => { if (t) invTab = t; return invTab; },
     shopBag: () => shopBagKey(),
     // Terrain and plants, for tests: set a tile by name, plant a seed, read state.
-    setTerrain: (x, y, name) => { const t = { FLOOR, CHASM, GRASS, LAWN, WATER, SHALLOW }[name]; if (t != null && inBounds(x, y)) map[y][x] = t; },
+    setTerrain: (x, y, name) => { const t = { FLOOR, CHASM, GRASS, LAWN, WATER, SHALLOW, WALL, DOOR, EMBERS }[name]; if (t != null && inBounds(x, y)) map[y][x] = t; },
     terrainIs: (x, y, name) => inBounds(x, y) && map[y][x] === ({ FLOOR, CHASM, GRASS, LAWN, EMBERS, WATER, SHALLOW }[name]),
     plantHere: (kind, x, y) => { plants = plants.filter((p) => !(p.x === x && p.y === y)); plants.push({ x, y, kind }); },
     plantList: () => plants.map((p) => Object.assign({}, p)),

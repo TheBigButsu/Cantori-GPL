@@ -356,6 +356,78 @@ async function main() {
   });
   check(scale.problems.length === 0, "scaling: " + scale.problems.join("; "));
 
+  // Playtest fixes: a hunter follows you through a closed bush instead of
+  // forgetting you at it; SPD floors carry no torches; the floor is lit brighter;
+  // a status shows over your head with a draining timer.
+  const play = await page.evaluate(() => {
+    const c = window.cantori, T = c.tileConstants(), problems = [];
+    // Built on the spot in any open patch of floor: a wall with a bush in it,
+    // and on the player's side a short wall to duck behind — so the tile where
+    // the rat last saw you does NOT see where you went. That is the forest case:
+    // through the bush and round the corner.
+    //
+    //        . . . . . .          P = where the player ends up
+    //        . . P . . |          R = the rat, hunting
+    //        . # # # . |          + = a closed bush (door)
+    //        . . . s . + . R      s = where the player stood when last seen
+    //        . . . . . |
+    let tries = 0, spot = null;
+    while (!spot && tries++ < 25) {
+      c.regenerate(); c.hurt(-999);
+      const g = c.peek().grid;
+      // no plant or trap in the patch: a Blindweed under the rat's feet blinds
+      // it into wandering, which is the plant working, not the hunt failing
+      const busy = new Set(c.plantList().concat(c.peek().traps).map((q) => q.x + "," + q.y));
+      for (let y = 4; y < g.h - 4 && !spot; y++) for (let x = 6; x < g.w - 4 && !spot; x++) {
+        let ok = true;
+        for (let yy = y - 2; yy <= y + 2 && ok; yy++) for (let xx = x - 4; xx <= x + 2 && ok; xx++) {
+          // plain ground only (floor, grass, and SPD's shallows 9 / lawn 10 /
+          // special floor 11): passableAt says yes to a chasm (you may jump), and
+          // a rat will not follow you down one
+          const t = c.tileAt(xx, yy);
+          if (!c.passableAt(xx, yy) || [T.FLOOR, T.GRASS, 9, 10, 11].indexOf(t) < 0 || busy.has(xx + "," + yy)) ok = false;
+        }
+        if (ok) spot = { x, y };
+      }
+    }
+    if (!spot) problems.push("no open patch of floor to test hunting on");
+    else {
+      const x0 = spot.x, y = spot.y;
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      for (let yy = y - 2; yy <= y + 2; yy++) c.setTerrain(x0, yy, yy === y ? "DOOR" : "WALL");
+      for (let xx = x0 - 3; xx <= x0 - 1; xx++) c.setTerrain(xx, y - 1, "WALL");
+      c.place(x0 - 1, y);
+      c.spawnMonsterAt("rat", x0 + 2, y);
+      c.huntNow(x0 + 2, y);                            // it last saw you at s
+      c.place(x0 - 2, y - 2);                          // through the bush and round the corner
+      let caught = false;
+      for (let i = 0; i < 16 && !caught; i++) {
+        c.hurt(-999); c.tick(1);
+        const r = c.peek().mlist.find((m) => m.type === "rat");
+        if (!r) break;
+        if (Math.max(Math.abs(r.x - (x0 - 2)), Math.abs(r.y - (y - 2))) <= 1) caught = true;
+      }
+      if (!caught) problems.push("a hunting rat lost the player through a bush and round a corner");
+      c.regenerate();
+    }
+    const f = c.spdFloor();
+    if (f && c.peek().torches.length) problems.push("an SPD floor placed " + c.peek().torches.length + " torches");
+    const p = c.peek();
+    if (!(c.lightAt(p.x + 6, p.y) >= 0.6)) problems.push("the edge of sight is lit at " + c.lightAt(p.x + 6, p.y));
+    if (!(c.memLight() >= 0.35)) problems.push("remembered tiles are lit at " + c.memLight());
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    c.hexMe("vertigo");
+    const s0 = c.statusIcons().find((st) => st.key === "vertigo");
+    c.tick(1);
+    const s1 = c.statusIcons().find((st) => st.key === "vertigo");
+    if (!s0 || s0.left !== s0.peak) problems.push("a fresh vertigo timer does not start full");
+    else if (!s1 || !(s1.left < s1.peak)) problems.push("the vertigo timer did not run down after a turn");
+    for (let i = 0; i < 4; i++) { c.hurt(-999); c.tick(1); }   // let it wear off: later checks walk in straight lines
+    c.hurt(-999);
+    return { problems };
+  });
+  check(play.problems.length === 0, "playtest fixes: " + play.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {
