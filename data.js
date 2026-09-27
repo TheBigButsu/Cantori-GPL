@@ -4709,34 +4709,50 @@ window.CANTORI_DATA = {
       },
       "skillTree": [
         {
+          "id": "magic_missile",
+          "x": 0,
+          "y": 0,
+          "name": "Magic Missile",
+          "icon": "✦",
+          "kind": "bolt",
+          "branch": "core",
+          "bt": 0,
+          "desc": "A bolt of force, always at hand — no aiming, it finds the nearest thing you can see. The volley widens as you grow: two bolts at level 3, three at 7, four at 12, each seeking the next-nearest visible foe. 5 MP.",
+          "levels": [
+            "5 MP · 1–4 damage +1 per character level, at the nearest foe in sight · 2 bolts at level 3, 3 at 7, 4 at 12 · 2–8 a bolt from level 18 · known from the start"
+          ],
+          "ranks": [
+            {
+              "mp": 5
+            }
+          ],
+          "req": [],
+          "innate": true
+        },
+        {
           "id": "keen_intellect",
-          "x": 3,
+          "x": 1,
           "y": 0,
           "name": "Keen Intellect",
           "icon": "🧠",
           "kind": "passive",
-          "when": null,
-          "desc": "A deeper well, cut by the same mind that draws from it. Adds mana equal to a multiple of your INT modifier, on top of the mana every character already gets from INT.",
+          "branch": "core",
+          "bt": 0,
+          "desc": "A deeper well, cut by the same mind that draws from it. Adds mana equal to a multiple of your INT modifier.",
           "levels": [
-            "+MP equal to your INT modifier.",
             "+MP equal to twice your INT modifier.",
-            "+MP equal to four times your INT modifier. (requires character level 6)",
-            "+MP equal to five times your INT modifier, and a robe of the third tier or better arrives at once. (requires character level 10)"
+            "+MP equal to four times your INT modifier.",
+            "+MP equal to five times your INT modifier, and a robe of the third tier or better arrives at once."
           ],
           "ranks": [
-            {
-              "mpPerInt": 1
-            },
             {
               "mpPerInt": 2
             },
             {
-              "mpPerInt": 4,
-              "minLevel": 6
+              "mpPerInt": 4
             },
             {
               "mpPerInt": 5,
-              "minLevel": 10,
               "grantGear": {
                 "cat": "armor",
                 "sub": "light",
@@ -4753,191 +4769,264 @@ window.CANTORI_DATA = {
           "req": []
         },
         {
-          "id": "magic_missile",
-          "x": 4,
-          "y": 0,
-          "name": "Magic Missile",
-          "icon": "✦",
-          "kind": "bolt",
-          "innate": true,
-          "desc": "A bolt of force, always at hand — no aiming, it finds the nearest thing you can see. The volley widens as you grow: two bolts at level 3, three at 7, four at 12, each seeking the next-nearest visible foe. 5 MP.",
-          "levels": [
-            "5 MP · 1–4 damage +1 per character level, at the nearest foe in sight · 2 bolts at level 3, 3 at 7, 4 at 12 · 2–8 a bolt from level 18 · known from the start"
-          ],
-          "ranks": [
-            {
-              "mp": 5
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "burning_sensation",
-          "x": 0,
-          "y": 0,
-          "name": "Burning Sensation",
-          "icon": "🔥",
-          "kind": "burncast",
-          "desc": "Set a foe alight. It burns for twice your INT modifier a turn and cools by 1 each turn after — all its bite is in the first few turns, and it lasts as many turns as its opening tick.",
-          "levels": [
-            "7 MP · burns for 2× INT modifier a turn, cooling by 1 · 20 turn cooldown",
-            "+1 burn damage a turn",
-            "+1 burn damage a turn, and it lasts 1 turn longer",
-            "+3 burn damage a turn, and it lasts 3 turns longer"
-          ],
-          "ranks": [
-            {
-              "mp": 7,
-              "cd": 20,
-              "dmgBonus": 0,
-              "turnBonus": 0
-            },
-            {
-              "mp": 7,
-              "cd": 20,
-              "dmgBonus": 1,
-              "turnBonus": 0
-            },
-            {
-              "mp": 7,
-              "cd": 20,
-              "dmgBonus": 1,
-              "turnBonus": 1
-            },
-            {
-              "mp": 7,
-              "cd": 20,
-              "dmgBonus": 3,
-              "turnBonus": 3
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "sleep",
-          "x": 1,
-          "y": 0,
-          "name": "Sleep",
-          "icon": "💤",
-          "kind": "sleepcast",
-          "desc": "Tap a foe. If it is weak enough it drops where it stands — and a sleeper takes the full ambush hit when you strike it.",
-          "levels": [
-            "10 MP · sleeps a target at or below INT ÷ 2 HP · 150 turn cooldown",
-            "Sleeps a target at or below INT HP",
-            "Cooldown 100 turns",
-            "Catches a 5-tile cross — the target and each neighbour"
-          ],
-          "ranks": [
-            {
-              "mp": 10,
-              "cd": 150,
-              "thr": 0.5,
-              "area": 0
-            },
-            {
-              "mp": 10,
-              "cd": 150,
-              "thr": 1,
-              "area": 0
-            },
-            {
-              "mp": 10,
-              "cd": 100,
-              "thr": 1,
-              "area": 0
-            },
-            {
-              "mp": 10,
-              "cd": 100,
-              "thr": 1,
-              "area": 1
-            }
-          ],
-          "req": []
-        },
-        {
           "id": "mp_recovery",
           "x": 2,
           "y": 0,
           "name": "Deep Well",
-          "icon": "🌀",
+          "icon": "🌊",
           "kind": "passive",
+          "branch": "core",
+          "bt": 0,
           "desc": "Mana returns to you faster. Each rank replaces the last, it does not stack on it.",
           "levels": [
-            "+10% MP regeneration",
-            "+25% MP regeneration",
-            "+50% MP regeneration (character level 5)",
-            "+100% MP regeneration (character level 10)"
+            "+25% MP regeneration.",
+            "+50% MP regeneration.",
+            "+100% MP regeneration."
           ],
           "ranks": [
-            {
-              "mpRegen": 0.1
-            },
             {
               "mpRegen": 0.25
             },
             {
-              "mpRegen": 0.5,
-              "minLevel": 5
+              "mpRegen": 0.5
             },
             {
-              "mpRegen": 1,
-              "minLevel": 10
+              "mpRegen": 1
             }
           ],
           "req": []
         },
         {
-          "id": "blink",
+          "id": "ward",
           "x": 0,
           "y": 1,
-          "name": "Blink",
-          "icon": "➹",
-          "kind": "blinkcast",
-          "desc": "Step through the space between. Tap any tile you can see.",
+          "name": "Ward",
+          "icon": "◇",
+          "kind": "wardcast",
+          "branch": "abjuration",
+          "bt": 1,
+          "desc": "A shell around you that eats damage before your armour or your HP sees it. Sized by RES.",
           "levels": [
-            "20 MP · teleport anywhere in line of sight · 250 turn cooldown",
-            "Every kill takes 10 turns off the cooldown",
-            "Costs 15 MP",
-            "Costs 10 MP, and every kill takes 20 turns off"
+            "15 MP · absorbs 10 + 3×RES mod · 40 turns · 120-turn cooldown.",
+            "Absorbs 18 + 5×RES mod.",
+            "Absorbs 24 + 7×RES mod for 60 turns, and what it eats is thrown back at whatever swung."
+          ],
+          "ranks": [
+            {
+              "mp": 15,
+              "cd": 120,
+              "base": 10,
+              "perRes": 3,
+              "turns": 40
+            },
+            {
+              "mp": 15,
+              "cd": 110,
+              "base": 18,
+              "perRes": 5,
+              "turns": 40
+            },
+            {
+              "mp": 15,
+              "cd": 100,
+              "base": 24,
+              "perRes": 7,
+              "turns": 60,
+              "reflect": true
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "counterspell",
+          "x": 0,
+          "y": 2,
+          "name": "Counterspell",
+          "icon": "✋",
+          "kind": "counterspell",
+          "branch": "abjuration",
+          "bt": 2,
+          "desc": "Unmake a spell before it lands: the nearest telegraphed attack you can see — a boss's wind-up, a beam, a necromancer's summoning — comes apart. With nothing to counter, it strips every hex from you instead.",
+          "levels": [
+            "10 MP · 120-turn cooldown.",
+            "90-turn cooldown.",
+            "60-turn cooldown, and the caster is stunned for 2 turns."
+          ],
+          "ranks": [
+            {
+              "mp": 10,
+              "cd": 120
+            },
+            {
+              "mp": 10,
+              "cd": 90
+            },
+            {
+              "mp": 10,
+              "cd": 60,
+              "stun": 2
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "sanctum",
+          "x": 0,
+          "y": 3,
+          "name": "Sanctum",
+          "icon": "⛨",
+          "kind": "sanctum",
+          "branch": "abjuration",
+          "bt": 3,
+          "desc": "Draw a circle: the 3×3 around you becomes ground no foe may enter. Anything already inside is thrown out.",
+          "levels": [
+            "5 turns · 15 MP · 150-turn cooldown.",
+            "7 turns · 120-turn cooldown.",
+            "9 turns · 90-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 15,
+              "cd": 150,
+              "turns": 5
+            },
+            {
+              "mp": 15,
+              "cd": 120,
+              "turns": 7
+            },
+            {
+              "mp": 15,
+              "cd": 90,
+              "turns": 9
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "banishment",
+          "x": 0,
+          "y": 4,
+          "name": "Banishment",
+          "icon": "🕳",
+          "kind": "banishcast",
+          "branch": "abjuration",
+          "bt": 4,
+          "desc": "Tap a foe: it is sent somewhere else for 10 turns and comes back where it left. A boss only slips out of the world for 2.",
+          "levels": [
+            "20 MP · 150-turn cooldown."
           ],
           "ranks": [
             {
               "mp": 20,
-              "cd": 250,
-              "killCd": 0
-            },
+              "cd": 150,
+              "turns": 10,
+              "bossTurns": 2
+            }
+          ],
+          "req": [],
+          "cap": "abj_cap"
+        },
+        {
+          "id": "aegis_eternal",
+          "x": 1,
+          "y": 4,
+          "name": "Aegis Eternal",
+          "icon": "💠",
+          "kind": "passive",
+          "branch": "abjuration",
+          "bt": 4,
+          "desc": "Every kill closes your Ward again, whole.",
+          "levels": [
+            "A kill refreshes your Ward to full (Ward must be learned)."
+          ],
+          "ranks": [
+            {
+              "wardOnKill": 1
+            }
+          ],
+          "req": [],
+          "cap": "abj_cap"
+        },
+        {
+          "id": "blink",
+          "x": 2,
+          "y": 1,
+          "name": "Blink",
+          "icon": "➹",
+          "kind": "blinkcast",
+          "branch": "conjuration",
+          "bt": 1,
+          "desc": "Step through the space between. Tap any tile you can see.",
+          "levels": [
+            "20 MP · 200-turn cooldown.",
+            "15 MP · 150-turn cooldown.",
+            "10 MP · 100-turn cooldown."
+          ],
+          "ranks": [
             {
               "mp": 20,
-              "cd": 250,
-              "killCd": 10
+              "cd": 200
             },
             {
               "mp": 15,
-              "cd": 250,
-              "killCd": 10
+              "cd": 150
             },
             {
               "mp": 10,
-              "cd": 250,
-              "killCd": 20
+              "cd": 100
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "portal",
+          "x": 2,
+          "y": 2,
+          "name": "Portal",
+          "icon": "🚪",
+          "kind": "portalcast",
+          "branch": "conjuration",
+          "bt": 2,
+          "desc": "Tap a tile you can see: a door opens under you and another there, linked. Whatever steps into one — you or a foe — steps out of the other.",
+          "levels": [
+            "20 turns · 15 MP · 120-turn cooldown.",
+            "30 turns · 90-turn cooldown.",
+            "40 turns · 60-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 15,
+              "cd": 120,
+              "turns": 20
+            },
+            {
+              "mp": 15,
+              "cd": 90,
+              "turns": 30
+            },
+            {
+              "mp": 15,
+              "cd": 60,
+              "turns": 40
             }
           ],
           "req": []
         },
         {
           "id": "mirror_image",
-          "x": 1,
-          "y": 1,
+          "x": 2,
+          "y": 3,
           "name": "Mirror Image",
           "icon": "👥",
           "kind": "mirrorcast",
+          "branch": "conjuration",
+          "bt": 3,
           "desc": "Cast copies of yourself. Monsters would rather hit them than you.",
           "levels": [
-            "30 MP · one still image beside you · 200 turn cooldown",
-            "Two images",
-            "Two images, and they wander",
-            "Two wandering images, and you go unseen for 2 turns"
+            "30 MP · one still image beside you · 200-turn cooldown.",
+            "Two images, and they wander.",
+            "Two wandering images, and you go unseen for 2 turns."
           ],
           "ranks": [
             {
@@ -4951,19 +5040,12 @@ window.CANTORI_DATA = {
               "mp": 30,
               "cd": 200,
               "n": 2,
-              "roam": false,
-              "invis": 0
-            },
-            {
-              "mp": 30,
-              "cd": 200,
-              "n": 2,
               "roam": true,
               "invis": 0
             },
             {
               "mp": 30,
-              "cd": 200,
+              "cd": 160,
               "n": 2,
               "roam": true,
               "invis": 2
@@ -4972,53 +5054,222 @@ window.CANTORI_DATA = {
           "req": []
         },
         {
-          "id": "madness",
+          "id": "crimson_bands",
           "x": 2,
-          "y": 1,
-          "name": "Madness",
-          "icon": "😵",
-          "kind": "madnesscast",
-          "desc": "Tap a foe. It turns on whatever is nearest — which need not be you.",
+          "y": 4,
+          "name": "Crimson Bands",
+          "icon": "⭕",
+          "kind": "bandscast",
+          "branch": "conjuration",
+          "bt": 4,
+          "desc": "Tap a foe: conjured bands of crimson light bind it where it stands.",
           "levels": [
-            "15 MP · berserk for INT-modifier turns · 250 turn cooldown",
-            "Cooldown 200 turns",
-            "Cooldown 150 turns (character level 10)",
-            "Cooldown 100 turns (character level 15)"
+            "Bind for 3 turns. 10 MP · 40-turn cooldown."
           ],
           "ranks": [
             {
-              "mp": 15,
-              "cd": 250
+              "mp": 10,
+              "cd": 40,
+              "turns": 3
+            }
+          ],
+          "req": [],
+          "cap": "conj_cap"
+        },
+        {
+          "id": "legion",
+          "x": 3,
+          "y": 4,
+          "name": "Legion",
+          "icon": "👤",
+          "kind": "passive",
+          "branch": "conjuration",
+          "bt": 4,
+          "desc": "Mirror Image makes three of you, and each one bursts when it is struck.",
+          "levels": [
+            "Mirror Image: 3 images; a struck image explodes for 4 + 2×INT mod on everything beside it."
+          ],
+          "ranks": [
+            {
+              "legion": 1
+            }
+          ],
+          "req": [],
+          "cap": "conj_cap"
+        },
+        {
+          "id": "frost_nova",
+          "x": 4,
+          "y": 1,
+          "name": "Slow Time",
+          "icon": "⏳",
+          "kind": "frostcast",
+          "branch": "eye",
+          "bt": 1,
+          "desc": "Tap anywhere you can see: time thickens there, and everything caught in it moves and swings at half speed.",
+          "levels": [
+            "12 MP · radius 2 · 10 turns · 60-turn cooldown.",
+            "Radius 2 · 14 turns, and 4 + INT mod damage.",
+            "Radius 3 · 18 turns, and 8 + INT mod damage."
+          ],
+          "ranks": [
+            {
+              "mp": 12,
+              "cd": 60,
+              "radius": 2,
+              "chill": 10,
+              "dmg": 0
             },
             {
-              "mp": 15,
-              "cd": 200
+              "mp": 12,
+              "cd": 55,
+              "radius": 2,
+              "chill": 14,
+              "dmg": 4
             },
             {
-              "mp": 15,
-              "cd": 150,
-              "minLevel": 10
-            },
-            {
-              "mp": 15,
-              "cd": 100,
-              "minLevel": 15
+              "mp": 14,
+              "cd": 50,
+              "radius": 3,
+              "chill": 18,
+              "dmg": 8
             }
           ],
           "req": []
+        },
+        {
+          "id": "foresight",
+          "x": 4,
+          "y": 2,
+          "name": "Foresight",
+          "icon": "🔮",
+          "kind": "passive",
+          "branch": "eye",
+          "bt": 2,
+          "desc": "You saw it coming. The first blows aimed at you on each floor simply miss.",
+          "levels": [
+            "The first blow each floor misses.",
+            "The first 2 blows each floor miss.",
+            "The first 3 blows each floor miss."
+          ],
+          "ranks": [
+            {
+              "foresee": 1
+            },
+            {
+              "foresee": 2
+            },
+            {
+              "foresee": 3
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "rewind",
+          "x": 4,
+          "y": 3,
+          "name": "Rewind",
+          "icon": "⏪",
+          "kind": "rewind",
+          "branch": "eye",
+          "bt": 3,
+          "desc": "Wind yourself back: you stand where you stood 5 turns ago, with the health you had then — if it was more.",
+          "levels": [
+            "10 MP · 150-turn cooldown.",
+            "10 MP · 110-turn cooldown.",
+            "80-turn cooldown, and your mana winds back too."
+          ],
+          "ranks": [
+            {
+              "mp": 10,
+              "cd": 150,
+              "turns": 5
+            },
+            {
+              "mp": 10,
+              "cd": 110,
+              "turns": 5
+            },
+            {
+              "mp": 10,
+              "cd": 80,
+              "turns": 5,
+              "mpBack": true
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "time_loop",
+          "x": 4,
+          "y": 4,
+          "name": "Time Loop",
+          "icon": "♾",
+          "kind": "passive",
+          "branch": "eye",
+          "bt": 4,
+          "desc": "Once per run, the blow that would kill you never happened: you are wound back 10 turns instead.",
+          "levels": [
+            "Once per run, death rewinds you 10 turns."
+          ],
+          "ranks": [
+            {
+              "timeLoop": 10
+            }
+          ],
+          "req": [],
+          "cap": "eye_cap"
+        },
+        {
+          "id": "stop_time",
+          "x": 5,
+          "y": 4,
+          "name": "Stop Time",
+          "icon": "⏸",
+          "kind": "stoptime",
+          "branch": "eye",
+          "bt": 4,
+          "desc": "Ourn holds the world still: you act for 3 turns while nothing else moves.",
+          "levels": [
+            "3 free turns. 25 MP · 300-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 25,
+              "cd": 300,
+              "turns": 3
+            }
+          ],
+          "req": [],
+          "cap": "eye_cap"
         }
-      ,
-      {"id": "ward", "x": 0, "y": 2, "name": "Ward", "icon": "◇", "kind": "wardcast", "desc": "A shell around you that eats damage before your armour, your HP or anything else sees it. Sized by RES — the stat the class is built on and had nothing of its own to show for it.", "levels": ["15 MP · absorbs 10 + 3×RES mod · 40 turns · 120 turn cooldown", "Absorbs 16 + 5×RES mod", "Absorbs 24 + 7×RES mod, 60 turns", "Absorbs 24 + 7×RES mod, and what it eats is thrown back at whatever swung"], "ranks": [{"mp": 15, "cd": 120, "base": 10, "perRes": 3, "turns": 40}, {"mp": 15, "cd": 120, "base": 16, "perRes": 5, "turns": 40}, {"mp": 15, "cd": 100, "base": 24, "perRes": 7, "turns": 60}, {"mp": 15, "cd": 100, "base": 24, "perRes": 7, "turns": 60, "reflect": true}], "req": [["mp_recovery", 2]]},
-      {"id": "frost_nova", "x": 1, "y": 2, "name": "Frost Nova", "icon": "❄", "kind": "frostcast", "desc": "Tap anywhere you can see. Everything caught in the bloom moves and swings at half speed. No damage at first — the slow IS the spell — but it learns to bite.", "levels": ["12 MP · radius 2 · chilled 10 turns · no damage · 60 turn cooldown", "Radius 2, 12 turns, and 4 + INT mod damage", "Radius 3, 14 turns, and 7 + INT mod damage", "Radius 3, 18 turns, and 11 + INT mod damage"], "ranks": [{"mp": 12, "cd": 60, "radius": 2, "chill": 10, "dmg": 0}, {"mp": 12, "cd": 60, "radius": 2, "chill": 12, "dmg": 4}, {"mp": 14, "cd": 55, "radius": 3, "chill": 14, "dmg": 7}, {"mp": 14, "cd": 50, "radius": 3, "chill": 18, "dmg": 11}], "req": [["burning_sensation", 2]]},
-      {"id": "dominate", "x": 2, "y": 2, "name": "Dominate", "icon": "♛", "kind": "dominatecast", "desc": "Tap a foe you can see and it changes sides for good — it hunts the others and never you. The price is read off the target, not the rank: MP equal to the health it has left. Bosses will not bend.", "levels": ["MP = the target's current HP · 400 turn cooldown", "MP = 85% of its current HP", "MP = 70% of its current HP, 350 turn cooldown", "MP = 55% of its current HP, 300 turn cooldown"], "ranks": [{"mp": 0, "cd": 400, "hpCost": 1}, {"mp": 0, "cd": 400, "hpCost": 0.85}, {"mp": 0, "cd": 350, "hpCost": 0.7}, {"mp": 0, "cd": 300, "hpCost": 0.55}], "req": [["sleep", 2], ["madness", 2]]}
-    ],
+      ],
       "icon": "✨",
       "baseHp": 20,
       "baseMp": 20,
       "regenTurns": 350,
       "vitRegen": 2,
       "mpRegenTurns": 300,
-      "intRegen": 4
+      "intRegen": 4,
+      "branches": [
+        {
+          "id": "abjuration",
+          "name": "Abjuration",
+          "icon": "◇"
+        },
+        {
+          "id": "conjuration",
+          "name": "Conjuration",
+          "icon": "🌀"
+        },
+        {
+          "id": "eye",
+          "name": "Eye of Ourn",
+          "icon": "⏳",
+          "god": "ourn"
+        }
+      ]
     }
   ,
     "bard": {

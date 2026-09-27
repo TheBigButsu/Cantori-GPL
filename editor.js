@@ -1015,6 +1015,7 @@
       "bolt", "burncast", "sleepcast", "blinkcast", "mirrorcast", "madnesscast",
       "wallcast", "pullcast", "eyecast", "angercast", "sol",
       "sneakcast", "wardcast", "frostcast", "dominatecast",
+      "counterspell", "sanctum", "banishcast", "portalcast", "bandscast", "rewind", "stoptime",
       "notecast", "symphony", "encore", "finale",
     ];
     if (cell.kind && KINDS.indexOf(cell.kind) < 0) KINDS.push(cell.kind);   // never lose a hand-authored one

@@ -257,7 +257,10 @@ async function main() {
     const p = c.peek();
     // somewhere open, a few tiles from you, to let a cloud loose in
     let spot = null;
-    for (let r = 3; r <= 6 && !spot; r++) for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+    // Straight lines first, then the whole ring: a start tucked into a corridor
+    // can have nothing open on its four axes.
+    const ring = (r) => { const out = [[r, 0], [-r, 0], [0, r], [0, -r]]; for (let i = -r; i <= r; i++) out.push([i, r], [i, -r], [r, i], [-r, i]); return out; };
+    for (let r = 3; r <= 6 && !spot; r++) for (const [dx, dy] of ring(r)) {
       const x = p.x + dx, y = p.y + dy;
       if (c.passableAt(x, y) && !c.peek().mlist.some((m) => m.x === x && m.y === y)) { spot = { x, y }; break; }
     }
@@ -734,6 +737,111 @@ async function main() {
     return { problems };
   });
   check(trees.problems.length === 0, "trees: " + trees.problems.join("; "));
+
+  // ToneTum's new spells, one at a time, on a quiet floor.
+  const tone = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    const fresh = () => {
+      c.setClass("mage"); c.regenerate(); c.hurt(-999);
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);   // the kills can level you into an offer
+      c.boonClear();
+      c.grant(80);
+    };
+    const free = (dist) => {
+      const p = c.peek();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const x = p.x + dx * dist, y = p.y + dy * dist;
+        let ok = true;
+        for (let i = 1; i <= dist; i++) if (!c.passableAt(p.x + dx * i, p.y + dy * i)) ok = false;
+        if (ok) return { x, y, dx, dy };
+      }
+      return null;
+    };
+    const learnN = (id, n) => { for (let i = 0; i < n; i++) c.learn(id); };
+    fresh();
+    learnN("ward", 3); learnN("counterspell", 3); learnN("sanctum", 3);
+    // Counterspell breaks a wind-up
+    let s = free(2);
+    c.spawnMonsterAt("rat", s.x, s.y); c.setWindup(s.x, s.y);
+    c.resetCds(); c.doSkill("counterspell");
+    const m1 = c.peek().mlist.find((m) => m.x === s.x && m.y === s.y);
+    if (!m1 || m1.windup) problems.push("counterspell did not break a wind-up");
+    if (!m1 || m1.stun < 1) problems.push("counterspell rank 3 did not stun the caster");
+    c.killAt(s.x, s.y);
+    // Sanctum repels and keeps out
+    s = free(1);
+    c.spawnMonsterAt("rat", s.x, s.y);
+    c.resetCds(); c.doSkill("sanctum");
+    const inside = () => c.peek().mlist.some((m) => Math.abs(m.x - c.toneState().sanctum.x) <= 1 && Math.abs(m.y - c.toneState().sanctum.y) <= 1);
+    if (!c.toneState().sanctum) problems.push("sanctum did not rise");
+    else if (inside()) problems.push("sanctum left a foe inside it");
+    for (let t = 0; t < 5 && c.toneState().sanctum; t++) { c.hurt(-999); c.tick(1); if (c.toneState().sanctum && inside()) { problems.push("a foe walked into the sanctum"); break; } }
+    for (let t = 0; t < 8; t++) { c.hurt(-999); c.tick(1); }
+    if (c.toneState().sanctum) problems.push("sanctum never faded");
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    // Banishment (abjuration capstone, 9 points in)
+    c.learn("banishment");
+    s = free(2);
+    c.spawnMonsterAt("rat", s.x, s.y);
+    c.resetCds(); c.doSkill("banishment"); c.tapAt(s.x, s.y);
+    if (c.peek().mlist.length || c.toneState().banished.length !== 1) problems.push("banishment did not lift the foe off the board");
+    for (let t = 0; t < 12; t++) { c.hurt(-999); c.tick(1); }
+    if (c.toneState().banished.length || c.peek().mlist.length !== 1) problems.push("the banished foe did not come back");
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    // Portal: step off one end and back on, come out the other
+    fresh();
+    learnN("blink", 3); learnN("portal", 3); learnN("mirror_image", 3); c.learn("legion");
+    s = free(3);
+    const start = { x: c.peek().x, y: c.peek().y };
+    c.resetCds(); c.doSkill("portal"); c.tapAt(s.x, s.y);
+    if (!c.toneState().portal) problems.push("portal did not open");
+    else {
+      const back = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => c.passableAt(start.x + dx, start.y + dy) && !(start.x + dx === s.x && start.y + dy === s.y));
+      c.step(back[0], back[1]); c.step(-back[0], -back[1]);
+      if (c.peek().x !== s.x || c.peek().y !== s.y) problems.push("walking into a portal did not come out of the other end");
+    }
+    // Legion: three images
+    c.place(start.x, start.y);
+    c.resetCds(); c.doSkill("mirror_image");
+    if (c.decoys().length < 3 && [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]].filter(([dx, dy]) => c.passableAt(start.x + dx, start.y + dy)).length >= 3) problems.push("Legion did not make three images (" + c.decoys().length + ")");
+    // Rewind and Time Loop
+    fresh();
+    learnN("frost_nova", 3); learnN("foresight", 3); learnN("rewind", 3); c.learn("time_loop");
+    c.regenerate(); c.hurt(-999);
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);
+    if (c.toneState().foresight < 3) problems.push("Foresight did not stock 3 free misses on a new floor");
+    const p0 = { x: c.peek().x, y: c.peek().y };
+    for (let t = 0; t < 6; t++) c.tick(1);
+    s = free(2);
+    c.place(s.x, s.y);
+    for (let t = 0; t < 3; t++) c.tick(1);
+    c.hurt(c.peek().hp - 5);
+    const hpLow = c.peek().hp;
+    c.resetCds(); c.doSkill("rewind");
+    if (c.peek().x !== p0.x || c.peek().y !== p0.y) problems.push("rewind did not return to where you stood 5 turns ago");
+    if (c.peek().hp <= hpLow) problems.push("rewind did not restore the health you had");
+    for (let t = 0; t < 12; t++) c.tick(1);
+    c.hurt(9999);
+    if (c.peek().hp <= 0 || !c.toneState().timeLoopUsed) problems.push("Time Loop did not undo a death");
+    // Stop Time (the other capstone), on a fresh tree
+    fresh();
+    learnN("frost_nova", 3); learnN("foresight", 3); learnN("rewind", 3); c.learn("stop_time");
+    c.resetCds(); c.doSkill("stop_time");
+    if (c.toneState().freeze < 3) problems.push("Stop Time did not freeze the world for 3 turns");
+    // Crimson Bands (conjuration capstone)
+    learnN("blink", 3); learnN("portal", 3); learnN("mirror_image", 3); c.learn("crimson_bands");
+    s = free(2);
+    c.spawnMonsterAt("rat", s.x, s.y);
+    c.resetCds(); c.doSkill("crimson_bands"); c.tapAt(s.x, s.y);
+    const m2 = c.peek().mlist.find((m) => m.x === s.x && m.y === s.y);
+    if (!m2 || m2.stun < 2) problems.push("Crimson Bands did not bind");
+    for (let t = 0; t < 8; t++) c.tick(1);
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(tone.problems.length === 0, "tonetum: " + tone.problems.join("; "));
 
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.

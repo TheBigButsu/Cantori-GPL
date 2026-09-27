@@ -387,6 +387,7 @@
     player.boonLv = {}; player.boonSlots = {}; player.doorUsed = {};
     player.momentum = null; player.strideHaste = 0; player.delayed = []; player.breathArmed = false; player.steps = 0;
     player.brynnSteps = 0; player.freeMove = false; player.actCount = 0; player.wrathCount = 0;
+    player.timeLoopUsed = false; player.rewindLog = [];
     player.killCount = 0; player.secondChanceUsed = false;
     player.boonAcc = 0; player.boonEva = 0; player.boonHaste = 0; player.hasteBuff = 0;
     player.invisible = 0;                      // timed buffs don't carry across a new run
@@ -424,6 +425,11 @@
   let decoys = [];
   const DECOY_TURNS = 30;
   const decoyAt = (x, y) => decoys.find((dc) => dc.x === x && dc.y === y) || null;
+  // ToneTum's board pieces: foes Banishment has taken out of the world (they come
+  // back where they left), the Sanctum's no-entry square and the Portal pair.
+  // All three are per-floor and are cleared with the decoys.
+  let banished = [], sanctum = null, portal = null;
+  const inSanctum = (x, y) => !!sanctum && Math.abs(x - sanctum.x) <= 1 && Math.abs(y - sanctum.y) <= 1;
   // Sera's notes. A fourth kind of thing on the board, built on exactly the shape
   // decoys established — its own list, its own tick, its own draw pass, cleared
   // per floor — with the two differences that make it a turret rather than a
@@ -3307,6 +3313,7 @@
     traps = [];
     decoys = [];
     notes = [];
+    banished = []; sanctum = null; portal = null;
     // Bank what was left of the last floor's welcome, then add this floor's grant.
     // Read BEFORE turns is zeroed, which is the whole point of doing it here.
     floorPatience = Math.min(FLOOR_BANK_MAX, FLOOR_GRANT + Math.max(0, floorPatience - turns));
@@ -3523,6 +3530,7 @@
     traps = [];
     decoys = [];
     notes = [];
+    banished = []; sanctum = null; portal = null;
     // Bank what was left of the last floor's welcome, then add this floor's grant.
     // Read BEFORE turns is zeroed, which is the whole point of doing it here.
     floorPatience = Math.min(FLOOR_BANK_MAX, FLOOR_GRANT + Math.max(0, floorPatience - turns));
@@ -4653,6 +4661,7 @@
     // one would invert the mechanic exactly: farming Horrors would become the most
     // efficient grind in the game, on a floor the player was supposed to leave.
     blinkKillCredit();
+    aegisEternal();
     // Raging Smite rank 4: a kill during the rage pushes the next decay tick out,
     // so a berserker who keeps killing keeps the strength.
     if (player.rage && player.rage.killDelay && player.rage.amount > 0) {
@@ -5668,7 +5677,7 @@
   // Before a blow lands on you: Foresight's free misses, Borrowed Time's split,
   // Reinforced's extra block.
   function boonBeforeStruck(attacker, dmg) {
-    if (boonLv("o_foresight") && (player.foresightLeft || 0) > 0) {
+    if ((player.foresightLeft || 0) > 0) {
       player.foresightLeft--; floatText(player.x, player.y, "foreseen", "#7fb4e8");
       log("You saw it coming — the " + monName(attacker) + "'s blow meets nothing.", "hit");
       return 0;
@@ -5863,7 +5872,9 @@
     player.doorUsed = {};
     player.breathArmed = false;
     player.delayed = [];
-    player.foresightLeft = boonLv("o_foresight") ? bv("o_foresight") : 0;
+    // Ourn's boon and ToneTum's Foresight node share one pool of free misses.
+    player.foresightLeft = (boonLv("o_foresight") ? bv("o_foresight") : 0) + passiveMod("foresee");
+    player.rewindLog = [];   // Rewind never reaches back across a staircase
     player.strideHaste = 0;
     // Price of Knowing: the stars take something back on every new floor.
     if (boonLv("l_price") && depth > 1) {
@@ -6149,6 +6160,8 @@
   function canStep(x, y, dx, dy, mover) {
     const nx = x + dx, ny = y + dy;
     if (!passableFor(mover, nx, ny)) return false;
+    // Sanctum: no foe may step INTO the circle (one already inside can leave).
+    if (mover && mover !== player && !mover.dominated && inSanctum(nx, ny) && !inSanctum(x, y)) return false;
     // No diagonal squeeze past a corner flanked on BOTH sides by a real barrier — a
     // wall, a tree, or a hazard nothing will cross (thorns, a chasm). So a wall of
     // brambles still cannot be slipped around without stepping through it.
@@ -6316,6 +6329,7 @@
     }
     if (canStep(player.x, player.y, dx, dy)) {
       player.x = nx; player.y = ny;
+      portalHop(player);
       if (map[ny][nx] === THORN) {
         const ti = player.inv.findIndex((i) => i.key === "torch");
         if (ti >= 0) {                             // carrying a torch → burn through, no bleeding
@@ -6500,6 +6514,7 @@
   }
 
   function die() {
+    if (timeLoop()) return;
     dead = true;
     walkPath = [];
     toggleInv(false);
@@ -6720,6 +6735,7 @@
   let legLog = null;   // { m, legs } while a monster is taking its action
   function moveMonster(m, nx, ny) {
     m.x = nx; m.y = ny;
+    if (portalHop(m)) return;
     const sg = sigils.findIndex((q) => q.x === nx && q.y === ny);           // Procession's sigils
     if (sg >= 0 && !m.dominated) { sigils.splice(sg, 1); bindMon(m, bv("k_procession") >= 3 ? 3 : 2); }
     if (legLog && legLog.m === m) legLog.legs.push([nx, ny]);
@@ -6903,6 +6919,7 @@
     }
     if (!m.target) return;
     stepMonsterTo(m, m.target.x, m.target.y);
+    if (!m.target) return;   // the step set off a plant or trap that reset it (fadeleaf)
     const d = cheb(m.x, m.y, m.target.x, m.target.y);
     if (m.wanderBest == null || d < m.wanderBest) { m.wanderBest = d; m.wanderStale = 0; return; }
     // Not getting closer: blocked, circling, or it simply cannot be reached.
@@ -7283,6 +7300,15 @@
     spawnBurst(dc.x, dc.y, "#9ad0ff");
     floatText(dc.x, dc.y, "shatters", "#9ad0ff");
     log("The " + monName(m) + " strikes an image of you — it bursts like glass.");
+    // Legion: the glass is sharp. Everything beside the image takes the burst.
+    if (dc.legion) {
+      const dmg = Math.max(1, 4 + 2 * mod("INT"));
+      for (const o of monsters.slice()) {
+        if (o.hp <= 0 || o.dominated || cheb(o.x, o.y, dc.x, dc.y) > 1) continue;
+        o.hp -= dmg; flash(o); floatText(o.x, o.y, "-" + dmg, "#9ad0ff");
+        if (o.hp <= 0) killMonster(o, "is cut to ribbons");
+      }
+    }
   }
   function nearestNote(x, y, within) {
     let best = null, bd = Infinity;
@@ -7861,6 +7887,7 @@
     healQueueTick();
     searchForTraps();
     decoyTick();
+    toneTick();
     noteTick();       // her turrets take their turn after her and before the monsters
     maybeReinforce();
     maybeHorror();
@@ -7987,6 +8014,13 @@
         return;
       }
       if (pk === "frostcast") { executeFrostNova(pendingSkill, tx, ty); return; }   // a tile, not a monster
+      if (pk === "portalcast") { executePortal(pendingSkill, tx, ty); return; }
+      if (pk === "banishcast" || pk === "bandscast") {
+        const m = monsterAt(tx, ty);
+        if (!m || !inBounds(tx, ty) || !visible[ty][tx]) { log("No target there."); return; }
+        if (pk === "banishcast") executeBanishment(pendingSkill, tx, ty); else executeCrimsonBands(pendingSkill, tx, ty);
+        return;
+      }
       if (pk === "notecast") { placeNote(pendingSkill, tx, ty, null); return; }     // ...and so is a note
       if (pk === "symphony") { placeNote(pendingSkill, tx, ty, { spread: (skillCur(pendingSkill) || {}).count || 3 }); return; }
       if (pk === "sneakcast" || pk === "dominatecast") {
@@ -9117,6 +9151,21 @@
         ctx.stroke();
       }
       ctx.restore();
+    }
+
+    // ToneTum's Sanctum (a pale square) and Portal pair (violet rings).
+    if (sanctum) {
+      ctx.strokeStyle = "rgba(191,224,255," + (sanctum.turns <= 2 ? 0.35 : 0.7) + ")"; ctx.lineWidth = Math.max(1, tile * 0.06);
+      ctx.fillStyle = "rgba(191,224,255,0.10)";
+      ctx.fillRect(SX(sanctum.x - 1), SY(sanctum.y - 1), tile * 3, tile * 3);
+      ctx.strokeRect(SX(sanctum.x - 1) + 1, SY(sanctum.y - 1) + 1, tile * 3 - 2, tile * 3 - 2);
+    }
+    if (portal) for (const e of [portal.a, portal.b]) {
+      if (!inBounds(e.x, e.y) || !beenSeen[e.y][e.x]) continue;
+      const cx = SX(e.x) + tile / 2, cy = SY(e.y) + tile / 2;
+      ctx.strokeStyle = "rgba(192,138,255,0.85)"; ctx.lineWidth = Math.max(1.5, tile * 0.08);
+      ctx.beginPath(); ctx.ellipse(cx, cy, tile * 0.38, tile * 0.44, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "rgba(192,138,255,0.18)"; ctx.fill();
     }
 
     // Mirror Image decoys: the player's own sprite, translucent and faintly blue, so
@@ -10775,6 +10824,10 @@
     else if (d.kind === "sol") executeSpeedOfLight(key);
     else if (d.kind === "mirrorcast") executeMirrorImage(key);           // no target to pick — it lands beside you
     else if (d.kind === "wardcast") executeWard(key);                    // aimed at yourself
+    else if (d.kind === "counterspell") executeCounterspell(key);
+    else if (d.kind === "sanctum") executeSanctum(key);
+    else if (d.kind === "rewind") executeRewind(key);
+    else if (d.kind === "stoptime") executeStopTime(key);
     else if (d.kind === "encore") executeEncore(key);                    // every note she already placed
     else if (d.kind === "finale") executeFinalMovement(key);
     else if (d.kind === "wallcast" || d.kind === "pullcast" || d.kind === "eyecast" || d.kind === "angercast" ||
@@ -10782,7 +10835,8 @@
              d.kind === "sleepcast" || d.kind === "blinkcast" ||
              d.kind === "madnesscast" || d.kind === "burncast" ||
              d.kind === "sneakcast" || d.kind === "frostcast" || d.kind === "dominatecast" ||
-             d.kind === "notecast" || d.kind === "symphony") beginTargetedSkill(key);
+             d.kind === "notecast" || d.kind === "symphony" ||
+             d.kind === "banishcast" || d.kind === "bandscast" || d.kind === "portalcast") beginTargetedSkill(key);
   }
   // Ourn's Speed of Light: 25 MP for an instant, decaying burst of Haste.
   function executeSpeedOfLight(key) {
@@ -11090,17 +11144,243 @@
     }
     if (!spots.length) { log("No room beside you for an image."); updateHotbar(); return; }
     payCast(key, c);
-    const n = Math.min(c.cur.n || 1, spots.length);
+    const legion = passiveMod("legion") > 0;
+    const n = Math.min(legion ? Math.max(3, c.cur.n || 1) : (c.cur.n || 1), spots.length);
     for (let i = 0; i < n; i++) {
       const s = spots[randInt(0, spots.length - 1)];
       spots.splice(spots.indexOf(s), 1);
-      decoys.push({ x: s.x, y: s.y, turns: DECOY_TURNS, roam: !!c.cur.roam });
+      decoys.push({ x: s.x, y: s.y, turns: DECOY_TURNS, roam: !!c.cur.roam, legion });
     }
     if (c.cur.invis) { player.invisible = Math.max(player.invisible || 0, c.cur.invis); }
     log("The air folds — " + (n === 1 ? "an image steps out beside you." : n + " images step out beside you.") +
         (c.cur.invis ? " You go unseen." : ""), "hit");
     updateHUD(); updateHotbar();
     worldTurn();
+  }
+
+
+  // ---- ToneTum's branch tree: Abjuration, Conjuration, the Eye of Ourn -----
+  // Counterspell: a telegraph is a promise the monster made last turn, and this is
+  // the one button that breaks it on purpose — the same unwinding paralysis does
+  // (paralyzeMonster), aimed. Nearest first, because the thing about to land on you
+  // is almost always the closest one winding up. With nothing to break it turns
+  // inward and strips your hexes, so it is never a dead button against a bard.
+  function executeCounterspell(key) {
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    const casting = monsters
+      .filter((m) => m.hp > 0 && (m.windup || m.beam || m.summonAt) && inBounds(m.x, m.y) && visible[m.y][m.x])
+      .sort((a, b) => cheb(a.x, a.y, player.x, player.y) - cheb(b.x, b.y, player.x, player.y));
+    const hexed = HEX_KEYS.some((k) => (player[k] || 0) > 0) || (player.cripple || 0) > 0;
+    if (!casting.length && !hexed) { log("There is nothing to counter."); updateHotbar(); return; }
+    payCast(key, c);
+    if (casting.length) {
+      const m = casting[0];
+      m.windup = null; m.beam = null; m.summonAt = null;
+      if (c.cur.stun) m.stun = Math.max(m.stun || 0, c.cur.stun);
+      spawnProjectile(player.x, player.y, m.x, m.y, "#bfe0ff");
+      floatText(m.x, m.y, "✋ countered", "#bfe0ff");
+      log(upFirst(theMon(m)) + "'s spell comes apart in its hands.", "hit");
+    } else {
+      clearHexes();
+      floatText(player.x, player.y, "✋ cleansed", "#bfe0ff");
+      log("You unpick the song's hold on you.", "hit");
+    }
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  // Sanctum: a 3×3 no foe may step into (canStep refuses the move). It is drawn
+  // where you cast it and stays there — leave it and it stops protecting you.
+  // Anything standing inside when it rises is shoved out a step, or the circle
+  // would open with a foe already beside you and do nothing.
+  function executeSanctum(key) {
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    payCast(key, c);
+    sanctum = { x: player.x, y: player.y, turns: (c.cur.turns || 5) + 1 };   // +1: this cast's own worldTurn
+    for (const m of monsters) {
+      if (m.hp <= 0 || m.dominated || !inSanctum(m.x, m.y)) continue;
+      let best = null;
+      for (const [dx, dy] of DIRS8) {
+        const nx = m.x + dx, ny = m.y + dy;
+        if (inSanctum(nx, ny) || !passableFor(m, nx, ny) || monsterAt(nx, ny)) continue;
+        const d = cheb(nx, ny, sanctum.x, sanctum.y);
+        if (!best || d > best.d) best = { x: nx, y: ny, d };
+      }
+      if (!best) { m.stun = Math.max(m.stun || 0, 1); continue; }   // walled in: it reels instead
+      m.x = best.x; m.y = best.y; snapEntity(m);
+      floatText(m.x, m.y, "repelled", "#bfe0ff");
+    }
+    spawnBurst(player.x, player.y, "#bfe0ff");
+    log("You draw a circle no foe may cross. (" + (c.cur.turns || 5) + " turns)", "hit");
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  // Banishment: the foe is lifted off the board for a while and set back down where
+  // it left (or the nearest free tile to it). A boss is never taken off the list —
+  // too much of its fight is wired to its being on it — so it slips half out of the
+  // world instead: held, its wind-up lost, for a couple of turns.
+  function executeBanishment(key, tx, ty) {
+    pendingSkill = null;
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    const m = monsterAt(tx, ty);
+    if (!m || m.hp <= 0) { log("No target there."); updateHotbar(); return; }
+    payCast(key, c);
+    spawnBurst(m.x, m.y, "#8a6ad0");
+    if (m.boss) {
+      m.para = Math.max(m.para || 0, c.cur.bossTurns || 2);
+      m.windup = null; m.beam = null;
+      floatText(m.x, m.y, "banished", "#8a6ad0");
+      log(upFirst(theMon(m)) + " flickers half out of the world.", "hit");
+    } else {
+      monsters = monsters.filter((o) => o !== m);
+      banished.push({ m, turns: (c.cur.turns || 10) + 1, x: m.x, y: m.y });
+      log(upFirst(theMon(m)) + " is somewhere else now. (" + (c.cur.turns || 10) + " turns)", "hit");
+    }
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  function unbanish(b) {
+    let spot = null;
+    for (let r = 0; r <= 4 && !spot; r++)
+      for (let dy = -r; dy <= r && !spot; dy++)
+        for (let dx = -r; dx <= r && !spot; dx++) {
+          const x = b.x + dx, y = b.y + dy;
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          if (passableFor(b.m, x, y) && !monsterAt(x, y) && !(x === player.x && y === player.y) && !inSanctum(x, y)) spot = { x, y };
+        }
+    if (!spot) return false;                          // nowhere yet — try again next turn
+    b.m.x = spot.x; b.m.y = spot.y; snapEntity(b.m);
+    monsters.push(b.m);
+    spawnBurst(spot.x, spot.y, "#8a6ad0");
+    if (visible[spot.y][spot.x]) log(upFirst(theMon(b.m)) + " falls back into the world.");
+    return true;
+  }
+  // Aegis Eternal: a kill closes the Ward again, at its full current rank.
+  function aegisEternal() {
+    if (!passiveMod("wardOnKill")) return;
+    const cur = skillCur("ward");
+    if (!cur || skillRank("ward") < 1) return;
+    player.ward = wardAmount(cur);
+    player.wardTurns = cur.turns || 40;
+    player.wardReflect = cur.reflect ? 1 : 0;
+    floatText(player.x, player.y, "◇", "#bfe0ff");
+  }
+  // Crimson Bands: a plain Bind, so it lights up everything Kethara's boons key on.
+  function executeCrimsonBands(key, tx, ty) {
+    pendingSkill = null;
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    const m = monsterAt(tx, ty);
+    if (!m || m.hp <= 0) { log("No target there."); updateHotbar(); return; }
+    payCast(key, c);
+    spawnProjectile(player.x, player.y, m.x, m.y, "#e0485a");
+    bindMon(m, c.cur.turns || 3);
+    startHunting(m);
+    log("Crimson bands snap shut around " + theMon(m) + ".", "hit");
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  // Portal: one end under you, one on the tapped tile. Anything that walks onto an
+  // end comes out of the other (portalHop, from the player's step and moveMonster).
+  // Arriving through a portal is not "stepping onto" the far end, so nothing
+  // bounces back and forth.
+  function executePortal(key, tx, ty) {
+    pendingSkill = null;
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    if (!inBounds(tx, ty) || !visible[ty][tx] || !passable(tx, ty) || tileProp(tx, ty, "shun") || (tx === player.x && ty === player.y)) {
+      log("A portal cannot open there."); updateHotbar(); return;
+    }
+    payCast(key, c);
+    portal = { a: { x: player.x, y: player.y }, b: { x: tx, y: ty }, turns: (c.cur.turns || 20) + 1 };
+    spawnBurst(player.x, player.y, "#c08aff"); spawnBurst(tx, ty, "#c08aff");
+    log("Two doors open in the air, and they open on each other. (" + (c.cur.turns || 20) + " turns)", "hit");
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  function portalHop(w) {
+    if (!portal) return false;
+    const onA = w.x === portal.a.x && w.y === portal.a.y, onB = w.x === portal.b.x && w.y === portal.b.y;
+    if (!onA && !onB) return false;
+    const to = onA ? portal.b : portal.a;
+    const blocked = w === player ? !!monsterAt(to.x, to.y) : (!!monsterAt(to.x, to.y) || (to.x === player.x && to.y === player.y) || !passableFor(w, to.x, to.y));
+    if (blocked) return false;
+    w.x = to.x; w.y = to.y;
+    if (w === player) { snapPlayer(); computeFOV(); }
+    else { w.teleported = turns; snapEntity(w); }
+    spawnBurst(to.x, to.y, "#c08aff");
+    return true;
+  }
+  // Rewind keeps the last few turns of where you stood and how you were. One entry
+  // per world turn, taken at the end of it; cleared on every new floor.
+  const REWIND_KEEP = 12;
+  function rewindTo(back, why) {
+    const L = player.rewindLog || [];
+    if (!L.length) return false;
+    const e = L[Math.max(0, L.length - 1 - back)];
+    if (monsterAt(e.x, e.y) && !(e.x === player.x && e.y === player.y)) {
+      const m = monsterAt(e.x, e.y);   // whatever took your old place is shoved aside
+      for (const [dx, dy] of DIRS8) { const nx = m.x + dx, ny = m.y + dy; if (passableFor(m, nx, ny) && !monsterAt(nx, ny) && !(nx === e.x && ny === e.y)) { m.x = nx; m.y = ny; snapEntity(m); break; } }
+      if (monsterAt(e.x, e.y)) return false;
+    }
+    spawnBurst(player.x, player.y, "#7fb4e8");
+    player.x = e.x; player.y = e.y; snapPlayer(); computeFOV();
+    spawnBurst(e.x, e.y, "#7fb4e8");
+    floatText(player.x, player.y, why, "#7fb4e8");
+    return e;
+  }
+  function executeRewind(key) {
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    if (!(player.rewindLog || []).length) { log("There is nothing behind you to go back to yet."); updateHotbar(); return; }
+    payCast(key, c);
+    const mpNow = player.mp;
+    const e = rewindTo(c.cur.turns || 5, "⏪");
+    if (!e) { log("Something stands where you stood — the moment will not take you back."); updateHUD(); updateHotbar(); worldTurn(); return; }
+    player.hp = Math.min(player.maxHp, Math.max(player.hp, e.hp));
+    if (c.cur.mpBack) player.mp = Math.min(player.maxMp, Math.max(mpNow, e.mp));
+    log("You wind yourself back " + (c.cur.turns || 5) + " turns.", "hit");
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  // Time Loop: die() asks here first. Once per run the killing blow is undone —
+  // you stand where you were ten turns ago with the health you had then (at least
+  // a quarter of your maximum, or the loop would only replay the same death).
+  function timeLoop() {
+    const back = passiveMod("timeLoop");
+    if (!back || player.timeLoopUsed || !(player.rewindLog || []).length) return false;
+    player.timeLoopUsed = true;
+    const e = rewindTo(back, "TIME LOOP");
+    if (!e) { player.timeLoopUsed = false; return false; }
+    player.hp = Math.max(e.hp, Math.ceil(player.maxHp / 4));
+    player.rewindLog = [];
+    flashScreen("#7fb4e8", 600);
+    log("No. That is not how this goes — Ourn winds you back " + back + " turns. (once per run)", "hit");
+    updateHUD();
+    return true;
+  }
+  function executeStopTime(key) {
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    payCast(key, c);
+    player.timeFreeze = Math.max(player.timeFreeze || 0, (c.cur.turns || 3) + 1);   // +1: this cast's own worldTurn
+    flashScreen("#7fb4e8", 400);
+    floatText(player.x, player.y, "⏸", "#7fb4e8");
+    log("Ourn holds the world still. (" + (c.cur.turns || 3) + " turns)", "hit");
+    updateHUD(); updateHotbar();
+    worldTurn();
+  }
+  // Once a world turn: the rewind log, and the clocks on the Sanctum, the Portal and
+  // everything Banishment has put away.
+  function toneTick() {
+    if (!player.rewindLog) player.rewindLog = [];
+    player.rewindLog.push({ x: player.x, y: player.y, hp: player.hp, mp: player.mp });
+    if (player.rewindLog.length > REWIND_KEEP) player.rewindLog.shift();
+    if (sanctum && --sanctum.turns <= 0) { sanctum = null; log("The circle fades."); }
+    if (portal && --portal.turns <= 0) { portal = null; log("The portals close."); }
+    if (banished.length) banished = banished.filter((b) => !(--b.turns <= 0 && unbanish(b)));
   }
 
   // ---- Brynn, tiers 2 and 3 ------------------------------------------------
@@ -11477,11 +11757,12 @@
   // Ward — RES finally does something that is HIS. A shell that eats damage before
   // anything else does (see mitigateDamage), sized by the stat his class is built
   // on, and it expires so it cannot be pre-stacked before every fight.
+  const wardAmount = (cur) => Math.max(1, (cur.base || 10) + Math.max(0, mod("RES")) * (cur.perRes || 3));
   function executeWard(key) {
     const c = castCheck(key);
     if (!c) { updateHotbar(); return; }
     payCast(key, c);
-    const amount = Math.max(1, (c.cur.base || 10) + Math.max(0, mod("RES")) * (c.cur.perRes || 3));
+    const amount = wardAmount(c.cur);
     player.ward = amount;
     player.wardTurns = (c.cur.turns || 40) + 1;   // +1: this cast's own worldTurn ticks it once
     player.wardReflect = c.cur.reflect ? 1 : 0;
@@ -12551,6 +12832,10 @@
     skillState: () => { const o2 = {}; for (const k in player.skills) o2[k] = { rank: player.skills[k].rank || 0, cd: player.skills[k].cd || 0 }; return o2; },
     resetCds: () => { for (const k in player.skills) player.skills[k].cd = 0; player.mp = player.maxMp; updateHotbar(); },
     pendingSkill: () => pendingSkill,
+    toneState: () => ({ sanctum: sanctum ? Object.assign({}, sanctum) : null, portal: portal ? { a: Object.assign({}, portal.a), b: Object.assign({}, portal.b), turns: portal.turns } : null,
+      banished: banished.map((b) => ({ type: b.m.type, turns: b.turns })), rewind: (player.rewindLog || []).length, timeLoopUsed: !!player.timeLoopUsed,
+      foresight: player.foresightLeft || 0, freeze: player.timeFreeze || 0, ward: player.ward || 0 }),
+    setWindup: (x, y) => { const m = monsterAt(x, y); if (m) m.windup = { kind: "test", turns: 2, tiles: [] }; return !!m; },
     branchPoints: (b) => branchPoints(b),
     doSkill: (k) => useSkill(k),
     rush: (dx, dy) => executeRush([dx, dy]),
