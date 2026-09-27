@@ -297,7 +297,7 @@
     for (const n of nodes) {
       if (n.key === n.id) delete n.key;            // `key` is only an alias for `id`
       n.desc = n.desc || "";
-      n.levels = Array.isArray(n.levels) ? n.levels.slice(0, 4) : [];
+      n.levels = Array.isArray(n.levels) ? n.levels.slice(0, 5) : [];   // branch nodes run to 5 ranks
       n.req = (n.req || []).map(toRef).filter(Boolean);
       n.reqAny = (n.reqAny || []).map(toRef).filter(Boolean);
       if (!n.reqAny.length) delete n.reqAny;
@@ -921,7 +921,7 @@
     // graph itself can branch and rejoin however it likes.
     const th = document.createElement("h3"); th.className = "csec"; th.textContent = "Skill tree"; wrap.appendChild(th);
     const tnote = document.createElement("p"); tnote.className = "hint";
-    tnote.textContent = "A 5×5 board: 5 tiers of 5 slots. A row is a TIER and a tier is gated on character level — tier 1 from the start, tier 2 at level 5, tier 3 at 10, tier 4 at 15, tier 5 at 20 — so which row you put a skill on is how much of the run it costs to reach. Blank squares stay blank in-game (they are drawn as empty sockets), so leaving gaps shapes the tree without lying about any node's tier. Each skill has a description, up to 4 level notes (the dots show how high it goes), prerequisites (other skills taken first, referred to by id — the game spells these out in words on the skill's card), and a wiring row: id (what prerequisites point at, and what the engine keys the skill by), icon, behavior (the engine `kind` — passive, rush, spin, smite, ragesmite, healsmite, spinsmite, selfheal, throwmon, Brynn's sneakcast, Sera's notecast / symphony / encore / finale, and ToneTum's bolt / sleepcast / blinkcast / madnesscast / burncast / mirrorcast / wardcast / frostcast / dominatecast), when (weapon subtypes a passive needs \u2014 one, or several comma-separated: `dagger,sword,axe`; also the special `unarmed` and `softarmor`), req pts, and an optional extra min level that can only ask for MORE than the tier gate. A skill only works in-game once it has per-level mechanics — edit those (the ranks array) in the </> code view. Warrior's Rush, Spin and Sword Master are fully wired examples. Heroes with `branches` use branch trees instead: each cell carries `branch` (core or a branch id), `bt` (branch tier 1–4, opening at 0 / 2 / 5 / 9 points spent in that branch) and, on a capstone, `cap` (the pair it belongs to — one per pair). Core sits on row 0; branch b fills column 2b on rows 1–3, and its capstone pair takes columns 2b and 2b+1 on row 4. docs/SKILLS.md is generated from these by tools/make_skills_doc.py.";
+    tnote.textContent = "A 5×5 board: 5 tiers of 5 slots. A row is a TIER and a tier is gated on character level — tier 1 from the start, tier 2 at level 5, tier 3 at 10, tier 4 at 15, tier 5 at 20 — so which row you put a skill on is how much of the run it costs to reach. Blank squares stay blank in-game (they are drawn as empty sockets), so leaving gaps shapes the tree without lying about any node's tier. Each skill has a description, up to 5 level notes (the dots show how high it goes), prerequisites (other skills taken first, referred to by id — the game spells these out in words on the skill's card), and a wiring row: id (what prerequisites point at, and what the engine keys the skill by), icon, behavior (the engine `kind` — passive, rush, spin, smite, ragesmite, healsmite, spinsmite, selfheal, throwmon, Brynn's sneakcast, Sera's notecast / symphony / encore / finale, and ToneTum's bolt / sleepcast / blinkcast / madnesscast / burncast / mirrorcast / wardcast / frostcast / dominatecast), when (weapon subtypes a passive needs \u2014 one, or several comma-separated: `dagger,sword,axe`; also the special `unarmed` and `softarmor`), req pts, and an optional extra min level that can only ask for MORE than the tier gate. A skill only works in-game once it has per-level mechanics — edit those (the ranks array) in the </> code view. Warrior's Rush, Spin and Sword Master are fully wired examples. Heroes with `branches` use branch trees instead: each cell carries `branch` (core or a branch id), `bt` (branch tier 1–4, opening at 0 / 3 / 7 / 15 points spent in that branch) and, on a capstone, `cap` (the pair it belongs to — one per pair). Core sits on row 0; branch b fills column 2b on rows 1–3, and its capstone pair takes columns 2b and 2b+1 on row 4. docs/SKILLS.md is generated from these by tools/make_skills_doc.py.";
     wrap.appendChild(tnote);
     const allSkills = [];   // gather named skills for the prereq picker
     for (const n of o.skillTree) if (n.name) allSkills.push({ id: n.id, name: n.name });
@@ -1041,15 +1041,15 @@
     ml.oninput = () => { const v = parseInt(ml.value, 10); if (v > 0) cell.minLevel = v; else delete cell.minLevel; };
     wire.appendChild(ml);
     box.appendChild(wire);
-    // 4 level rows + dots
+    // 5 level rows + dots (branch nodes go to 5; the older grid skills stop at 4)
     const dots = document.createElement("div"); dots.className = "sdots";
     const refreshDots = () => {
       dots.innerHTML = "";
       const maxLv = (cell.levels || []).filter((x) => x && x.trim()).length;
-      for (let i = 0; i < 4; i++) { const d = document.createElement("span"); d.className = "sdot" + (i < maxLv ? " on" : ""); dots.appendChild(d); }
+      for (let i = 0; i < 5; i++) { const d = document.createElement("span"); d.className = "sdot" + (i < maxLv ? " on" : ""); dots.appendChild(d); }
     };
     const lvWrap = document.createElement("div"); lvWrap.className = "slevels";
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const row = document.createElement("div"); row.className = "slvrow";
       const lab = document.createElement("span"); lab.className = "slvl"; lab.textContent = "L" + (i + 1);
       const inp = document.createElement("input"); inp.type = "text"; inp.placeholder = "what level " + (i + 1) + " does"; inp.value = (cell.levels && cell.levels[i]) || "";

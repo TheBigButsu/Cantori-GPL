@@ -710,12 +710,31 @@ async function main() {
       c.grant(60);
       c.learn(t3.id);
       if (c.skillState()[t3.id].rank) problems.push(cls + ": " + t3.id + " was learned with no points in its branch");
-      for (const n of inB.filter((x) => !x.cap)) for (let r = 0; r < n.ranks.length; r++) c.learn(n.id);
-      if (c.branchPoints(br) < 9) problems.push(cls + ": only " + c.branchPoints(br) + " points fit in " + br + " before its capstone");
+      const gate = c.branchGate()[4];
+      let probed = false;
+      for (const n of inB.filter((x) => !x.cap)) for (let r = 0; r < n.ranks.length; r++) {
+        if (!probed && c.branchPoints(br) === gate - 1) {
+          probed = true;
+          c.learn(caps[0].id);
+          if (c.skillState()[caps[0].id].rank) problems.push(cls + ": capstone learned at " + (gate - 1) + " points, one short of the gate");
+        }
+        c.learn(n.id);
+      }
+      if (c.branchPoints(br) < gate) problems.push(cls + ": only " + c.branchPoints(br) + " points fit in " + br + " before its capstone");
       c.learn(caps[0].id); c.learn(caps[1].id);
       const ss = c.skillState();
       if (!ss[caps[0].id].rank) problems.push(cls + ": capstone " + caps[0].id + " could not be learned at 9 points");
       if (ss[caps[1].id].rank) problems.push(cls + ": both capstones of a pair were learned");
+      // A whole run's 37 points, spent branch by branch, buy at most two capstones.
+      c.setClass(cls); c.grant(37);
+      for (const b of C.branches) {
+        const bn = nodes.filter((n) => n.branch === b.id);
+        for (const n of bn.filter((x) => !x.cap)) for (let r = 0; r < n.ranks.length; r++) c.learn(n.id);
+        c.learn(bn.find((x) => x.cap).id);
+      }
+      const capsHeld = nodes.filter((n) => n.cap && c.skillState()[n.id] && c.skillState()[n.id].rank).length;
+      if (capsHeld > 2) problems.push(cls + ": 37 points bought " + capsHeld + " capstones");
+      if (capsHeld < 1) problems.push(cls + ": 37 points bought no capstone at all");
       // everything else, then fire every active on a crowd
       c.grant(200);
       for (let pass = 0; pass < 4; pass++) for (const n of nodes) c.learn(n.id);
@@ -760,7 +779,7 @@ async function main() {
     };
     const learnN = (id, n) => { for (let i = 0; i < n; i++) c.learn(id); };
     fresh();
-    learnN("ward", 3); learnN("counterspell", 3); learnN("sanctum", 3);
+    learnN("ward", 5); learnN("counterspell", 5); learnN("sanctum", 5);
     // Counterspell breaks a wind-up
     let s = free(2);
     c.spawnMonsterAt("rat", s.x, s.y); c.setWindup(s.x, s.y);
@@ -791,7 +810,7 @@ async function main() {
     for (const m of c.peek().mlist) c.killAt(m.x, m.y);
     // Portal: step off one end and back on, come out the other
     fresh();
-    learnN("blink", 3); learnN("portal", 3); learnN("mirror_image", 3); c.learn("legion");
+    learnN("blink", 5); learnN("portal", 5); learnN("mirror_image", 5); c.learn("legion");
     s = free(3);
     const start = { x: c.peek().x, y: c.peek().y };
     c.resetCds(); c.doSkill("portal"); c.tapAt(s.x, s.y);
@@ -807,7 +826,7 @@ async function main() {
     if (c.decoys().length < 3 && [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]].filter(([dx, dy]) => c.passableAt(start.x + dx, start.y + dy)).length >= 3) problems.push("Legion did not make three images (" + c.decoys().length + ")");
     // Rewind and Time Loop
     fresh();
-    learnN("frost_nova", 3); learnN("foresight", 3); learnN("rewind", 3); c.learn("time_loop");
+    learnN("frost_nova", 5); learnN("foresight", 5); learnN("rewind", 5); c.learn("time_loop");
     c.regenerate(); c.hurt(-999);
     for (const m of c.peek().mlist) c.killAt(m.x, m.y);
     for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);
@@ -827,11 +846,11 @@ async function main() {
     if (c.peek().hp <= 0 || !c.toneState().timeLoopUsed) problems.push("Time Loop did not undo a death");
     // Stop Time (the other capstone), on a fresh tree
     fresh();
-    learnN("frost_nova", 3); learnN("foresight", 3); learnN("rewind", 3); c.learn("stop_time");
+    learnN("frost_nova", 5); learnN("foresight", 5); learnN("rewind", 5); c.learn("stop_time");
     c.resetCds(); c.doSkill("stop_time");
     if (c.toneState().freeze < 3) problems.push("Stop Time did not freeze the world for 3 turns");
     // Crimson Bands (conjuration capstone)
-    learnN("blink", 3); learnN("portal", 3); learnN("mirror_image", 3); c.learn("crimson_bands");
+    learnN("blink", 5); learnN("portal", 5); learnN("mirror_image", 5); c.learn("crimson_bands");
     s = free(2);
     c.spawnMonsterAt("rat", s.x, s.y);
     c.resetCds(); c.doSkill("crimson_bands"); c.tapAt(s.x, s.y);
@@ -867,7 +886,7 @@ async function main() {
     const learnN = (id, n) => { for (let i = 0; i < n; i++) c.learn(id); };
     const cast = (id, x, y) => { c.resetCds(); c.hurt(-999); c.doSkill(id); if (c.pendingSkill()) c.tapAt(x, y); };
     fresh();
-    learnN("counterpoint", 3); learnN("carrying_tone", 3); learnN("modulate", 3);
+    learnN("counterpoint", 5); learnN("carrying_tone", 5); learnN("modulate", 5);
     let L = lines(3);
     if (L.length < 2) { c.regenerate(); L = lines(2); }
     if (L.length >= 2) {
@@ -883,11 +902,11 @@ async function main() {
     } else problems.push("no two open lines for the Modulate check");
     // Dirge, Last Rites, Danse Macabre
     fresh();
-    learnN("dirge", 3); learnN("last_rites", 3); learnN("ballad", 3); c.learn("danse_macabre");
-    L = lines(3);
-    if (!L.length) { c.regenerate(); L = lines(3); }
+    learnN("dirge", 5); learnN("last_rites", 5); learnN("ballad", 5); c.learn("danse_macabre");
+    L = lines(4);
+    for (let i = 0; i < 5 && !L.length; i++) { c.regenerate(); c.hurt(-999); for (const m of c.peek().mlist) c.killAt(m.x, m.y); L = lines(4); }
     if (L.length) {
-      const a = L[0];
+      const a = { x: L[0].x - L[0].dx, y: L[0].y - L[0].dy, dx: L[0].dx, dy: L[0].dy };   // the note 3 out, the target at 4
       cast("dirge", a.x, a.y);
       const rx = a.x + a.dx, ry = a.y + a.dy;
       if (c.spawnMonsterAt("rat", rx, ry) || c.peek().mlist.some((m) => m.x === rx && m.y === ry)) {
@@ -910,7 +929,7 @@ async function main() {
     }
     // Danse Macabre: a sharp note kills a 1-HP rat and a note rises in its place
     fresh();
-    learnN("dirge", 3); learnN("last_rites", 3); learnN("ballad", 3); c.learn("danse_macabre");
+    learnN("dirge", 5); learnN("last_rites", 5); learnN("ballad", 5); c.learn("danse_macabre");
     L = lines(3);
     if (L.length) {
       const a = L[0], rx = a.x + a.dx, ry = a.y + a.dy;
@@ -923,7 +942,7 @@ async function main() {
     }
     // Wake: 30% while a note rings, 20% otherwise
     fresh();
-    learnN("dirge", 3); learnN("last_rites", 3); learnN("ballad", 3); c.learn("wake");
+    learnN("dirge", 5); learnN("last_rites", 5); learnN("ballad", 5); c.learn("wake");
     if (c.doorThreshold() !== 0.2) problems.push("Wake raised Death's Door with no note ringing");
     L = lines(3);
     if (L.length) { cast("sharp_note", L[0].x, L[0].y); if (Math.abs(c.doorThreshold() - 0.3) > 1e-9) problems.push("Wake did not lift Death's Door to 30% while a note rings"); }

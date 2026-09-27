@@ -10484,11 +10484,13 @@
   const refMet = ([id, minRank]) => { const st = player.skills[id]; return !!(st && st.rank >= reqRank(id, minRank)); };
   // ---- Branch trees ----
   // Each hero's tree is a core plus three branches. A branch node opens once you
-  // have put enough points into that branch — 2 for its second node, 5 for the
-  // third, 9 for the capstone — so a run's forty-odd points fill about two
-  // branches, and which two is the build. A capstone comes as a pair (`cap`):
-  // take one and its partner is shut for the run.
-  const BRANCH_GATE = [0, 0, 2, 5, 9];
+  // have put enough points into that branch — 3 for its second node, 7 for the
+  // third, 15 for the capstone. A run pays 37 points (one Potion of Insight a
+  // floor, 3 a boss), so going all-in reaches a capstone at the 16th point —
+  // around the Golem, floor 10 — and a second at the 32nd; the third is out of
+  // reach, and which two is the build. A capstone comes as a pair (`cap`): take
+  // one and its partner is shut for the run.
+  const BRANCH_GATE = [0, 0, 3, 7, 15];
   function branchPoints(b) {
     let n = 0; const sk = classSkills();
     for (const k in sk) if (sk[k].branch === b && player.skills[k]) n += player.skills[k].rank || 0;
@@ -10828,7 +10830,7 @@
     const cost = cur.mp != null ? cur.mp : 15;
     if (player.mp < cost) { log("Not enough MP for Lay on Hands (need " + cost + ")."); updateHotbar(); return; }
     player.mp -= cost;
-    const amount = Math.max(1, (cur.vit ? eff("VIT") : 0) + (cur.str ? eff("STR") : 0) + (cur.lvl || 0) * player.level);
+    const amount = Math.max(1, (cur.vit ? eff("VIT") : 0) + (cur.str ? eff("STR") : 0) + Math.floor((cur.lvl || 0) * player.level));
     const room = Math.max(0, player.maxHp - player.hp);
     const healed = Math.min(room, amount), over = amount - healed;
     player.hp += healed;
@@ -10926,7 +10928,7 @@
     if (!built) { log("Kethara's wall finds no purchase there."); updateHotbar(); return; }
     computeFOV();
     log("Kethara raises a wall of faith.", "hit");
-    player.skills[key].cd = 150;
+    player.skills[key].cd = (skillCur(key) && skillCur(key).cd) || 150;
     updateHotbar();
     worldTurn();
   }
@@ -10937,7 +10939,7 @@
     pullZone = { x: tx, y: ty, turns: 6 };   // +1: this cast's own worldTurn() below ticks it once already
     floatText(tx, ty, "🌀", "#b491d6");
     log("Kethara's faith pulls the ground taut around that spot.", "hit");
-    player.skills[key].cd = 150;
+    player.skills[key].cd = (skillCur(key) && skillCur(key).cd) || 150;
     updateHotbar();
     worldTurn();
   }
@@ -11241,14 +11243,16 @@
     sanctum = { x: player.x, y: player.y, turns: (c.cur.turns || 5) + 1 };   // +1: this cast's own worldTurn
     for (const m of monsters) {
       if (m.hp <= 0 || m.dominated || !inSanctum(m.x, m.y)) continue;
+      // The nearest free tile outside the circle, a step away if there is one and
+      // up to a few tiles off if the wall is right behind it — a foe left standing
+      // in the circle beside you would make the whole spell a no-op.
       let best = null;
-      for (const [dx, dy] of DIRS8) {
-        const nx = m.x + dx, ny = m.y + dy;
-        if (inSanctum(nx, ny) || !passableFor(m, nx, ny) || monsterAt(nx, ny)) continue;
-        const d = cheb(nx, ny, sanctum.x, sanctum.y);
-        if (!best || d > best.d) best = { x: nx, y: ny, d };
+      for (let y = sanctum.y - 4; y <= sanctum.y + 4; y++) for (let x = sanctum.x - 4; x <= sanctum.x + 4; x++) {
+        if (inSanctum(x, y) || !passableFor(m, x, y) || monsterAt(x, y) || shuns(x, y)) continue;
+        const d = cheb(x, y, m.x, m.y);
+        if (!best || d < best.d) best = { x, y, d };
       }
-      if (!best) { m.stun = Math.max(m.stun || 0, 1); continue; }   // walled in: it reels instead
+      if (!best) { m.stun = Math.max(m.stun || 0, 2); continue; }   // nowhere at all: it reels instead
       m.x = best.x; m.y = best.y; snapEntity(m);
       floatText(m.x, m.y, "repelled", "#bfe0ff");
     }
@@ -11944,7 +11948,8 @@
       const mon = monsterAt(nx, ny);
       if (mon) {
         bump(player, nx, ny); attack(player, mon, cur.dmg);
-        if (cur.stun && mon.hp > 0 && Math.random() < cur.stun) { mon.stun = (mon.stun || 0) + 1; floatText(mon.x, mon.y, "stun!", "#cfe6ff"); }
+        // `stun` below 1 is a chance of one turn; 1 or more is that many turns, always.
+        if (cur.stun && mon.hp > 0 && Math.random() < cur.stun) { mon.stun = (mon.stun || 0) + Math.max(1, Math.floor(cur.stun)); floatText(mon.x, mon.y, "stun!", "#cfe6ff"); }
         break;
       }
       if (isWall(nx, ny)) {
@@ -12057,7 +12062,7 @@
       dealt += Math.max(0, before2 - hitOther.hp);
       if (dead) return;
     }
-    player.skills[key].cd = cur.cdRefund ? Math.max(0, 100 - dealt) : 100;
+    player.skills[key].cd = cur.cdRefund ? Math.max(0, (cur.cd || 100) - dealt) : (cur.cd || 100);
     updateHotbar(); updateHUD(); computeFOV();
     worldTurn();
   }
@@ -12899,6 +12904,7 @@
       foresight: player.foresightLeft || 0, freeze: player.timeFreeze || 0, ward: player.ward || 0 }),
     setWindup: (x, y) => { const m = monsterAt(x, y); if (m) m.windup = { kind: "test", turns: 2, tiles: [] }; return !!m; },
     branchPoints: (b) => branchPoints(b),
+    branchGate: () => BRANCH_GATE.slice(),
     doSkill: (k) => useSkill(k),
     rush: (dx, dy) => executeRush([dx, dy]),
     spin: () => executeSpin(),

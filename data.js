@@ -3729,13 +3729,22 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Set your shield and let them break on it: for a few turns every blow that reaches you is halved, and part of it goes back at whoever threw it.",
           "levels": [
-            "4 turns: blows halved, 30% reflected. 80-turn cooldown.",
-            "5 turns: halved, 40% reflected. 70-turn cooldown.",
-            "6 turns: halved, 50% reflected. 60-turn cooldown."
+            "4 turns: blows halved, 20% reflected. 80-turn cooldown.",
+            "4 turns, 30% reflected. 75-turn cooldown.",
+            "5 turns, 35% reflected. 70-turn cooldown.",
+            "5 turns, 45% reflected. 60-turn cooldown.",
+            "6 turns, 60% reflected. 50-turn cooldown."
           ],
           "ranks": [
             {
               "cd": 80,
+              "hp": 0,
+              "turns": 4,
+              "thorns": 0.2,
+              "halve": true
+            },
+            {
+              "cd": 75,
               "hp": 0,
               "turns": 4,
               "thorns": 0.3,
@@ -3745,14 +3754,21 @@ window.CANTORI_DATA = {
               "cd": 70,
               "hp": 0,
               "turns": 5,
-              "thorns": 0.4,
+              "thorns": 0.35,
               "halve": true
             },
             {
               "cd": 60,
               "hp": 0,
+              "turns": 5,
+              "thorns": 0.45,
+              "halve": true
+            },
+            {
+              "cd": 50,
+              "hp": 0,
               "turns": 6,
-              "thorns": 0.5,
+              "thorns": 0.6,
               "halve": true
             }
           ],
@@ -3769,11 +3785,17 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "Planted. Your armour blocks more the heavier it is, and nothing drags you off your feet — no chain, no shove.",
           "levels": [
-            "+1 armour block per tier of your armour; you cannot be pulled or knocked back.",
+            "You cannot be pulled or knocked back.",
+            "+1 armour block per tier of your armour.",
             "+2 block per armour tier.",
-            "+3 block per armour tier."
+            "+3 block per armour tier.",
+            "+4 block per armour tier."
           ],
           "ranks": [
+            {
+              "blockPerTier": 0,
+              "steadfast": 1
+            },
             {
               "blockPerTier": 1,
               "steadfast": 1
@@ -3784,6 +3806,10 @@ window.CANTORI_DATA = {
             },
             {
               "blockPerTier": 3,
+              "steadfast": 1
+            },
+            {
+              "blockPerTier": 4,
               "steadfast": 1
             }
           ],
@@ -3801,8 +3827,10 @@ window.CANTORI_DATA = {
           "desc": "Mend yourself. Healing beyond your maximum is not wasted — it shortens the wait.",
           "levels": [
             "Heals for VIT + STR. 15 MP, 200-turn cooldown.",
-            "Heals for VIT + STR + your level.",
-            "Heals for VIT + STR + twice your level."
+            "…+ half your level.",
+            "…+ your level, 180-turn cooldown.",
+            "…+ 1.5× your level.",
+            "…+ twice your level, 150-turn cooldown."
           ],
           "ranks": [
             {
@@ -3816,10 +3844,24 @@ window.CANTORI_DATA = {
               "mp": 15,
               "vit": 1,
               "str": 1,
+              "lvl": 0.5
+            },
+            {
+              "cd": 180,
+              "mp": 15,
+              "vit": 1,
+              "str": 1,
               "lvl": 1
             },
             {
-              "cd": 200,
+              "cd": 180,
+              "mp": 15,
+              "vit": 1,
+              "str": 1,
+              "lvl": 1.5
+            },
+            {
+              "cd": 150,
               "mp": 15,
               "vit": 1,
               "str": 1,
@@ -3881,11 +3923,16 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Your Smite breaks like a sunrise: every foe beside the target takes a share of the blow.",
           "levels": [
-            "Foes beside the target take 35% of the Smite.",
+            "Foes beside the target take 25% of the Smite.",
+            "35%.",
             "50%.",
-            "75%."
+            "65%.",
+            "80%."
           ],
           "ranks": [
+            {
+              "smiteSplash": 0.25
+            },
             {
               "smiteSplash": 0.35
             },
@@ -3893,7 +3940,10 @@ window.CANTORI_DATA = {
               "smiteSplash": 0.5
             },
             {
-              "smiteSplash": 0.75
+              "smiteSplash": 0.65
+            },
+            {
+              "smiteSplash": 0.8
             }
           ],
           "req": []
@@ -3909,11 +3959,16 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "A Smite that returns what it deals.",
           "levels": [
-            "Deals Smite damage and heals you as much. 90-turn cooldown.",
+            "Deals Smite damage and heals you as much. 100-turn cooldown.",
+            "90-turn cooldown.",
             "80-turn cooldown.",
-            "70-turn cooldown, and healing past your maximum becomes a shield."
+            "70-turn cooldown.",
+            "60-turn cooldown, and healing past your maximum becomes a shield."
           ],
           "ranks": [
+            {
+              "cd": 100
+            },
             {
               "cd": 90
             },
@@ -3921,7 +3976,10 @@ window.CANTORI_DATA = {
               "cd": 80
             },
             {
-              "cd": 70,
+              "cd": 70
+            },
+            {
+              "cd": 60,
               "shield": true
             }
           ],
@@ -3938,11 +3996,16 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Every blow you land brings the next Smite closer.",
           "levels": [
-            "Each weapon hit takes 3 turns off Smite's cooldown.",
+            "Each weapon hit takes 2 turns off Smite's cooldown.",
+            "3 turns.",
             "5 turns.",
-            "8 turns."
+            "7 turns.",
+            "10 turns."
           ],
           "ranks": [
+            {
+              "zeal": 2
+            },
             {
               "zeal": 3
             },
@@ -3950,7 +4013,10 @@ window.CANTORI_DATA = {
               "zeal": 5
             },
             {
-              "zeal": 8
+              "zeal": 7
+            },
+            {
+              "zeal": 10
             }
           ],
           "req": []
@@ -4008,13 +4074,20 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Charge in a line until you hit something. The foe you hit is Bound — stunned — for a turn.",
           "levels": [
-            "Charge; the foe you hit is Bound. 80-turn cooldown.",
+            "Charge; the foe you hit is Bound. 90-turn cooldown.",
+            "+2 damage, 80-turn cooldown.",
             "+3 damage, 70-turn cooldown.",
-            "+5 damage, 50-turn cooldown."
+            "+5 damage, 60-turn cooldown.",
+            "+7 damage, 45-turn cooldown, Bound for 2."
           ],
           "ranks": [
             {
               "dmg": 0,
+              "cd": 90,
+              "stun": 1
+            },
+            {
+              "dmg": 2,
               "cd": 80,
               "stun": 1
             },
@@ -4025,8 +4098,13 @@ window.CANTORI_DATA = {
             },
             {
               "dmg": 5,
-              "cd": 50,
+              "cd": 60,
               "stun": 1
+            },
+            {
+              "dmg": 7,
+              "cd": 45,
+              "stun": 2
             }
           ],
           "req": []
@@ -4042,19 +4120,27 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "Tap a foe: Kethara's eye fixes it in place. Cooldown falls with RES.",
           "levels": [
-            "Held for 10 turns.",
-            "Held for 15 turns.",
-            "Held for 25 turns."
+            "Held for 8 turns.",
+            "Held for 12 turns.",
+            "Held for 16 turns.",
+            "Held for 20 turns.",
+            "Held for 28 turns."
           ],
           "ranks": [
             {
-              "turns": 10
+              "turns": 8
             },
             {
-              "turns": 15
+              "turns": 12
             },
             {
-              "turns": 25
+              "turns": 16
+            },
+            {
+              "turns": 20
+            },
+            {
+              "turns": 28
             }
           ],
           "req": []
@@ -4068,21 +4154,34 @@ window.CANTORI_DATA = {
           "kind": "wallcast",
           "branch": "oath",
           "bt": 3,
-          "desc": "Tap a tile: a wall of stone rises across it, shoving any foe in the way back a step. 150-turn cooldown.",
+          "desc": "Tap a tile: a wall of stone rises across it, shoving any foe in the way back a step.",
           "levels": [
-            "A 3-tile wall.",
+            "A 3-tile wall. 150-turn cooldown.",
             "A 5-tile wall.",
-            "A 7-tile wall."
+            "A 5-tile wall, 120-turn cooldown.",
+            "A 7-tile wall.",
+            "A 9-tile wall, 90-turn cooldown."
           ],
           "ranks": [
             {
-              "len": 3
+              "len": 3,
+              "cd": 150
             },
             {
-              "len": 5
+              "len": 5,
+              "cd": 150
             },
             {
-              "len": 7
+              "len": 5,
+              "cd": 120
+            },
+            {
+              "len": 7,
+              "cd": 120
+            },
+            {
+              "len": 9,
+              "cd": 90
             }
           ],
           "req": []
@@ -4258,11 +4357,17 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Launch yourself down a line and strike at the end of it: the run-up is the blow.",
           "levels": [
-            "Kick for (attack − 1) per square crossed. 5 MP, 50-turn cooldown.",
+            "Kick for (attack − 1) per square crossed. 5 MP, 60-turn cooldown.",
+            "50-turn cooldown.",
             "The first kick does not start the cooldown — kick again at once, free.",
+            "40-turn cooldown.",
             "Both kicks cost no time, and every square counts in full."
           ],
           "ranks": [
+            {
+              "cd": 60,
+              "mp": 5
+            },
             {
               "cd": 50,
               "mp": 5
@@ -4273,7 +4378,12 @@ window.CANTORI_DATA = {
               "encore": true
             },
             {
-              "cd": 50,
+              "cd": 40,
+              "mp": 5,
+              "encore": true
+            },
+            {
+              "cd": 40,
               "mp": 5,
               "encore": true,
               "freeAction": true,
@@ -4293,19 +4403,27 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "Every blow you slip is an opening: answer it at once.",
           "levels": [
-            "Counter a dodged blow for 50%.",
-            "75%.",
-            "A full swing."
+            "Counter a dodged blow for 40%.",
+            "55%.",
+            "70%.",
+            "85%.",
+            "A full swing, and a little more: 110%."
           ],
           "ranks": [
             {
-              "ripostePct": 50
+              "ripostePct": 40
             },
             {
-              "ripostePct": 75
+              "ripostePct": 55
             },
             {
-              "ripostePct": 100
+              "ripostePct": 70
+            },
+            {
+              "ripostePct": 85
+            },
+            {
+              "ripostePct": 110
             }
           ],
           "req": []
@@ -4321,11 +4439,17 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Moving is the wind-up. Every step you take before you strike adds to the blow; being hit spends it.",
           "levels": [
-            "+1 damage a step, up to +3.",
+            "+1 damage a step, up to +2.",
+            "+1 a step, up to +3.",
             "+1 a step, up to +5.",
-            "+2 a step, up to +8."
+            "+2 a step, up to +7.",
+            "+2 a step, up to +10."
           ],
           "ranks": [
+            {
+              "momentumPer": 1,
+              "momentumCap": 2
+            },
             {
               "momentumPer": 1,
               "momentumCap": 3
@@ -4336,7 +4460,11 @@ window.CANTORI_DATA = {
             },
             {
               "momentumPer": 2,
-              "momentumCap": 8
+              "momentumCap": 7
+            },
+            {
+              "momentumPer": 2,
+              "momentumCap": 10
             }
           ],
           "req": []
@@ -4395,7 +4523,9 @@ window.CANTORI_DATA = {
           "desc": "Grab a foe beside you and hurl it until it hits something.",
           "levels": [
             "Throw; the foe takes weapon + DEX damage. 100-turn cooldown.",
+            "…80-turn cooldown.",
             "…and whatever it hits takes the same.",
+            "…60-turn cooldown.",
             "…and the damage dealt comes off the cooldown."
           ],
           "ranks": [
@@ -4404,10 +4534,21 @@ window.CANTORI_DATA = {
             },
             {
               "dealDmg": true,
+              "cd": 80
+            },
+            {
+              "dealDmg": true,
+              "cd": 80,
               "chain": true
             },
             {
               "dealDmg": true,
+              "cd": 60,
+              "chain": true
+            },
+            {
+              "dealDmg": true,
+              "cd": 60,
               "chain": true,
               "cdRefund": true
             }
@@ -4425,11 +4566,16 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "A crate is not in your way, it is in your hand: bump one and it flies at the nearest foe you can see.",
           "levels": [
-            "Crates you smash fly for 1.5× your attack and stun.",
+            "Crates you smash fly for 1× your attack and stun.",
+            "1.5× your attack.",
             "2× your attack.",
-            "3× your attack."
+            "2.5× your attack.",
+            "3.5× your attack."
           ],
           "ranks": [
+            {
+              "props": 1
+            },
             {
               "props": 1.5
             },
@@ -4437,7 +4583,10 @@ window.CANTORI_DATA = {
               "props": 2
             },
             {
-              "props": 3
+              "props": 2.5
+            },
+            {
+              "props": 3.5
             }
           ],
           "req": []
@@ -4453,21 +4602,31 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "You know where the nerve is. Bare-handed blows can lock a foe up outright.",
           "levels": [
-            "10% to stun for 1 turn.",
-            "15% to stun for 1 turn.",
-            "25% to stun for 2 turns."
+            "8% to stun for 1 turn.",
+            "12% to stun for 1 turn.",
+            "16% to stun for 1 turn.",
+            "20% to stun for 2 turns.",
+            "28% to stun for 2 turns."
           ],
           "ranks": [
             {
-              "stunPct": 10,
+              "stunPct": 8,
               "stunTurns": 1
             },
             {
-              "stunPct": 15,
+              "stunPct": 12,
               "stunTurns": 1
             },
             {
-              "stunPct": 25,
+              "stunPct": 16,
+              "stunTurns": 1
+            },
+            {
+              "stunPct": 20,
+              "stunTurns": 2
+            },
+            {
+              "stunPct": 28,
               "stunTurns": 2
             }
           ],
@@ -4527,25 +4686,37 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Step out of sight; everything hunting you loses the trail. In tall grass, it lasts twice as long.",
           "levels": [
-            "Invisible for 6 turns. 5 MP, 100-turn cooldown.",
-            "10 turns.",
-            "15 turns, and coming back into view: +5 damage for 5 turns."
+            "Invisible for 5 turns. 5 MP, 100-turn cooldown.",
+            "8 turns.",
+            "10 turns, 90-turn cooldown.",
+            "13 turns.",
+            "16 turns, and coming back into view: +5 damage for 5 turns."
           ],
           "ranks": [
             {
               "cd": 100,
               "mp": 5,
-              "turns": 6
+              "turns": 5
             },
             {
               "cd": 100,
+              "mp": 5,
+              "turns": 8
+            },
+            {
+              "cd": 90,
               "mp": 5,
               "turns": 10
             },
             {
-              "cd": 100,
+              "cd": 90,
               "mp": 5,
-              "turns": 15,
+              "turns": 13
+            },
+            {
+              "cd": 80,
+              "mp": 5,
+              "turns": 16,
               "exitDmg": 5,
               "exitTurns": 5
             }
@@ -4563,14 +4734,23 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "Tap an adjacent foe that has not seen you. Damage past the kill buys back the dark.",
           "levels": [
-            "×2.5 damage. 8 MP, 60-turn cooldown.",
+            "×2 damage. 8 MP, 60-turn cooldown.",
+            "×2.5.",
             "×3, and every 4 overkill is a turn unseen.",
-            "×3.5, and every 3 overkill is a turn unseen."
+            "×3.5, 45-turn cooldown.",
+            "×4, and every 3 overkill is a turn unseen."
           ],
           "ranks": [
             {
               "mp": 8,
               "cd": 60,
+              "mult": 2,
+              "invisPer": 6,
+              "invisCap": 6
+            },
+            {
+              "mp": 8,
+              "cd": 55,
               "mult": 2.5,
               "invisPer": 6,
               "invisCap": 6
@@ -4584,8 +4764,15 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 8,
-              "cd": 40,
+              "cd": 45,
               "mult": 3.5,
+              "invisPer": 4,
+              "invisCap": 10
+            },
+            {
+              "mp": 8,
+              "cd": 40,
+              "mult": 4,
               "invisPer": 3,
               "invisCap": 14
             }
@@ -4603,19 +4790,27 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Where you land, something grows: Dragon Kick and Throw may leave a random plant or cloud behind.",
           "levels": [
-            "35% chance.",
+            "25% chance.",
+            "40% chance.",
             "55% chance.",
-            "75% chance."
+            "70% chance.",
+            "Every time."
           ],
           "ranks": [
             {
-              "wildLand": 35
+              "wildLand": 25
+            },
+            {
+              "wildLand": 40
             },
             {
               "wildLand": 55
             },
             {
-              "wildLand": 75
+              "wildLand": 70
+            },
+            {
+              "wildLand": 100
             }
           ],
           "req": []
@@ -4808,8 +5003,10 @@ window.CANTORI_DATA = {
           "desc": "A shell around you that eats damage before your armour or your HP sees it. Sized by RES.",
           "levels": [
             "15 MP · absorbs 10 + 3×RES mod · 40 turns · 120-turn cooldown.",
-            "Absorbs 18 + 5×RES mod.",
-            "Absorbs 24 + 7×RES mod for 60 turns, and what it eats is thrown back at whatever swung."
+            "Absorbs 14 + 4×RES mod.",
+            "Absorbs 18 + 5×RES mod, 110-turn cooldown.",
+            "Absorbs 22 + 6×RES mod for 50 turns.",
+            "Absorbs 28 + 7×RES mod for 60 turns, and what it eats is thrown back at whatever swung."
           ],
           "ranks": [
             {
@@ -4817,6 +5014,13 @@ window.CANTORI_DATA = {
               "cd": 120,
               "base": 10,
               "perRes": 3,
+              "turns": 40
+            },
+            {
+              "mp": 15,
+              "cd": 115,
+              "base": 14,
+              "perRes": 4,
               "turns": 40
             },
             {
@@ -4829,7 +5033,14 @@ window.CANTORI_DATA = {
             {
               "mp": 15,
               "cd": 100,
-              "base": 24,
+              "base": 22,
+              "perRes": 6,
+              "turns": 50
+            },
+            {
+              "mp": 15,
+              "cd": 90,
+              "base": 28,
               "perRes": 7,
               "turns": 60,
               "reflect": true
@@ -4848,18 +5059,28 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "Unmake a spell before it lands: the nearest telegraphed attack you can see — a boss's wind-up, a beam, a necromancer's summoning — comes apart. With nothing to counter, it strips every hex from you instead.",
           "levels": [
-            "10 MP · 120-turn cooldown.",
-            "90-turn cooldown.",
+            "10 MP · 140-turn cooldown.",
+            "120-turn cooldown.",
+            "100-turn cooldown.",
+            "80-turn cooldown.",
             "60-turn cooldown, and the caster is stunned for 2 turns."
           ],
           "ranks": [
+            {
+              "mp": 10,
+              "cd": 140
+            },
             {
               "mp": 10,
               "cd": 120
             },
             {
               "mp": 10,
-              "cd": 90
+              "cd": 100
+            },
+            {
+              "mp": 10,
+              "cd": 80
             },
             {
               "mp": 10,
@@ -4880,25 +5101,37 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Draw a circle: the 3×3 around you becomes ground no foe may enter. Anything already inside is thrown out.",
           "levels": [
-            "5 turns · 15 MP · 150-turn cooldown.",
-            "7 turns · 120-turn cooldown.",
-            "9 turns · 90-turn cooldown."
+            "4 turns · 15 MP · 160-turn cooldown.",
+            "5 turns · 140-turn cooldown.",
+            "6 turns · 120-turn cooldown.",
+            "8 turns · 100-turn cooldown.",
+            "10 turns · 80-turn cooldown."
           ],
           "ranks": [
             {
               "mp": 15,
-              "cd": 150,
+              "cd": 160,
+              "turns": 4
+            },
+            {
+              "mp": 15,
+              "cd": 140,
               "turns": 5
             },
             {
               "mp": 15,
               "cd": 120,
-              "turns": 7
+              "turns": 6
             },
             {
               "mp": 15,
-              "cd": 90,
-              "turns": 9
+              "cd": 100,
+              "turns": 8
+            },
+            {
+              "mp": 15,
+              "cd": 80,
+              "turns": 10
             }
           ],
           "req": []
@@ -4959,18 +5192,28 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Step through the space between. Tap any tile you can see.",
           "levels": [
-            "20 MP · 200-turn cooldown.",
-            "15 MP · 150-turn cooldown.",
+            "20 MP · 220-turn cooldown.",
+            "18 MP · 190-turn cooldown.",
+            "15 MP · 160-turn cooldown.",
+            "12 MP · 130-turn cooldown.",
             "10 MP · 100-turn cooldown."
           ],
           "ranks": [
             {
               "mp": 20,
-              "cd": 200
+              "cd": 220
+            },
+            {
+              "mp": 18,
+              "cd": 190
             },
             {
               "mp": 15,
-              "cd": 150
+              "cd": 160
+            },
+            {
+              "mp": 12,
+              "cd": 130
             },
             {
               "mp": 10,
@@ -4990,19 +5233,31 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "Tap a tile you can see: a door opens under you and another there, linked. Whatever steps into one — you or a foe — steps out of the other.",
           "levels": [
-            "20 turns · 15 MP · 120-turn cooldown.",
-            "30 turns · 90-turn cooldown.",
+            "15 turns · 15 MP · 130-turn cooldown.",
+            "20 turns · 110-turn cooldown.",
+            "25 turns · 90-turn cooldown.",
+            "30 turns · 75-turn cooldown.",
             "40 turns · 60-turn cooldown."
           ],
           "ranks": [
             {
               "mp": 15,
-              "cd": 120,
+              "cd": 130,
+              "turns": 15
+            },
+            {
+              "mp": 15,
+              "cd": 110,
               "turns": 20
             },
             {
               "mp": 15,
               "cd": 90,
+              "turns": 25
+            },
+            {
+              "mp": 15,
+              "cd": 75,
               "turns": 30
             },
             {
@@ -5024,11 +5279,20 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Cast copies of yourself. Monsters would rather hit them than you.",
           "levels": [
-            "30 MP · one still image beside you · 200-turn cooldown.",
-            "Two images, and they wander.",
-            "Two wandering images, and you go unseen for 2 turns."
+            "30 MP · one still image beside you · 220-turn cooldown.",
+            "200-turn cooldown.",
+            "Two images.",
+            "Two images, and they wander. 180-turn cooldown.",
+            "Two wandering images, and you go unseen for 2 turns. 160-turn cooldown."
           ],
           "ranks": [
+            {
+              "mp": 30,
+              "cd": 220,
+              "n": 1,
+              "roam": false,
+              "invis": 0
+            },
             {
               "mp": 30,
               "cd": 200,
@@ -5039,6 +5303,13 @@ window.CANTORI_DATA = {
             {
               "mp": 30,
               "cd": 200,
+              "n": 2,
+              "roam": false,
+              "invis": 0
+            },
+            {
+              "mp": 30,
+              "cd": 180,
               "n": 2,
               "roam": true,
               "invis": 0
@@ -5108,16 +5379,25 @@ window.CANTORI_DATA = {
           "bt": 1,
           "desc": "Tap anywhere you can see: time thickens there, and everything caught in it moves and swings at half speed.",
           "levels": [
-            "12 MP · radius 2 · 10 turns · 60-turn cooldown.",
+            "12 MP · radius 2 · 8 turns · 60-turn cooldown.",
+            "Radius 2 · 11 turns.",
             "Radius 2 · 14 turns, and 4 + INT mod damage.",
-            "Radius 3 · 18 turns, and 8 + INT mod damage."
+            "Radius 3 · 16 turns, and 6 + INT mod damage.",
+            "Radius 3 · 20 turns, and 9 + INT mod damage."
           ],
           "ranks": [
             {
               "mp": 12,
               "cd": 60,
               "radius": 2,
-              "chill": 10,
+              "chill": 8,
+              "dmg": 0
+            },
+            {
+              "mp": 12,
+              "cd": 58,
+              "radius": 2,
+              "chill": 11,
               "dmg": 0
             },
             {
@@ -5129,10 +5409,17 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 14,
-              "cd": 50,
+              "cd": 52,
               "radius": 3,
-              "chill": 18,
-              "dmg": 8
+              "chill": 16,
+              "dmg": 6
+            },
+            {
+              "mp": 14,
+              "cd": 48,
+              "radius": 3,
+              "chill": 20,
+              "dmg": 9
             }
           ],
           "req": []
@@ -5150,7 +5437,9 @@ window.CANTORI_DATA = {
           "levels": [
             "The first blow each floor misses.",
             "The first 2 blows each floor miss.",
-            "The first 3 blows each floor miss."
+            "The first 3.",
+            "The first 4.",
+            "The first 5."
           ],
           "ranks": [
             {
@@ -5161,6 +5450,12 @@ window.CANTORI_DATA = {
             },
             {
               "foresee": 3
+            },
+            {
+              "foresee": 4
+            },
+            {
+              "foresee": 5
             }
           ],
           "req": []
@@ -5176,14 +5471,21 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Wind yourself back: you stand where you stood 5 turns ago, with the health you had then — if it was more.",
           "levels": [
-            "10 MP · 150-turn cooldown.",
+            "10 MP · 160-turn cooldown.",
+            "10 MP · 135-turn cooldown.",
             "10 MP · 110-turn cooldown.",
-            "80-turn cooldown, and your mana winds back too."
+            "10 MP · 90-turn cooldown.",
+            "70-turn cooldown, and your mana winds back too."
           ],
           "ranks": [
             {
               "mp": 10,
-              "cd": 150,
+              "cd": 160,
+              "turns": 5
+            },
+            {
+              "mp": 10,
+              "cd": 135,
               "turns": 5
             },
             {
@@ -5193,7 +5495,12 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 10,
-              "cd": 80,
+              "cd": 90,
+              "turns": 5
+            },
+            {
+              "mp": 10,
+              "cd": 70,
               "turns": 5,
               "mpBack": true
             }
@@ -5424,8 +5731,10 @@ window.CANTORI_DATA = {
           "desc": "More than one line at a time: each new note-slot comes a step early, and every note is tougher while it is out. The board never goes past five.",
           "levels": [
             "A slot early.",
-            "A slot early, and +2 note hit points.",
-            "Two slots early, and +4 hit points."
+            "A slot early, and +1 note hit point.",
+            "A slot early, and +2 hit points.",
+            "Two slots early, and +3 hit points.",
+            "Two slots early, and +5 hit points."
           ],
           "ranks": [
             {
@@ -5433,11 +5742,19 @@ window.CANTORI_DATA = {
             },
             {
               "noteCap": 1,
+              "noteHp": 1
+            },
+            {
+              "noteCap": 1,
               "noteHp": 2
             },
             {
               "noteCap": 2,
-              "noteHp": 4
+              "noteHp": 3
+            },
+            {
+              "noteCap": 2,
+              "noteHp": 5
             }
           ],
           "req": []
@@ -5454,8 +5771,10 @@ window.CANTORI_DATA = {
           "desc": "Your notes reach further across the room, and hold the air longer.",
           "levels": [
             "+1 note range.",
-            "+1 range, and notes last 2 turns longer.",
-            "+2 range, 4 turns longer."
+            "+1 range, and notes last 1 turn longer.",
+            "+1 range, 2 turns longer.",
+            "+2 range, 3 turns longer.",
+            "+2 range, 5 turns longer."
           ],
           "ranks": [
             {
@@ -5463,11 +5782,19 @@ window.CANTORI_DATA = {
             },
             {
               "noteRange": 1,
+              "noteLife": 1
+            },
+            {
+              "noteRange": 1,
               "noteLife": 2
             },
             {
               "noteRange": 2,
-              "noteLife": 4
+              "noteLife": 3
+            },
+            {
+              "noteRange": 2,
+              "noteLife": 5
             }
           ],
           "req": []
@@ -5483,18 +5810,28 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "Tap a tile: the note nearest it lifts and sets down there, still ringing, as old as it was. The artillery moves with the fight.",
           "levels": [
-            "4 MP · 30-turn cooldown.",
-            "4 MP · 18-turn cooldown.",
+            "4 MP · 35-turn cooldown.",
+            "4 MP · 28-turn cooldown.",
+            "4 MP · 20-turn cooldown.",
+            "4 MP · 14-turn cooldown.",
             "8-turn cooldown, and it costs no time."
           ],
           "ranks": [
             {
               "mp": 4,
-              "cd": 30
+              "cd": 35
             },
             {
               "mp": 4,
-              "cd": 18
+              "cd": 28
+            },
+            {
+              "mp": 4,
+              "cd": 20
+            },
+            {
+              "mp": 4,
+              "cd": 14
             },
             {
               "mp": 4,
@@ -5563,8 +5900,10 @@ window.CANTORI_DATA = {
           "desc": "A note held until the glass goes. Direct damage at whatever you tap — for when the board is empty and something is already on top of her.",
           "levels": [
             "9 MP · burns for 2× INT modifier a turn, cooling by 1 · 18-turn cooldown.",
-            "+2 burn damage a turn, 16-turn cooldown.",
-            "+5 a turn, 4 turns longer, 14-turn cooldown."
+            "+1 burn damage a turn.",
+            "+2 a turn, 16-turn cooldown.",
+            "+3 a turn, 2 turns longer.",
+            "+5 a turn, 4 turns longer, 13-turn cooldown."
           ],
           "ranks": [
             {
@@ -5575,13 +5914,25 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 9,
+              "cd": 17,
+              "dmgBonus": 1,
+              "turnBonus": 0
+            },
+            {
+              "mp": 9,
               "cd": 16,
               "dmgBonus": 2,
               "turnBonus": 0
             },
             {
               "mp": 9,
-              "cd": 14,
+              "cd": 15,
+              "dmgBonus": 3,
+              "turnBonus": 2
+            },
+            {
+              "mp": 9,
+              "cd": 13,
               "dmgBonus": 5,
               "turnBonus": 4
             }
@@ -5599,9 +5950,11 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "A note that does not sing. It deals nothing and drags on everything in range instead — half walking speed, half swinging speed.",
           "levels": [
-            "10 MP · range 3 · chills for 6 turns · lasts 8 turns · 40-turn cooldown.",
+            "10 MP · range 3 · chills for 5 turns · lasts 8 turns · 40-turn cooldown.",
+            "Chills for 7, lasts 10.",
             "Range 4, chills for 10, lasts 12.",
-            "Range 5, chills for 16, lasts 14, 32-turn cooldown."
+            "Range 4, chills for 13, lasts 13.",
+            "Range 5, chills for 17, lasts 15, 30-turn cooldown."
           ],
           "ranks": [
             {
@@ -5610,7 +5963,15 @@ window.CANTORI_DATA = {
               "dmg": 0,
               "range": 3,
               "turns": 8,
-              "chill": 6
+              "chill": 5
+            },
+            {
+              "mp": 10,
+              "cd": 38,
+              "dmg": 0,
+              "range": 3,
+              "turns": 10,
+              "chill": 7
             },
             {
               "mp": 10,
@@ -5622,11 +5983,19 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 10,
-              "cd": 32,
+              "cd": 34,
+              "dmg": 0,
+              "range": 4,
+              "turns": 13,
+              "chill": 13
+            },
+            {
+              "mp": 10,
+              "cd": 30,
               "dmg": 0,
               "range": 5,
-              "turns": 14,
-              "chill": 16
+              "turns": 15,
+              "chill": 17
             }
           ],
           "req": []
@@ -5643,8 +6012,10 @@ window.CANTORI_DATA = {
           "desc": "A note that sends things under. Anything weak enough in range drops where it stands — and it keeps working while you are somewhere else entirely.",
           "levels": [
             "12 MP · sleeps anything at or below INT ÷ 2 HP · range 3 · 8 turns · 60-turn cooldown.",
+            "At or below ¾ INT HP.",
             "At or below INT HP, range 4, 10 turns.",
-            "Range 4, 12 turns, 45-turn cooldown."
+            "12 turns, 50-turn cooldown.",
+            "At or below 1.25× INT HP, 14 turns, 40-turn cooldown."
           ],
           "ranks": [
             {
@@ -5659,17 +6030,33 @@ window.CANTORI_DATA = {
               "mp": 12,
               "cd": 60,
               "dmg": 0,
+              "range": 3,
+              "turns": 8,
+              "sleep": 0.75
+            },
+            {
+              "mp": 12,
+              "cd": 55,
+              "dmg": 0,
               "range": 4,
               "turns": 10,
               "sleep": 1
             },
             {
               "mp": 12,
-              "cd": 45,
+              "cd": 50,
               "dmg": 0,
               "range": 4,
               "turns": 12,
               "sleep": 1
+            },
+            {
+              "mp": 12,
+              "cd": 40,
+              "dmg": 0,
+              "range": 4,
+              "turns": 14,
+              "sleep": 1.25
             }
           ],
           "req": []
@@ -5685,11 +6072,16 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "A note grows into itself. The longer one has been ringing, the harder it hits — so placing early is the right play.",
           "levels": [
-            "+1 damage per 3 turns a note has lived, up to +2.",
+            "+1 damage per 3 turns a note has lived, up to +1.",
+            "Up to +2.",
             "Up to +3.",
-            "Up to +5."
+            "Up to +4.",
+            "Up to +6."
           ],
           "ranks": [
+            {
+              "crescendo": 1
+            },
             {
               "crescendo": 2
             },
@@ -5697,7 +6089,10 @@ window.CANTORI_DATA = {
               "crescendo": 3
             },
             {
-              "crescendo": 5
+              "crescendo": 4
+            },
+            {
+              "crescendo": 6
             }
           ],
           "req": []
@@ -5761,8 +6156,10 @@ window.CANTORI_DATA = {
           "desc": "A slow note for the dead. It does not strike — it poisons the nearest thing it can see, a little more each turn.",
           "levels": [
             "10 MP · 2 poison a turn · range 3 · 8 turns · 40-turn cooldown.",
-            "3 poison a turn · range 4 · 10 turns.",
-            "5 poison a turn · range 4 · 12 turns · 32-turn cooldown."
+            "3 poison a turn.",
+            "3 poison · range 4 · 10 turns.",
+            "4 poison · 11 turns.",
+            "6 poison · 13 turns · 30-turn cooldown."
           ],
           "ranks": [
             {
@@ -5775,6 +6172,14 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 10,
+              "cd": 38,
+              "dmg": 0,
+              "range": 3,
+              "turns": 9,
+              "poison": 3
+            },
+            {
+              "mp": 10,
               "cd": 36,
               "dmg": 0,
               "range": 4,
@@ -5783,11 +6188,19 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 10,
-              "cd": 32,
+              "cd": 34,
               "dmg": 0,
               "range": 4,
-              "turns": 12,
-              "poison": 5
+              "turns": 11,
+              "poison": 4
+            },
+            {
+              "mp": 10,
+              "cd": 30,
+              "dmg": 0,
+              "range": 4,
+              "turns": 13,
+              "poison": 6
             }
           ],
           "req": []
@@ -5803,19 +6216,27 @@ window.CANTORI_DATA = {
           "bt": 2,
           "desc": "A foe that dies within reach of one of your notes is sung out: you are healed, and that note starts its run again.",
           "levels": [
-            "Heal 3, and the nearest note in range resets.",
+            "Heal 2, and the nearest note in range resets.",
+            "Heal 4.",
             "Heal 6.",
-            "Heal 10."
+            "Heal 8.",
+            "Heal 12."
           ],
           "ranks": [
             {
-              "lastRites": 3
+              "lastRites": 2
+            },
+            {
+              "lastRites": 4
             },
             {
               "lastRites": 6
             },
             {
-              "lastRites": 10
+              "lastRites": 8
+            },
+            {
+              "lastRites": 12
             }
           ],
           "req": []
@@ -5833,7 +6254,9 @@ window.CANTORI_DATA = {
           "levels": [
             "+1 AC and +1 damage near a note.",
             "+2 and +2.",
-            "+4 and +4."
+            "+3 and +3.",
+            "+4 and +4.",
+            "+5 and +5."
           ],
           "ranks": [
             {
@@ -5843,7 +6266,13 @@ window.CANTORI_DATA = {
               "ballad": 2
             },
             {
+              "ballad": 3
+            },
+            {
               "ballad": 4
+            },
+            {
+              "ballad": 5
             }
           ],
           "req": []

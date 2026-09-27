@@ -9,7 +9,7 @@ import json, os, re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 src = open(os.path.join(ROOT, "data.js"), encoding="utf-8").read()
 DATA = json.loads(src[src.index("{"):src.rindex("}") + 1])
-GATE = [0, 0, 2, 5, 9]
+GATE = [0, 0, 3, 7, 15]   # mirrors BRANCH_GATE in game.js
 GODS = {g: v.get("name", g) for g, v in DATA.get("gods", {}).items()}
 
 def cell(t):
@@ -19,11 +19,12 @@ out = ["# Skill trees — the canon", "",
        "Generated from `data.js` by `tools/make_skills_doc.py` — the class `skillTree`s are the source of truth.", "",
        "## How the trees work", "",
        "- **Core** nodes are open from the start.",
-       "- Each hero has **three branches**. A node opens by points spent *in its branch*: "
-       "tier 2 at 2 points, tier 3 at 5, the capstone at 9.",
+       "- Each hero has **three branches**, of 5-rank nodes. A node opens by points spent *in its branch*: "
+       "tier 2 at 3 points, tier 3 at 7, the capstone at 15.",
        "- The last node of each branch is a **pair of capstones — choose one**, for the rest of the run.",
-       "- Points come from Potions of Insight (about one a floor) and bosses (3 each): around 14 by floor 10, around 40 over a full run. "
-       "A tree holds about 36–42 takeable ranks, so through the middle of a run you own a branch and a half, and the choice is which.",
+       "- A run pays **37 points**: one Potion of Insight a floor (25) and 3 from each of the first four bosses (12). "
+       "That is 16 by the Golem on floor 10 — exactly one branch and its capstone, going all-in — and a second capstone near the 32nd point. "
+       "The third branch's capstone is out of reach: which two is the build.",
        "- One branch per hero (✦) belongs to that hero's god. It stands alone, and pairs with that god's boons.", ""]
 for key, C in DATA["classes"].items():
     if not C.get("branches"):
