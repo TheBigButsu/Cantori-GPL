@@ -4181,24 +4181,224 @@ window.CANTORI_DATA = {
       "blurb": "Goliath monk from the Western shores. Mobile fighter that will move quickly around the map.",
       "skillTree": [
         {
-          "id": "throw",
+          "id": "unarmed_master",
           "x": 0,
           "y": 0,
-          "name": "Throw",
-          "icon": "↩",
-          "kind": "throwmon",
-          "when": null,
-          "desc": "Grab an adjacent foe and hurl it away from you in a straight line until it collides with something. Cooldown 100 turns.",
+          "name": "Unarmed Master",
+          "icon": "👊",
+          "kind": "passive",
+          "branch": "core",
+          "bt": 0,
+          "desc": "Empty hands, full of surprises. Only while no weapon is held.",
           "levels": [
-            "Throws the target backward until it collides with a wall or another monster. No damage.",
-            "Same, and the thrown target takes weapon + DEX damage.",
-            "Same, and also damages whatever else it collides with.",
-            "Same, and reduces this skill's cooldown by however much total damage it dealt."
+            "+1 min / +2 max unarmed damage; unarmed attack speed 1.5.",
+            "+4 min / +12 max unarmed damage.",
+            "…plus your DEX and VIT modifiers as bonus damage."
           ],
           "ranks": [
             {
-              "dealDmg": false
+              "dmgMin": 1,
+              "dmgMax": 2,
+              "speed": 1.5
             },
+            {
+              "dmgMin": 4,
+              "dmgMax": 12,
+              "speed": 1.5
+            },
+            {
+              "dmgMin": 4,
+              "dmgMax": 12,
+              "speed": 1.5,
+              "statScale": true
+            }
+          ],
+          "req": [],
+          "when": "unarmed"
+        },
+        {
+          "id": "happy_feet",
+          "x": 1,
+          "y": 0,
+          "name": "Happy Feet",
+          "icon": "👣",
+          "kind": "passive",
+          "branch": "core",
+          "bt": 0,
+          "desc": "Footwork you cannot do in plate — only in cloth or medium armour.",
+          "levels": [
+            "+2 AC.",
+            "+4 AC and 5% to slip a blow that already connected.",
+            "+4 AC and 10% to slip a blow."
+          ],
+          "ranks": [
+            {
+              "ac": 2
+            },
+            {
+              "ac": 4,
+              "evaPct": 5
+            },
+            {
+              "ac": 4,
+              "evaPct": 10
+            }
+          ],
+          "req": [],
+          "when": "softarmor"
+        },
+        {
+          "id": "dragon_kick",
+          "x": 0,
+          "y": 1,
+          "name": "Dragon Kick",
+          "icon": "🐉",
+          "kind": "dragonkick",
+          "branch": "flow",
+          "bt": 1,
+          "desc": "Launch yourself down a line and strike at the end of it: the run-up is the blow.",
+          "levels": [
+            "Kick for (attack − 1) per square crossed. 5 MP, 50-turn cooldown.",
+            "The first kick does not start the cooldown — kick again at once, free.",
+            "Both kicks cost no time, and every square counts in full."
+          ],
+          "ranks": [
+            {
+              "cd": 50,
+              "mp": 5
+            },
+            {
+              "cd": 50,
+              "mp": 5,
+              "encore": true
+            },
+            {
+              "cd": 50,
+              "mp": 5,
+              "encore": true,
+              "freeAction": true,
+              "full": true
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "riposte",
+          "x": 0,
+          "y": 2,
+          "name": "Riposte",
+          "icon": "↺",
+          "kind": "passive",
+          "branch": "flow",
+          "bt": 2,
+          "desc": "Every blow you slip is an opening: answer it at once.",
+          "levels": [
+            "Counter a dodged blow for 50%.",
+            "75%.",
+            "A full swing."
+          ],
+          "ranks": [
+            {
+              "ripostePct": 50
+            },
+            {
+              "ripostePct": 75
+            },
+            {
+              "ripostePct": 100
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "momentum",
+          "x": 0,
+          "y": 3,
+          "name": "Momentum",
+          "icon": "💨",
+          "kind": "passive",
+          "branch": "flow",
+          "bt": 3,
+          "desc": "Moving is the wind-up. Every step you take before you strike adds to the blow; being hit spends it.",
+          "levels": [
+            "+1 damage a step, up to +3.",
+            "+1 a step, up to +5.",
+            "+2 a step, up to +8."
+          ],
+          "ranks": [
+            {
+              "momentumPer": 1,
+              "momentumCap": 3
+            },
+            {
+              "momentumPer": 1,
+              "momentumCap": 5
+            },
+            {
+              "momentumPer": 2,
+              "momentumCap": 8
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "untouchable",
+          "x": 0,
+          "y": 4,
+          "name": "Untouchable",
+          "icon": "🌀",
+          "kind": "passive",
+          "branch": "flow",
+          "bt": 4,
+          "desc": "After you slip a blow, your next step costs no time at all.",
+          "levels": [
+            "A dodge makes your next move free."
+          ],
+          "ranks": [
+            {
+              "untouchable": 1
+            }
+          ],
+          "req": [],
+          "cap": "flow_cap"
+        },
+        {
+          "id": "whirlwind_step",
+          "x": 1,
+          "y": 4,
+          "name": "Whirlwind Step",
+          "icon": "🌪",
+          "kind": "passive",
+          "branch": "flow",
+          "bt": 4,
+          "desc": "You go over them, not around them: strike a foe and land on its far side.",
+          "levels": [
+            "Walking into a foe strikes it and vaults you past it, if there is room."
+          ],
+          "ranks": [
+            {
+              "vault": 1
+            }
+          ],
+          "req": [],
+          "cap": "flow_cap"
+        },
+        {
+          "id": "throw",
+          "x": 2,
+          "y": 1,
+          "name": "Throw",
+          "icon": "↩",
+          "kind": "throwmon",
+          "branch": "improvised",
+          "bt": 1,
+          "desc": "Grab a foe beside you and hurl it until it hits something.",
+          "levels": [
+            "Throw; the foe takes weapon + DEX damage. 100-turn cooldown.",
+            "…and whatever it hits takes the same.",
+            "…and the damage dealt comes off the cooldown."
+          ],
+          "ranks": [
             {
               "dealDmg": true
             },
@@ -4215,184 +4415,127 @@ window.CANTORI_DATA = {
           "req": []
         },
         {
-          "id": "unarmed_master",
-          "x": 1,
-          "y": 0,
-          "name": "Unarmed Master",
-          "icon": "👊",
-          "kind": "passive",
-          "when": "unarmed",
-          "desc": "Mastery of empty-handed combat — bonuses apply only while no weapon is equipped.",
-          "levels": [
-            "+1 min / +2 max unarmed damage. Unarmed attack speed 1.5.",
-            "+2 min / +4 max unarmed damage. (requires character level 3)",
-            "+4 min / +12 max unarmed damage. (requires character level 6)",
-            "Same, plus your DEX modifier + your VIT modifier as bonus damage. (requires character level 9)"
-          ],
-          "ranks": [
-            {
-              "dmgMin": 1,
-              "dmgMax": 2,
-              "speed": 1.5
-            },
-            {
-              "dmgMin": 2,
-              "dmgMax": 4,
-              "speed": 1.5,
-              "minLevel": 3
-            },
-            {
-              "dmgMin": 4,
-              "dmgMax": 12,
-              "speed": 1.5,
-              "minLevel": 6
-            },
-            {
-              "dmgMin": 4,
-              "dmgMax": 12,
-              "speed": 1.5,
-              "minLevel": 9,
-              "statScale": true
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "dragon_kick",
-          "x": 0,
-          "y": 1,
-          "name": "Dragon Kick",
-          "icon": "🐉",
-          "kind": "dragonkick",
-          "when": null,
-          "desc": "Choose a direction and launch yourself down it. The blow is the run-up: your attack minus 1 for every square you crossed getting there, so a kick thrown from across the room is worth several ordinary blows and one thrown at a foe already touching you is worth almost nothing. Cooldown 50 turns, 5 MP.",
-          "levels": [
-            "Charge in a straight line and strike, for (attack - 1) per square travelled.",
-            "The first kick does not start the cooldown — you may kick again immediately, and the second one is free.",
-            "Both kicks are free actions: neither spends a turn.",
-            "No reduction: every square is worth a full attack rather than attack - 1."
-          ],
-          "ranks": [
-            {
-              "cd": 50,
-              "mp": 5
-            },
-            {
-              "cd": 50,
-              "mp": 5,
-              "encore": true
-            },
-            {
-              "cd": 50,
-              "mp": 5,
-              "encore": true,
-              "freeAction": true
-            },
-            {
-              "cd": 50,
-              "mp": 5,
-              "encore": true,
-              "freeAction": true,
-              "full": true
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "meditate",
-          "x": 1,
-          "y": 1,
-          "name": "Meditate",
-          "icon": "☯",
-          "kind": "meditate",
-          "when": null,
-          "desc": "Sit still and mend fast. Moving, striking or being struck ends it at once — and so does pressing the button again. Cooldown 300 turns. Note that a floor whose spark has gone out (300 turns) regenerates nothing at all, meditation included.",
-          "levels": [
-            "Regeneration x5 while you hold still.",
-            "Regeneration x10.",
-            "The cooldown drops by 2 turns for every point of health you mend.",
-            "Rising from the trance leaves you sharpened: +3 damage, to-hit and AC for twice your character level in turns."
-          ],
-          "ranks": [
-            {
-              "cd": 300,
-              "mp": 0,
-              "regenMult": 5
-            },
-            {
-              "cd": 300,
-              "mp": 0,
-              "regenMult": 10
-            },
-            {
-              "cd": 300,
-              "mp": 0,
-              "regenMult": 10,
-              "cdRefund": 2
-            },
-            {
-              "cd": 300,
-              "mp": 0,
-              "regenMult": 10,
-              "cdRefund": 2,
-              "endBuff": 3
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "happy_feet",
-          "x": 0,
+          "id": "prop_master",
+          "x": 2,
           "y": 2,
-          "name": "Happy Feet",
-          "icon": "👣",
+          "name": "Prop Master",
+          "icon": "📦",
           "kind": "passive",
-          "when": "softarmor",
-          "desc": "Footwork you cannot do in plate — active only while wearing cloth or medium armour.",
+          "branch": "improvised",
+          "bt": 2,
+          "desc": "A crate is not in your way, it is in your hand: bump one and it flies at the nearest foe you can see.",
           "levels": [
-            "+2 AC.",
-            "+4 AC.",
-            "+4 AC and +5% to dodge a blow that already connected.",
-            "+4 AC and +10% to dodge a blow that already connected."
+            "Crates you smash fly for 1.5× your attack and stun.",
+            "2× your attack.",
+            "3× your attack."
           ],
           "ranks": [
             {
-              "ac": 2
+              "props": 1.5
             },
             {
-              "ac": 4
+              "props": 2
             },
             {
-              "ac": 4,
-              "evaPct": 5
-            },
-            {
-              "ac": 4,
-              "evaPct": 10
+              "props": 3
             }
           ],
           "req": []
+        },
+        {
+          "id": "pressure_point",
+          "x": 2,
+          "y": 3,
+          "name": "Pressure Point",
+          "icon": "☝",
+          "kind": "passive",
+          "branch": "improvised",
+          "bt": 3,
+          "desc": "You know where the nerve is. Bare-handed blows can lock a foe up outright.",
+          "levels": [
+            "10% to stun for 1 turn.",
+            "15% to stun for 1 turn.",
+            "25% to stun for 2 turns."
+          ],
+          "ranks": [
+            {
+              "stunPct": 10,
+              "stunTurns": 1
+            },
+            {
+              "stunPct": 15,
+              "stunTurns": 1
+            },
+            {
+              "stunPct": 25,
+              "stunTurns": 2
+            }
+          ],
+          "req": [],
+          "when": "unarmed"
+        },
+        {
+          "id": "stunt_double",
+          "x": 2,
+          "y": 4,
+          "name": "Stunt Double",
+          "icon": "🎬",
+          "kind": "passive",
+          "branch": "improvised",
+          "bt": 4,
+          "desc": "A thrown foe that hits another knocks them both senseless.",
+          "levels": [
+            "Throw collisions stun both for 2 turns."
+          ],
+          "ranks": [
+            {
+              "stuntDouble": 2
+            }
+          ],
+          "req": [],
+          "cap": "improv_cap"
+        },
+        {
+          "id": "environmental_master",
+          "x": 3,
+          "y": 4,
+          "name": "Environmental Master",
+          "icon": "🧱",
+          "kind": "passive",
+          "branch": "improvised",
+          "bt": 4,
+          "desc": "The wall does the work: a foe thrown into a wall takes triple.",
+          "levels": [
+            "Throwing a foe into a wall deals 3× damage."
+          ],
+          "ranks": [
+            {
+              "envMult": 3
+            }
+          ],
+          "req": [],
+          "cap": "improv_cap"
         },
         {
           "id": "now_you_see_me",
-          "x": 1,
-          "y": 2,
+          "x": 4,
+          "y": 1,
           "name": "Now You See Me",
           "icon": "◌",
           "kind": "vanish",
-          "when": null,
-          "desc": "Step out of sight. Everything hunting you loses the trail; striking ends it early. Cooldown 100 turns, 5 MP.",
+          "branch": "wildheart",
+          "bt": 1,
+          "desc": "Step out of sight; everything hunting you loses the trail. In tall grass, it lasts twice as long.",
           "levels": [
-            "Invisible for 5 turns.",
-            "Invisible for up to 10 turns.",
-            "Invisible for up to 20 turns.",
-            "Same, and coming back into view leaves you swinging: +5 damage for 5 turns."
+            "Invisible for 6 turns. 5 MP, 100-turn cooldown.",
+            "10 turns.",
+            "15 turns, and coming back into view: +5 damage for 5 turns."
           ],
           "ranks": [
             {
               "cd": 100,
               "mp": 5,
-              "turns": 5
+              "turns": 6
             },
             {
               "cd": 100,
@@ -4402,25 +4545,142 @@ window.CANTORI_DATA = {
             {
               "cd": 100,
               "mp": 5,
-              "turns": 20
-            },
-            {
-              "cd": 100,
-              "mp": 5,
-              "turns": 20,
+              "turns": 15,
               "exitDmg": 5,
               "exitTurns": 5
             }
           ],
           "req": []
+        },
+        {
+          "id": "sneak_attack",
+          "x": 4,
+          "y": 2,
+          "name": "Sneak Attack",
+          "icon": "🗡",
+          "kind": "sneakcast",
+          "branch": "wildheart",
+          "bt": 2,
+          "desc": "Tap an adjacent foe that has not seen you. Damage past the kill buys back the dark.",
+          "levels": [
+            "×2.5 damage. 8 MP, 60-turn cooldown.",
+            "×3, and every 4 overkill is a turn unseen.",
+            "×3.5, and every 3 overkill is a turn unseen."
+          ],
+          "ranks": [
+            {
+              "mp": 8,
+              "cd": 60,
+              "mult": 2.5,
+              "invisPer": 6,
+              "invisCap": 6
+            },
+            {
+              "mp": 8,
+              "cd": 50,
+              "mult": 3,
+              "invisPer": 4,
+              "invisCap": 10
+            },
+            {
+              "mp": 8,
+              "cd": 40,
+              "mult": 3.5,
+              "invisPer": 3,
+              "invisCap": 14
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "wild_instinct",
+          "x": 4,
+          "y": 3,
+          "name": "Wild Instinct",
+          "icon": "🍃",
+          "kind": "passive",
+          "branch": "wildheart",
+          "bt": 3,
+          "desc": "Where you land, something grows: Dragon Kick and Throw may leave a random plant or cloud behind.",
+          "levels": [
+            "35% chance.",
+            "55% chance.",
+            "75% chance."
+          ],
+          "ranks": [
+            {
+              "wildLand": 35
+            },
+            {
+              "wildLand": 55
+            },
+            {
+              "wildLand": 75
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "force_of_nature",
+          "x": 4,
+          "y": 4,
+          "name": "Force of Nature",
+          "icon": "🌻",
+          "kind": "passive",
+          "branch": "wildheart",
+          "bt": 4,
+          "desc": "Every plant you set off feeds you.",
+          "levels": [
+            "Plants you trigger heal you 5 + half your level."
+          ],
+          "ranks": [
+            {
+              "plantHeal": 1
+            }
+          ],
+          "req": [],
+          "cap": "wild_cap"
+        },
+        {
+          "id": "chaos_monkey",
+          "x": 5,
+          "y": 4,
+          "name": "Chaos Monkey",
+          "icon": "🐒",
+          "kind": "passive",
+          "branch": "wildheart",
+          "bt": 4,
+          "desc": "Every eighth thing you do, Auvris does something too.",
+          "levels": [
+            "Every 8th action fires a random Wild effect on the nearest foe."
+          ],
+          "ranks": [
+            {
+              "chaosEvery": 8
+            }
+          ],
+          "req": [],
+          "cap": "wild_cap"
         }
-      ,
-      {"id": "pressure_point", "x": 0, "y": 3, "name": "Pressure Point", "icon": "☝", "kind": "passive", "when": "unarmed", "desc": "You know where the nerve is. Bare-handed blows can lock a foe up outright — nothing while you are holding a weapon.", "levels": ["10% chance to stun for 1 turn.", "15% chance to stun for 1 turn.", "20% chance to stun for 1 turn.", "25% chance to stun for 2 turns."], "ranks": [{"stunPct": 10, "stunTurns": 1}, {"stunPct": 15, "stunTurns": 1}, {"stunPct": 20, "stunTurns": 1}, {"stunPct": 25, "stunTurns": 2}], "req": [["unarmed_master", 2]]},
-      {"id": "riposte", "x": 1, "y": 3, "name": "Riposte", "icon": "↺", "kind": "passive", "desc": "Every blow you slip is an opening. When you dodge a melee attack, you answer it for free — a real swing, so it crits and carries everything else you have.", "levels": ["Counter for 50% of a blow.", "Counter for 75%.", "Counter for 100% — a full swing.", "Counter for 125%."], "ranks": [{"ripostePct": 50}, {"ripostePct": 75}, {"ripostePct": 100}, {"ripostePct": 125}], "req": [["happy_feet", 2]]},
-      {"id": "sneak_attack", "x": 2, "y": 3, "name": "Sneak Attack", "icon": "🗡", "kind": "sneakcast", "desc": "Tap an adjacent foe that has not seen you. Damage spent past what the kill needed buys back the dark. Refused — and not spent — against anything already looking at you.", "levels": ["8 MP · ×2 damage · 60 turn cooldown", "×2.5 damage, and every 6 overkill damage is a turn unseen", "×3 damage, and every 4 overkill damage is a turn unseen", "×3.5 damage, and every 3 overkill damage is a turn unseen"], "ranks": [{"mp": 8, "cd": 60, "mult": 2, "invisPer": 0, "invisCap": 0}, {"mp": 8, "cd": 60, "mult": 2.5, "invisPer": 6, "invisCap": 6}, {"mp": 8, "cd": 50, "mult": 3, "invisPer": 4, "invisCap": 10}, {"mp": 8, "cd": 40, "mult": 3.5, "invisPer": 3, "invisCap": 14}], "req": [["now_you_see_me", 2]]},
-      {"id": "body_of_iron", "x": 0, "y": 4, "name": "Body of Iron", "icon": "🛡", "kind": "passive", "desc": "You take the blow somewhere other than your body. A share of every hit that gets through comes out of MP instead of HP — and can take it to nothing, if you have the mana.", "levels": ["20% of damage taken comes from MP.", "30% from MP.", "40% from MP.", "50% from MP."], "ranks": [{"mpSoak": 20}, {"mpSoak": 30}, {"mpSoak": 40}, {"mpSoak": 50}], "req": [["meditate", 2]]},
-      {"id": "dragons_fury", "x": 1, "y": 4, "name": "Dragon's Fury", "icon": "💥", "kind": "passive", "desc": "The kick no longer stops at what it hits. Every Dragon Kick that lands sends the impact out in a ring — full weight on the tile struck, halved for each ring beyond it.", "levels": ["The blast reaches 1 tile.", "2 tiles.", "3 tiles.", "4 tiles."], "ranks": [{"furyRadius": 1}, {"furyRadius": 2}, {"furyRadius": 3}, {"furyRadius": 4}], "req": [["dragon_kick", "max"]]}
-    ]
+      ],
+      "branches": [
+        {
+          "id": "flow",
+          "name": "Flow",
+          "icon": "🌊"
+        },
+        {
+          "id": "improvised",
+          "name": "Improvised",
+          "icon": "🪑"
+        },
+        {
+          "id": "wildheart",
+          "name": "Wild Heart of Auvris",
+          "icon": "🌿",
+          "god": "auvris"
+        }
+      ]
     },
     "mage": {
       "progression": {

@@ -386,6 +386,7 @@
     player.boons = new Set();                  // boons are earned fresh each run
     player.boonLv = {}; player.boonSlots = {}; player.doorUsed = {};
     player.momentum = null; player.strideHaste = 0; player.delayed = []; player.breathArmed = false; player.steps = 0;
+    player.brynnSteps = 0; player.freeMove = false; player.actCount = 0; player.wrathCount = 0;
     player.killCount = 0; player.secondChanceUsed = false;
     player.boonAcc = 0; player.boonEva = 0; player.boonHaste = 0; player.hasteBuff = 0;
     player.invisible = 0;                      // timed buffs don't carry across a new run
@@ -2845,6 +2846,10 @@
   };
   // Something stepped on (x, y): the plant there, if any, goes off and is gone.
   function triggerPlant(x, y, who) {
+    if (who === player && plantAt(x, y) && passiveMod("plantHeal") > 0) {
+      const h = 5 + Math.floor(player.level / 2);
+      player.hp = Math.min(player.maxHp, player.hp + h); floatText(x, y, "+" + h, "#7ecf6a");
+    }
     const p = plantAt(x, y);
     if (!p) return;
     plants = plants.filter((q) => q !== p);
@@ -3062,6 +3067,20 @@
   function breakCrate(x, y) {
     map[y][x] = FLOOR;
     bump(player, x, y);
+    // Brynn's Prop Master: the crate goes at the nearest foe the crate can see.
+    const props = passiveMod("props");
+    if (props > 0) {
+      const f = monsters.filter((m) => m.hp > 0 && !m.dominated && visible[m.y][m.x] && cheb(m.x, m.y, x, y) <= 6 && lineOfSight(x, y, m.x, m.y))
+        .sort((a, b) => cheb(a.x, a.y, x, y) - cheb(b.x, b.y, x, y))[0];
+      if (f) {
+        const d = Math.max(1, Math.round(((weaponDmgMin() + weaponDmgMax()) / 2 + Math.max(0, mod("DEX"))) * props));
+        spawnProjectile(x, y, f.x, f.y, "#c8a070");
+        f.hp -= d; flash(f); f.stun = Math.max(f.stun || 0, 1);
+        floatText(f.x, f.y, "📦-" + d, "#c8a070");
+        log("You send the crate flying into the " + monName(f) + "! (-" + d + ")", "hit");
+        if (f.hp <= 0) killMonster(f, "is flattened");
+      }
+    }
     floatText(x, y, "crack", "#c8a070");
     // A third of crates hold something — Salvager raises that to 60–80%.
     const r = Math.random() * (boonLv("g_salvager") ? 0.36 / (0.5 + bv("g_salvager") / 100) : 1);
@@ -5160,6 +5179,7 @@
       floatText(player.x, player.y, "dodge", "#9ad0ff");
       if (o.dodgeMsg) log(o.dodgeMsg, "hit");
       riposte(o.from);          // Brynn: a dodge is an opening, if she has bought one
+      if (passiveMod("untouchable")) { player.freeMove = true; floatText(player.x, player.y, "untouchable", "#9ad0ff"); }
       return 0;
     }
     return mitigateDamage(dmg, o);
@@ -5295,7 +5315,7 @@
       // A flat multiplier on the blow, used by Riposte (a fraction) and Sneak
       // Attack (a multiple). Separate from `per`, which is Dragon Kick's run-up.
       if (opts && opts.mult != null) dmg = Math.max(1, Math.round(dmg * opts.mult));
-      dmg = Math.max(1, Math.round((dmg + honedBonus()) * boonDamageMult(target, true)));
+      dmg = Math.max(1, Math.round((dmg + honedBonus() + momentumSpend()) * boonDamageMult(target, true)));
       const crit = Math.random() < critChance() || measuredCrit(target);       // 5%+ chance for 125%+ damage
       if (crit) dmg = Math.round(dmg * critMult());
       dmg = _boss.damageIn(target, dmg);   // a boss's playbook (e.g. the Golem's nodes) may shield it
@@ -6250,7 +6270,15 @@
         log("You cannot bring yourself to strike the " + monName(mon) + ".", "hurt");
         return false;                                    // no turn spent — you simply don't
       }
-      attack(player, mon); worldTurn(attackCost()); return true;   // weapon speed (+haste, +Metrognome) → attack cost
+      attack(player, mon);
+      // Whirlwind Step: strike, then land on its far side if there is room.
+      if (passiveMod("vault") && mon.hp > 0 && !dead) {
+        const vx = mon.x + dx, vy = mon.y + dy;
+        if (passable(vx, vy) && !monsterAt(vx, vy) && map[vy][vx] !== CHASM && !inBlaze(vx, vy) && canStep(mon.x, mon.y, dx, dy)) {
+          player.x = vx; player.y = vy; computeFOV(); floatText(vx, vy, "↷", "#9ad0ff");
+        }
+      }
+      worldTurn(attackCost()); return true;   // weapon speed (+haste, +Metrognome) → attack cost
     }
 
     // Ranged weapon (spear/bow): if a foe stands along this direction within reach
@@ -6304,6 +6332,7 @@
       }
       computeFOV();
       boonOnStep(dx, dy);
+      player.brynnSteps = (player.brynnSteps || 0) + 1;
       if (!moveGoal || (moveGoal.x === player.x && moveGoal.y === player.y)) pickUp();
       const tr = trapAt(player.x, player.y);
       if (tr && !tr.sprung) { triggerTrap(tr); if (dead) return true; }
@@ -6313,6 +6342,7 @@
       triggerPlant(player.x, player.y, player);
       if (dead) return true;
       { const sa = artOf(); if (sa && artKind(sa) === "sandals" && (map[player.y][player.x] === GRASS || map[player.y][player.x] === LAWN)) { artCharge(sa); sa.charge = Math.min(100, sa.charge + 5 + sa.lvl); } }
+      if (player.freeMove) { player.freeMove = false; worldTurn(0.001); } else    // Untouchable: the step after a dodge is free
       worldTurn(walkCost());     // Metrognome (walk) → you cover ground faster than your foes. Terrain never costs extra time: it shapes the route instead of taxing it, and a costlier step used to hand every monster in earshot a free second action.
       return true;
     }
@@ -7757,6 +7787,15 @@
     gasTick(); if (dead) return;
     blazeTick(); if (dead) return;
     boonTick(); if (dead) return;
+    const chaosN = passiveMod("chaosEvery");
+    if (chaosN > 0 && (player.actCount = (player.actCount || 0) + 1) % chaosN === 0) {
+      const f = nearestVisibleFoe(1)[0];
+      if (f) {
+        if (Math.random() < 0.5) { const kind = randomPlantKind(false); if (kind && PLANT_FX[kind]) { floatText(f.x, f.y, "🐒", "#7ecf6a"); PLANT_FX[kind].go(f.x, f.y, f); } }
+        else releaseGas(randomWildGas(), f.x, f.y, 300, 0);
+      }
+      if (dead) return;
+    }
     if (player.bless && player.bless.turns > 0 && --player.bless.turns === 0) { player.bless = null; log("The starlight fades."); }
     // Timekeeper's Hourglass: while time is stopped, nothing else gets a turn.
     const frozen = player.timeFreeze > 0;
@@ -10540,7 +10579,30 @@
   // Chadwick's defences, applied to a blow before it reaches your HP: the raised
   // shield halves it, Unbreakable halves it again below 20%, and Aegis may turn
   // the whole of it back on the attacker.
+  // Brynn's Wild Instinct: where a kick or a throw lands, a plant or a cloud may
+  // spring up — under a thrown foe (and goes off), or beside Brynn.
+  function wildLanding(x, y, foe) {
+    const pct = passiveMod("wildLand");
+    if (!(pct > 0) || Math.random() * 100 >= pct) return;
+    if (foe) {
+      const kind = randomPlantKind(false);
+      if (kind && PLANT_FX[kind]) { floatText(x, y, "🍃", "#7ecf6a"); PLANT_FX[kind].go(x, y, foe); }
+      return;
+    }
+    for (const [ox, oy] of DIRS8) {
+      const tx = x + ox, ty = y + oy;
+      if (plantable(tx, ty) && !monsterAt(tx, ty)) { const kind = randomPlantKind(true); if (kind) { plants.push({ x: tx, y: ty, kind }); floatText(tx, ty, "🍃", "#7ecf6a"); } return; }
+    }
+  }
+  // Brynn's Momentum: steps bank damage for the next blow; a hit spends the bank.
+  function momentumSpend() {
+    const per = passiveMod("momentumPer");
+    const n = player.brynnSteps || 0;
+    player.brynnSteps = 0;
+    return per > 0 ? Math.min(passiveMod("momentumCap"), n * per) : 0;
+  }
   function treeBeforeStruck(attacker, dmg) {
+    player.brynnSteps = 0;
     if (player.retribution && player.retribution.turns > 0 && player.retribution.halve) dmg = Math.ceil(dmg / 2);
     if (passiveMod("lowHpHalve") && player.hp < player.maxHp * 0.2) dmg = Math.ceil(dmg / 2);
     const aegis = passiveMod("aegisPct");
@@ -11121,6 +11183,7 @@
     if (!landed && steps === 0) log("There is nowhere to kick from here.");
     // Rank 1 has no encore: spend the cooldown now. Rank 2+ arms it on the first
     // kick and spends it on the second.
+    if (landed || steps) wildLanding(player.x, player.y, null);
     if (!cur.encore) dragonSpend(key);
     else if (encore) dragonSpend(key);
     else dragonArm(key);
@@ -11492,7 +11555,7 @@
     const cost = cur.mp || 0;
     if (player.mp < cost) { log("Not enough MP to vanish (need " + cost + ")."); return; }
     player.mp -= cost;
-    const turns = Math.max(1, cur.turns || 5);
+    const turns = Math.max(1, cur.turns || 5) * (map[player.y][player.x] === GRASS && skillDef(key) && skillDef(key).branch ? 2 : 1);
     player.invisible = Math.max(player.invisible || 0, turns + 1);   // +1: this cast's own worldTurn ticks it once
     // The payout is armed now and paid when the veil drops, however it drops —
     // walking it out and stabbing out of it both count.
@@ -11630,12 +11693,21 @@
     floatText(x, y, "→", "#cfe6ff");
     log("You hurl the " + monName(target) + " backward!", "hit");
     let dealt = 0;
+    const intoWall = !hitOther && isWall(x + dx, y + dy);
+    const env = intoWall ? passiveMod("envMult") : 0;
     if (cur.dealDmg) {
       const before = target.hp;
-      attack(player, target, mod("DEX") * 3);
+      attack(player, target, mod("DEX") * 3, env > 0 ? { mult: env } : undefined);
       dealt += Math.max(0, before - target.hp);
       if (dead) return;
     }
+    const sd = passiveMod("stuntDouble");
+    if (sd > 0 && hitOther && hitOther.hp > 0) {
+      hitOther.stun = Math.max(hitOther.stun || 0, sd);
+      if (target.hp > 0) target.stun = Math.max(target.stun || 0, sd);
+      floatText(hitOther.x, hitOther.y, "💫", "#ffd98a");
+    }
+    if (target.hp > 0) wildLanding(target.x, target.y, target);
     if (cur.chain && hitOther && hitOther.hp > 0) {
       const before2 = hitOther.hp;
       attack(player, hitOther, mod("DEX") * 3);
