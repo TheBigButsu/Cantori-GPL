@@ -843,6 +843,95 @@ async function main() {
   });
   check(tone.problems.length === 0, "tonetum: " + tone.problems.join("; "));
 
+  // Sera's new tree: Modulate moves a note, Dirge poisons, Last Rites heals and
+  // resets, Danse Macabre turns a note's kill into a note, Wake lifts Death's Door.
+  const sera = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    const fresh = () => {
+      c.setClass("bard"); c.regenerate(); c.hurt(-999);
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);
+      c.boonClear();
+      c.grant(80);
+    };
+    // a tile `dist` out along an open line, and its mirror on the other side if open
+    const lines = (dist) => {
+      const p = c.peek(), out = [];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        let ok = true;
+        for (let i = 1; i <= dist; i++) if (!c.passableAt(p.x + dx * i, p.y + dy * i)) ok = false;
+        if (ok) out.push({ x: p.x + dx * dist, y: p.y + dy * dist, dx, dy });
+      }
+      return out;
+    };
+    const learnN = (id, n) => { for (let i = 0; i < n; i++) c.learn(id); };
+    const cast = (id, x, y) => { c.resetCds(); c.hurt(-999); c.doSkill(id); if (c.pendingSkill()) c.tapAt(x, y); };
+    fresh();
+    learnN("counterpoint", 3); learnN("carrying_tone", 3); learnN("modulate", 3);
+    let L = lines(3);
+    if (L.length < 2) { c.regenerate(); L = lines(2); }
+    if (L.length >= 2) {
+      cast("sharp_note", L[0].x, L[0].y);
+      for (let t = 0; t < 2; t++) c.tick(1);
+      const before = c.notes()[0];
+      const tBefore = c.turns();
+      cast("modulate", L[1].x, L[1].y);
+      const after = c.notes()[0];
+      if (!after || after.x !== L[1].x || after.y !== L[1].y) problems.push("Modulate did not move the note");
+      else if (after.age !== before.age) problems.push("Modulate did not keep the note's age");
+      if (c.turns() - tBefore >= 1) problems.push("Modulate rank 3 took time");
+    } else problems.push("no two open lines for the Modulate check");
+    // Dirge, Last Rites, Danse Macabre
+    fresh();
+    learnN("dirge", 3); learnN("last_rites", 3); learnN("ballad", 3); c.learn("danse_macabre");
+    L = lines(3);
+    if (!L.length) { c.regenerate(); L = lines(3); }
+    if (L.length) {
+      const a = L[0];
+      cast("dirge", a.x, a.y);
+      const rx = a.x + a.dx, ry = a.y + a.dy;
+      if (c.spawnMonsterAt("rat", rx, ry) || c.peek().mlist.some((m) => m.x === rx && m.y === ry)) {
+        c.setMonsterAt(rx, ry, { hp: 500, maxHp: 500, atkMin: 0, atkMax: 0 });
+        for (let t = 0; t < 2; t++) { c.hurt(-999); c.tick(1); }
+        const r = c.peek().mlist.find((m) => m.type === "rat");
+        if (!r || !r.dots.some((d) => d.tag === "poison")) problems.push("Dirge did not poison a foe in range");
+        const pd = r && r.dots.find((d) => d.tag === "poison");
+        for (let t = 0; t < 4; t++) { c.hurt(-999); c.tick(1); }
+        const r2 = c.peek().mlist.find((m) => m.type === "rat"), pd2 = r2 && r2.dots.find((d) => d.tag === "poison");
+        if (pd && pd2 && pd2.dmg > pd.dmg + 2) problems.push("Dirge's poison stacked instead of topping up (" + pd.dmg + " → " + pd2.dmg + ")");
+        // Last Rites: kill it beside the note while hurt
+        c.hurt(-999); c.hurt(c.peek().hp - 5);
+        const hp0 = c.peek().hp, n0 = c.notes()[0];
+        if (r2) c.killAt(r2.x, r2.y);
+        if (c.peek().hp <= hp0) problems.push("Last Rites did not heal on a kill beside a note");
+        const n1 = c.notes().find((n) => n.x === n0.x && n.y === n0.y);
+        if (!n1 || n1.turns < n0.turns) problems.push("Last Rites did not reset the note");
+      } else problems.push("no room for the Dirge target");
+    }
+    // Danse Macabre: a sharp note kills a 1-HP rat and a note rises in its place
+    fresh();
+    learnN("dirge", 3); learnN("last_rites", 3); learnN("ballad", 3); c.learn("danse_macabre");
+    L = lines(3);
+    if (L.length) {
+      const a = L[0], rx = a.x + a.dx, ry = a.y + a.dy;
+      cast("sharp_note", a.x, a.y);
+      if (c.spawnMonsterAt("rat", rx, ry)) {
+        c.setMonsterAt(rx, ry, { hp: 1, maxHp: 1, atkMin: 0, atkMax: 0, state: "SLEEPING" });
+        for (let t = 0; t < 2; t++) { c.hurt(-999); c.tick(1); }
+        if (!c.notes().some((n) => n.danse)) problems.push("Danse Macabre did not raise a note from a note's kill");
+      }
+    }
+    // Wake: 30% while a note rings, 20% otherwise
+    fresh();
+    learnN("dirge", 3); learnN("last_rites", 3); learnN("ballad", 3); c.learn("wake");
+    if (c.doorThreshold() !== 0.2) problems.push("Wake raised Death's Door with no note ringing");
+    L = lines(3);
+    if (L.length) { cast("sharp_note", L[0].x, L[0].y); if (Math.abs(c.doorThreshold() - 0.3) > 1e-9) problems.push("Wake did not lift Death's Door to 30% while a note rings"); }
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(sera.problems.length === 0, "sera: " + sera.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {

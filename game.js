@@ -4662,6 +4662,7 @@
     // efficient grind in the game, on a floor the player was supposed to leave.
     blinkKillCredit();
     aegisEternal();
+    lastRites(target);
     // Raging Smite rank 4: a kill during the rage pushes the next decay tick out,
     // so a berserker who keeps killing keeps the strength.
     if (player.rage && player.rage.killDelay && player.rage.amount > 0) {
@@ -5810,7 +5811,7 @@
       }
     }
     // Death's Door: once a floor each, when you fall below 20%
-    if (player.hp > 0 && player.hp < player.maxHp * 0.2) {
+    if (player.hp > 0 && player.hp < player.maxHp * doorThreshold()) {
       const used = player.doorUsed || (player.doorUsed = {});
       const door = player.boonSlots && player.boonSlots.door;
       if (door && !used[door]) { used[door] = true; deathsDoor(door); }
@@ -7393,12 +7394,24 @@
           }
           continue;
         }
+        if (n.poison) {
+          // Dirge: it does not strike, it seeps — Maelon's Fester adds to every tick.
+          const dose = n.poison + Math.max(0, Math.floor(mod("INT") / 2));
+          spawnProjectile(n.x, n.y, tgt.x, tgt.y, "#9ad06a");
+          // Topped up, not stacked: poison sheds only 1 a tick, so adding the dose
+          // every turn would climb without limit. A Dirge holds its foe AT the dose.
+          const ex = (tgt.dots || []).find((d) => d.tag === "poison");
+          if (ex) ex.dmg = Math.max(ex.dmg, dose); else addPoison(tgt, dose);
+          floatText(tgt.x, tgt.y, "☠", "#9ad06a");
+          startHunting(tgt);
+          continue;
+        }
         const dmg = noteDamage(n);
         spawnProjectile(n.x, n.y, tgt.x, tgt.y, "#f2c76a");
         tgt.hp -= dmg; flash(tgt);
         floatText(tgt.x, tgt.y, "-" + dmg, "#f2c76a");
         startHunting(tgt);
-        if (tgt.hp <= 0) killMonster(tgt, "is struck silent");
+        if (tgt.hp <= 0) { killMonster(tgt, "is struck silent"); danseMacabre(tgt, n); }
       }
     }
     chordTick();
@@ -7435,7 +7448,7 @@
     for (let i = 0; i < notes.length; i++) {
       for (let j = i + 1; j < notes.length; j++) {
         const a = notes[i], b = notes[j];
-        if (a.chill || a.sleep || b.chill || b.sleep) continue;   // only singing notes carry a line
+        if (a.chill || a.sleep || a.poison || b.chill || b.sleep || b.poison) continue;   // only singing notes carry a line
         if (cheb(a.x, a.y, b.x, b.y) > a.range + b.range) continue;
         for (const t of chordLine(a, b)) {
           const m = monsterAt(t.x, t.y);
@@ -7445,7 +7458,7 @@
           m.hp -= dmg; flash(m);
           floatText(m.x, m.y, "-" + dmg, "#ffd98a");
           startHunting(m);
-          if (m.hp <= 0) killMonster(m, "is cut apart by the chord");
+          if (m.hp <= 0) { killMonster(m, "is cut apart by the chord"); danseMacabre(m, a); }
         }
       }
     }
@@ -7458,6 +7471,32 @@
     for (const n of notes) if (cheb(n.x, n.y, player.x, player.y) <= 2) return b;
     return 0;
   };
+  // Danse Macabre: what a note kills keeps singing. The new note is a plain Sharp
+  // Note on the fallen foe's tile, as strong as the one that killed it, and short-
+  // lived; it may go past the board cap, since it cost her nothing to place.
+  function danseMacabre(m, killer) {
+    const life = passiveMod("danse");
+    if (!life || monsters.includes(m) || noteAt(m.x, m.y) || !passable(m.x, m.y)) return;
+    const hp = Math.max(1, mod("LCK") + (passiveMod("noteHp") || 0));
+    notes.push({ x: m.x, y: m.y, turns: life, life, age: 0, hp, maxHp: hp, dmg: killer && killer.dmg ? killer.dmg : 2,
+                 range: killer ? killer.range : 3, chill: 0, sleep: 0, poison: 0, danse: true });
+    floatText(m.x, m.y, "💀♪", "#c8e0a0");
+  }
+  // Last Rites: a foe that dies within reach of one of her notes heals her, and the
+  // nearest such note starts its run over. Called from killMonster.
+  function lastRites(m) {
+    const heal = passiveMod("lastRites");
+    if (!heal || !notes.length) return;
+    const n = notes.filter((q) => cheb(q.x, q.y, m.x, m.y) <= q.range)
+      .sort((a, b) => cheb(a.x, a.y, m.x, m.y) - cheb(b.x, b.y, m.x, m.y))[0];
+    if (!n) return;
+    n.turns = Math.max(n.turns, n.life || n.turns);
+    floatText(n.x, n.y, "🕯", "#e8d8a0");
+    const got = Math.min(heal, player.maxHp - player.hp);
+    if (got > 0) { player.hp += got; floatText(player.x, player.y, "+" + got, "#8fe08a"); }
+  }
+  // Wake: while a note rings, Death's Door answers earlier.
+  const doorThreshold = () => (passiveMod("wake") && notes.length ? passiveMod("wake") / 100 : 0.2);
   // Decoys age out, and the roaming ones drift a tile at a time.
   function decoyTick() {
     if (!decoys.length) return;
@@ -8015,6 +8054,7 @@
       }
       if (pk === "frostcast") { executeFrostNova(pendingSkill, tx, ty); return; }   // a tile, not a monster
       if (pk === "portalcast") { executePortal(pendingSkill, tx, ty); return; }
+      if (pk === "modulate") { executeModulate(pendingSkill, tx, ty); return; }
       if (pk === "banishcast" || pk === "bandscast") {
         const m = monsterAt(tx, ty);
         if (!m || !inBounds(tx, ty) || !visible[ty][tx]) { log("No target there."); return; }
@@ -10836,7 +10876,8 @@
              d.kind === "madnesscast" || d.kind === "burncast" ||
              d.kind === "sneakcast" || d.kind === "frostcast" || d.kind === "dominatecast" ||
              d.kind === "notecast" || d.kind === "symphony" ||
-             d.kind === "banishcast" || d.kind === "bandscast" || d.kind === "portalcast") beginTargetedSkill(key);
+             d.kind === "banishcast" || d.kind === "bandscast" || d.kind === "portalcast" ||
+             d.kind === "modulate") beginTargetedSkill(key);
   }
   // Ourn's Speed of Light: 25 MP for an instant, decaying burst of Haste.
   function executeSpeedOfLight(key) {
@@ -11605,9 +11646,10 @@
       // swat are a positioning puzzle, where three notes with 40 hit points each
       // were just free damage the early floors could not answer.
       const hp = Math.max(1, mod("LCK") + (passiveMod("noteHp") || 0));
-      born.push({ x: sp.x, y: sp.y, turns: (c.cur.turns || 6) + 1 + (passiveMod("noteLife") || 0), age: 0, hp, maxHp: hp,
+      const life = (c.cur.turns || 6) + 1 + (passiveMod("noteLife") || 0);
+      born.push({ x: sp.x, y: sp.y, turns: life, life, age: 0, hp, maxHp: hp,
                   dmg: c.cur.dmg || 0, range: (c.cur.range || 3) + (passiveMod("noteRange") || 0),
-                  chill: c.cur.chill || 0, sleep: c.cur.sleep || 0 });
+                  chill: c.cur.chill || 0, sleep: c.cur.sleep || 0, poison: c.cur.poison || 0 });
       notes.push(born[born.length - 1]);
     }
     for (const n of born) { floatText(n.x, n.y, "\u266a", "#f2c76a"); spawnProjectile(player.x, player.y, n.x, n.y, "#f2c76a"); }
@@ -11647,6 +11689,26 @@
       out.push({ x, y });
     }
     return out.slice(0, n);
+  }
+  // Modulate — the artillery moves. The note nearest the tapped tile lifts and lands
+  // there with its age, its run and its wounds intact; only where it stands changes.
+  // Placement rules are placeNote's: in sight, somewhere to stand, two paces off.
+  function executeModulate(key, tx, ty) {
+    pendingSkill = null;
+    const c = castCheck(key);
+    if (!c) { updateHotbar(); return; }
+    if (!notes.length) { log("There is no note to move."); updateHotbar(); return; }
+    if (!inBounds(tx, ty) || !visible[ty][tx]) { log("Out of sight."); updateHotbar(); return; }
+    if (!passable(tx, ty) || isWall(tx, ty) || monsterAt(tx, ty) || decoyAt(tx, ty) || noteAt(tx, ty)) { log("A note needs somewhere free to stand."); updateHotbar(); return; }
+    if (cheb(player.x, player.y, tx, ty) < 2) { log("Too close — a note has to ring at a distance."); updateHotbar(); return; }
+    const n = notes.slice().sort((a, b) => cheb(a.x, a.y, tx, ty) - cheb(b.x, b.y, tx, ty))[0];
+    payCast(key, c);
+    spawnProjectile(n.x, n.y, tx, ty, "#f2c76a");
+    n.x = tx; n.y = ty;
+    floatText(tx, ty, "\u266a", "#f2c76a");
+    log("The note slides to a new place, still ringing.", "hit");
+    updateHUD(); updateHotbar();
+    if (!c.cur.free) worldTurn();   // rank 3 is a flick of the wrist: the world does not get a turn
   }
   // Encore — every note on the board goes back to full life and full duration.
   // The deliberate opposite of Final Movement: one holds the room, the other
@@ -13034,7 +13096,9 @@
     openBoonsOf: (g) => godOpenBoons(g),
     decoys: () => decoys.map((dc) => ({ x: dc.x, y: dc.y, turns: dc.turns, roam: !!dc.roam })),
     notes: () => notes.map((n) => ({ x: n.x, y: n.y, turns: n.turns, hp: n.hp, maxHp: n.maxHp, dmg: n.dmg,
-                                     out: noteDamage(n), range: n.range, chill: n.chill || 0, sleep: n.sleep || 0, age: n.age || 0 })),
+                                     out: noteDamage(n), range: n.range, chill: n.chill || 0, sleep: n.sleep || 0, age: n.age || 0,
+                                     poison: n.poison || 0, danse: !!n.danse, life: n.life || 0 })),
+    doorThreshold: () => doorThreshold(),
     noteCap: () => noteCap(),
     noteSense: () => noteSense(),
     noteStack: () => skillMaxCharges("sharp_note"),

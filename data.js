@@ -5313,12 +5313,12 @@ window.CANTORI_DATA = {
           "name": "Sharp Note",
           "icon": "♪",
           "kind": "notecast",
-          "innate": true,
-          "desc": "Hers from the first step, the way ToneTum always has his missile. Strike a note onto a tile you can see, at least two paces off. It hangs there and plucks at the nearest thing it can see, once a turn, until it runs out or something smashes it — and a note is only as sturdy as your LUCK, so it does not take much. How many you can hold on the board, and how many uses you can bank, both grow with INT + LCK + your level: 1 note at first, 2 by level 5, 3 by 10, and a rack of 3 that reaches 4 by level 4 and 5 by 8.",
+          "branch": "core",
+          "bt": 0,
+          "desc": "Hers from the first step. Strike a note onto a tile you can see, at least two paces off. It hangs there and plucks at the nearest thing it can see, once a turn, until it runs out or something smashes it — and a note is only as sturdy as your LUCK. How many you can hold on the board, and how many uses you can bank, both grow with INT + LCK + your level.",
           "levels": [
             "8 MP · 2 + ½DEX mod damage a turn · range 3 · 8 turns · one use back every 45 turns · known from the start",
-            "3 + ½DEX mod · 9 turns · one back every 42",
-            "4 + ½DEX mod · range 4 · 10 turns · one back every 38",
+            "3 + ½DEX mod · range 4 · 10 turns · one back every 40",
             "5 + ½DEX mod · range 4 · 12 turns · one back every 34"
           ],
           "ranks": [
@@ -5332,16 +5332,8 @@ window.CANTORI_DATA = {
             },
             {
               "mp": 8,
-              "cd": 42,
+              "cd": 40,
               "dmg": 3,
-              "range": 3,
-              "turns": 9,
-              "charges": 3
-            },
-            {
-              "mp": 8,
-              "cd": 38,
-              "dmg": 4,
               "range": 4,
               "turns": 10,
               "charges": 3
@@ -5355,91 +5347,22 @@ window.CANTORI_DATA = {
               "charges": 3
             }
           ],
-          "req": []
-        },
-        {
-          "id": "grace_note",
-          "x": 1,
-          "y": 0,
-          "name": "Grace Note",
-          "icon": "🏹",
-          "kind": "passive",
-          "when": "bow",
-          "desc": "A bow is an instrument too. Nothing while you are holding anything else.",
-          "levels": [
-            "+1 min / +2 max damage with a bow.",
-            "+2 / +4, and +1 to hit.",
-            "+3 / +7, and +2 to hit.",
-            "+5 / +10, and +3 to hit."
-          ],
-          "ranks": [
-            {
-              "dmgMin": 1,
-              "dmgMax": 2
-            },
-            {
-              "dmgMin": 2,
-              "dmgMax": 4,
-              "acc": 1
-            },
-            {
-              "dmgMin": 3,
-              "dmgMax": 7,
-              "acc": 2
-            },
-            {
-              "dmgMin": 5,
-              "dmgMax": 10,
-              "acc": 3
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "carrying_tone",
-          "x": 2,
-          "y": 0,
-          "name": "Carrying Tone",
-          "icon": "〰",
-          "kind": "passive",
-          "desc": "Your notes reach further across the room, and hold the air longer.",
-          "levels": [
-            "+1 note range.",
-            "+1 range, and notes last 2 turns longer.",
-            "+2 range, 2 turns longer.",
-            "+2 range, 4 turns longer."
-          ],
-          "ranks": [
-            {
-              "noteRange": 1
-            },
-            {
-              "noteRange": 1,
-              "noteLife": 2
-            },
-            {
-              "noteRange": 2,
-              "noteLife": 2
-            },
-            {
-              "noteRange": 2,
-              "noteLife": 4
-            }
-          ],
-          "req": []
+          "req": [],
+          "innate": true
         },
         {
           "id": "cadence",
-          "x": 3,
+          "x": 1,
           "y": 0,
           "name": "Cadence",
           "icon": "🎶",
           "kind": "passive",
-          "desc": "The music pays for itself — but only while it is playing. Every turn a note of yours fires, some mana comes back.",
+          "branch": "core",
+          "bt": 0,
+          "desc": "The music pays for itself — but only while it is playing. Every turn a note of yours rings, some mana comes back.",
           "levels": [
             "+1 MP a turn while any note is ringing.",
             "+2 MP a turn.",
-            "+3 MP a turn.",
             "+4 MP a turn."
           ],
           "ranks": [
@@ -5450,81 +5373,58 @@ window.CANTORI_DATA = {
               "cadence": 2
             },
             {
-              "cadence": 3
-            },
-            {
               "cadence": 4
             }
           ],
           "req": []
         },
         {
-          "id": "dissonance",
-          "x": 0,
-          "y": 1,
-          "name": "Dissonance",
-          "icon": "♮",
-          "kind": "notecast",
-          "desc": "A note that does not sing. It deals nothing and drags on everything in range instead — half walking speed, half swinging speed.",
+          "id": "grace_note",
+          "x": 2,
+          "y": 0,
+          "name": "Grace Note",
+          "icon": "🏹",
+          "kind": "passive",
+          "branch": "core",
+          "bt": 0,
+          "desc": "A bow is an instrument too. Nothing while you are holding anything else.",
           "levels": [
-            "10 MP · range 3 · chills for 6 turns · lasts 8 turns · 40 turn cooldown",
-            "Range 3, chills for 9, lasts 10",
-            "Range 4, chills for 12, lasts 12",
-            "Range 5, chills for 16, lasts 14"
+            "+1 min / +2 max damage with a bow.",
+            "+3 / +6, and +1 to hit.",
+            "+5 / +10, and +3 to hit."
           ],
           "ranks": [
             {
-              "mp": 10,
-              "cd": 40,
-              "dmg": 0,
-              "range": 3,
-              "turns": 8,
-              "chill": 6
+              "dmgMin": 1,
+              "dmgMax": 2
             },
             {
-              "mp": 10,
-              "cd": 40,
-              "dmg": 0,
-              "range": 3,
-              "turns": 10,
-              "chill": 9
+              "dmgMin": 3,
+              "dmgMax": 6,
+              "acc": 1
             },
             {
-              "mp": 10,
-              "cd": 36,
-              "dmg": 0,
-              "range": 4,
-              "turns": 12,
-              "chill": 12
-            },
-            {
-              "mp": 10,
-              "cd": 32,
-              "dmg": 0,
-              "range": 5,
-              "turns": 14,
-              "chill": 16
+              "dmgMin": 5,
+              "dmgMax": 10,
+              "acc": 3
             }
           ],
-          "req": [
-            [
-              "sharp_note",
-              2
-            ]
-          ]
+          "req": [],
+          "when": "bow"
         },
         {
           "id": "counterpoint",
-          "x": 1,
+          "x": 0,
           "y": 1,
           "name": "Counterpoint",
           "icon": "⑂",
           "kind": "passive",
-          "desc": "More than one line at a time. The board already widens with INT, LUCK and your level — this brings each new slot forward, and toughens every note while it is out. The board never goes past five.",
+          "branch": "composition",
+          "bt": 1,
+          "desc": "More than one line at a time: each new note-slot comes a step early, and every note is tougher while it is out. The board never goes past five.",
           "levels": [
-            "Reach the next note-slot a step early.",
+            "A slot early.",
             "A slot early, and +2 note hit points.",
-            "Two slots early, and +2 hit points.",
             "Two slots early, and +4 hit points."
           ],
           "ranks": [
@@ -5537,33 +5437,214 @@ window.CANTORI_DATA = {
             },
             {
               "noteCap": 2,
-              "noteHp": 2
-            },
-            {
-              "noteCap": 2,
               "noteHp": 4
             }
           ],
-          "req": [
-            [
-              "sharp_note",
-              2
-            ]
-          ]
+          "req": []
+        },
+        {
+          "id": "carrying_tone",
+          "x": 0,
+          "y": 2,
+          "name": "Carrying Tone",
+          "icon": "〰",
+          "kind": "passive",
+          "branch": "composition",
+          "bt": 2,
+          "desc": "Your notes reach further across the room, and hold the air longer.",
+          "levels": [
+            "+1 note range.",
+            "+1 range, and notes last 2 turns longer.",
+            "+2 range, 4 turns longer."
+          ],
+          "ranks": [
+            {
+              "noteRange": 1
+            },
+            {
+              "noteRange": 1,
+              "noteLife": 2
+            },
+            {
+              "noteRange": 2,
+              "noteLife": 4
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "modulate",
+          "x": 0,
+          "y": 3,
+          "name": "Modulate",
+          "icon": "↔",
+          "kind": "modulate",
+          "branch": "composition",
+          "bt": 3,
+          "desc": "Tap a tile: the note nearest it lifts and sets down there, still ringing, as old as it was. The artillery moves with the fight.",
+          "levels": [
+            "4 MP · 30-turn cooldown.",
+            "4 MP · 18-turn cooldown.",
+            "8-turn cooldown, and it costs no time."
+          ],
+          "ranks": [
+            {
+              "mp": 4,
+              "cd": 30
+            },
+            {
+              "mp": 4,
+              "cd": 18
+            },
+            {
+              "mp": 4,
+              "cd": 8,
+              "free": true
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "symphony",
+          "x": 0,
+          "y": 4,
+          "name": "Symphony",
+          "icon": "🎻",
+          "kind": "symphony",
+          "branch": "composition",
+          "bt": 4,
+          "desc": "Three notes at once, thrown out in a shape rather than a stack. Raises the board cap while they last.",
+          "levels": [
+            "30 MP · 3 notes, 12 turns each · 170-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 30,
+              "cd": 170,
+              "dmg": 5,
+              "range": 4,
+              "turns": 12,
+              "count": 3
+            }
+          ],
+          "req": [],
+          "cap": "comp_cap"
+        },
+        {
+          "id": "chord",
+          "x": 1,
+          "y": 4,
+          "name": "Chord",
+          "icon": "⟋",
+          "kind": "passive",
+          "branch": "composition",
+          "bt": 4,
+          "desc": "Two notes are not two turrets, they are a line. Anything standing between a pair of your notes is cut by it every turn.",
+          "levels": [
+            "Pairs of notes cut anything between them for half a note's damage."
+          ],
+          "ranks": [
+            {
+              "chord": 1
+            }
+          ],
+          "req": [],
+          "cap": "comp_cap"
+        },
+        {
+          "id": "shatter",
+          "x": 2,
+          "y": 1,
+          "name": "Shatter",
+          "icon": "✹",
+          "kind": "burncast",
+          "branch": "movements",
+          "bt": 1,
+          "desc": "A note held until the glass goes. Direct damage at whatever you tap — for when the board is empty and something is already on top of her.",
+          "levels": [
+            "9 MP · burns for 2× INT modifier a turn, cooling by 1 · 18-turn cooldown.",
+            "+2 burn damage a turn, 16-turn cooldown.",
+            "+5 a turn, 4 turns longer, 14-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 9,
+              "cd": 18,
+              "dmgBonus": 0,
+              "turnBonus": 0
+            },
+            {
+              "mp": 9,
+              "cd": 16,
+              "dmgBonus": 2,
+              "turnBonus": 0
+            },
+            {
+              "mp": 9,
+              "cd": 14,
+              "dmgBonus": 5,
+              "turnBonus": 4
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "dissonance",
+          "x": 2,
+          "y": 2,
+          "name": "Dissonance",
+          "icon": "♮",
+          "kind": "notecast",
+          "branch": "movements",
+          "bt": 2,
+          "desc": "A note that does not sing. It deals nothing and drags on everything in range instead — half walking speed, half swinging speed.",
+          "levels": [
+            "10 MP · range 3 · chills for 6 turns · lasts 8 turns · 40-turn cooldown.",
+            "Range 4, chills for 10, lasts 12.",
+            "Range 5, chills for 16, lasts 14, 32-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 10,
+              "cd": 40,
+              "dmg": 0,
+              "range": 3,
+              "turns": 8,
+              "chill": 6
+            },
+            {
+              "mp": 10,
+              "cd": 36,
+              "dmg": 0,
+              "range": 4,
+              "turns": 12,
+              "chill": 10
+            },
+            {
+              "mp": 10,
+              "cd": 32,
+              "dmg": 0,
+              "range": 5,
+              "turns": 14,
+              "chill": 16
+            }
+          ],
+          "req": []
         },
         {
           "id": "lullaby",
-          "x": 2,
-          "y": 1,
+          "x": 3,
+          "y": 2,
           "name": "Lullaby",
-          "icon": "♭",
+          "icon": "💤",
           "kind": "notecast",
+          "branch": "movements",
+          "bt": 2,
           "desc": "A note that sends things under. Anything weak enough in range drops where it stands — and it keeps working while you are somewhere else entirely.",
           "levels": [
-            "12 MP · sleeps anything at or below INT ÷ 2 HP · range 3 · 8 turns · 60 turn cooldown",
-            "At or below INT HP",
-            "Range 4, and it lasts 10 turns",
-            "Range 4, 12 turns, 45 turn cooldown"
+            "12 MP · sleeps anything at or below INT ÷ 2 HP · range 3 · 8 turns · 60-turn cooldown.",
+            "At or below INT HP, range 4, 10 turns.",
+            "Range 4, 12 turns, 45-turn cooldown."
           ],
           "ranks": [
             {
@@ -5578,14 +5659,6 @@ window.CANTORI_DATA = {
               "mp": 12,
               "cd": 60,
               "dmg": 0,
-              "range": 3,
-              "turns": 8,
-              "sleep": 1
-            },
-            {
-              "mp": 12,
-              "cd": 60,
-              "dmg": 0,
               "range": 4,
               "turns": 10,
               "sleep": 1
@@ -5599,168 +5672,21 @@ window.CANTORI_DATA = {
               "sleep": 1
             }
           ],
-          "req": [
-            [
-              "sharp_note",
-              2
-            ]
-          ]
-        },
-        {
-          "id": "shatter",
-          "x": 0,
-          "y": 2,
-          "name": "Shatter",
-          "icon": "✹",
-          "kind": "burncast",
-          "desc": "A note held until the glass goes. Direct damage at whatever you tap — what she has when the board is empty and something is already on top of her.",
-          "levels": [
-            "9 MP · burns for 2× INT modifier a turn, cooling by 1 · 18 turn cooldown",
-            "+2 burn damage a turn",
-            "+3 a turn, and 2 turns longer",
-            "+5 a turn, and 4 turns longer"
-          ],
-          "ranks": [
-            {
-              "mp": 9,
-              "cd": 18,
-              "dmgBonus": 0,
-              "turnBonus": 0
-            },
-            {
-              "mp": 9,
-              "cd": 18,
-              "dmgBonus": 2,
-              "turnBonus": 0
-            },
-            {
-              "mp": 9,
-              "cd": 16,
-              "dmgBonus": 3,
-              "turnBonus": 2
-            },
-            {
-              "mp": 9,
-              "cd": 14,
-              "dmgBonus": 5,
-              "turnBonus": 4
-            }
-          ],
           "req": []
         },
         {
-          "id": "ballad",
-          "x": 1,
-          "y": 2,
-          "name": "Ballad",
-          "icon": "🎼",
-          "kind": "passive",
-          "desc": "Stand inside your own music. While you are within two tiles of one of your notes, you are harder to hit and you hit harder.",
-          "levels": [
-            "+1 AC and +1 damage near a note.",
-            "+2 and +2.",
-            "+3 and +3.",
-            "+4 and +4."
-          ],
-          "ranks": [
-            {
-              "ballad": 1
-            },
-            {
-              "ballad": 2
-            },
-            {
-              "ballad": 3
-            },
-            {
-              "ballad": 4
-            }
-          ],
-          "req": [
-            [
-              "sharp_note",
-              2
-            ]
-          ]
-        },
-        {
-          "id": "encore",
-          "x": 2,
-          "y": 2,
-          "name": "Encore",
-          "icon": "↻",
-          "kind": "encore",
-          "desc": "Take it from the top. Every note still on the board goes back to full life and a full run.",
-          "levels": [
-            "14 MP · notes reset to 8 turns · 150 turn cooldown",
-            "10 turns",
-            "12 turns, 120 turn cooldown",
-            "14 turns, 90 turn cooldown"
-          ],
-          "ranks": [
-            {
-              "mp": 14,
-              "cd": 150,
-              "turns": 8
-            },
-            {
-              "mp": 14,
-              "cd": 150,
-              "turns": 10
-            },
-            {
-              "mp": 14,
-              "cd": 120,
-              "turns": 12
-            },
-            {
-              "mp": 14,
-              "cd": 90,
-              "turns": 14
-            }
-          ],
-          "req": [
-            [
-              "counterpoint",
-              2
-            ]
-          ]
-        },
-        {
-          "id": "chord",
-          "x": 0,
-          "y": 3,
-          "name": "Chord",
-          "icon": "⟋",
-          "kind": "passive",
-          "desc": "Two notes are not two turrets, they are a line. Anything standing between a pair of your singing notes is cut by it every turn. Placement stops being about where the enemy is and becomes about where the line goes.",
-          "levels": [
-            "Pairs of notes cut anything between them for half a note's damage."
-          ],
-          "ranks": [
-            {
-              "chord": 1
-            }
-          ],
-          "req": [
-            [
-              "sharp_note",
-              "max"
-            ]
-          ]
-        },
-        {
           "id": "crescendo",
-          "x": 1,
+          "x": 2,
           "y": 3,
           "name": "Crescendo",
           "icon": "📈",
           "kind": "passive",
-          "desc": "A note grows into itself. The longer one has been ringing, the harder it hits — which makes placing early the right play, and she is the only one of them for whom that is true.",
+          "branch": "movements",
+          "bt": 3,
+          "desc": "A note grows into itself. The longer one has been ringing, the harder it hits — so placing early is the right play.",
           "levels": [
             "+1 damage per 3 turns a note has lived, up to +2.",
             "Up to +3.",
-            "Up to +4.",
             "Up to +5."
           ],
           "ranks": [
@@ -5771,124 +5697,216 @@ window.CANTORI_DATA = {
               "crescendo": 3
             },
             {
-              "crescendo": 4
-            },
-            {
               "crescendo": 5
             }
           ],
-          "req": [
-            [
-              "sharp_note",
-              3
-            ]
-          ]
+          "req": []
         },
         {
-          "id": "symphony",
-          "x": 0,
+          "id": "encore",
+          "x": 2,
           "y": 4,
-          "name": "Symphony",
-          "icon": "🎻",
-          "kind": "symphony",
-          "desc": "Three notes at once, thrown out in a shape rather than a stack — so Chord has something to draw between. Raises the board cap while they last.",
+          "name": "Encore",
+          "icon": "↻",
+          "kind": "encore",
+          "branch": "movements",
+          "bt": 4,
+          "desc": "Take it from the top. Every note still on the board goes back to full life and a full run.",
           "levels": [
-            "30 MP · 3 notes, 10 turns each · 200 turn cooldown",
-            "3 notes, 12 turns",
-            "4 notes, 14 turns, 170 turn cooldown",
-            "4 notes, 16 turns, 140 turn cooldown"
+            "14 MP · notes reset to 14 turns · 90-turn cooldown."
           ],
           "ranks": [
             {
-              "mp": 30,
-              "cd": 200,
-              "dmg": 4,
-              "range": 4,
-              "turns": 10,
-              "count": 3
-            },
-            {
-              "mp": 30,
-              "cd": 200,
-              "dmg": 5,
-              "range": 4,
-              "turns": 12,
-              "count": 3
-            },
-            {
-              "mp": 30,
-              "cd": 170,
-              "dmg": 6,
-              "range": 5,
-              "turns": 14,
-              "count": 4
-            },
-            {
-              "mp": 30,
-              "cd": 140,
-              "dmg": 7,
-              "range": 5,
-              "turns": 16,
-              "count": 4
+              "mp": 14,
+              "cd": 90,
+              "turns": 14
             }
           ],
-          "req": [
-            [
-              "chord",
-              "max"
-            ],
-            [
-              "counterpoint",
-              3
-            ]
-          ]
+          "req": [],
+          "cap": "mov_cap"
         },
         {
           "id": "final_movement",
-          "x": 1,
+          "x": 3,
           "y": 4,
           "name": "Final Movement",
           "icon": "💥",
           "kind": "finale",
-          "desc": "End it. Every note on the board breaks at once for twice what it was worth, in a circle around where it stood — and the board is empty afterwards.",
+          "branch": "movements",
+          "bt": 4,
+          "desc": "End it. Every note on the board breaks at once for three times what it was worth, in a circle around where it stood — and the board is empty afterwards.",
           "levels": [
-            "20 MP · ×2 a note's damage, radius 2 · 250 turn cooldown",
-            "×2.5, radius 2",
-            "×3, radius 3, 200 turn cooldown",
-            "×3.5, radius 3, 160 turn cooldown"
+            "20 MP · ×3 a note's damage, radius 3 · 160-turn cooldown."
           ],
           "ranks": [
             {
               "mp": 20,
-              "cd": 250,
-              "mult": 2,
-              "radius": 2
-            },
-            {
-              "mp": 20,
-              "cd": 250,
-              "mult": 2.5,
-              "radius": 2
-            },
-            {
-              "mp": 20,
-              "cd": 200,
-              "mult": 3,
-              "radius": 3
-            },
-            {
-              "mp": 20,
               "cd": 160,
-              "mult": 3.5,
+              "mult": 3,
               "radius": 3
             }
           ],
-          "req": [
-            [
-              "sharp_note",
-              "max"
-            ]
-          ]
+          "req": [],
+          "cap": "mov_cap"
+        },
+        {
+          "id": "dirge",
+          "x": 4,
+          "y": 1,
+          "name": "Dirge",
+          "icon": "⚰",
+          "kind": "notecast",
+          "branch": "requiem",
+          "bt": 1,
+          "desc": "A slow note for the dead. It does not strike — it poisons the nearest thing it can see, a little more each turn.",
+          "levels": [
+            "10 MP · 2 poison a turn · range 3 · 8 turns · 40-turn cooldown.",
+            "3 poison a turn · range 4 · 10 turns.",
+            "5 poison a turn · range 4 · 12 turns · 32-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "mp": 10,
+              "cd": 40,
+              "dmg": 0,
+              "range": 3,
+              "turns": 8,
+              "poison": 2
+            },
+            {
+              "mp": 10,
+              "cd": 36,
+              "dmg": 0,
+              "range": 4,
+              "turns": 10,
+              "poison": 3
+            },
+            {
+              "mp": 10,
+              "cd": 32,
+              "dmg": 0,
+              "range": 4,
+              "turns": 12,
+              "poison": 5
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "last_rites",
+          "x": 4,
+          "y": 2,
+          "name": "Last Rites",
+          "icon": "🕯",
+          "kind": "passive",
+          "branch": "requiem",
+          "bt": 2,
+          "desc": "A foe that dies within reach of one of your notes is sung out: you are healed, and that note starts its run again.",
+          "levels": [
+            "Heal 3, and the nearest note in range resets.",
+            "Heal 6.",
+            "Heal 10."
+          ],
+          "ranks": [
+            {
+              "lastRites": 3
+            },
+            {
+              "lastRites": 6
+            },
+            {
+              "lastRites": 10
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "ballad",
+          "x": 4,
+          "y": 3,
+          "name": "Ballad",
+          "icon": "🎵",
+          "kind": "passive",
+          "branch": "requiem",
+          "bt": 3,
+          "desc": "Stand inside your own music. Within two tiles of one of your notes, you are harder to hit and you hit harder.",
+          "levels": [
+            "+1 AC and +1 damage near a note.",
+            "+2 and +2.",
+            "+4 and +4."
+          ],
+          "ranks": [
+            {
+              "ballad": 1
+            },
+            {
+              "ballad": 2
+            },
+            {
+              "ballad": 4
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "danse_macabre",
+          "x": 4,
+          "y": 4,
+          "name": "Danse Macabre",
+          "icon": "💀",
+          "kind": "passive",
+          "branch": "requiem",
+          "bt": 4,
+          "desc": "What your notes kill keeps singing: a foe killed by a note rises as a short-lived note where it fell.",
+          "levels": [
+            "A note's kill leaves a 6-turn Sharp Note in its place (it may go past the board cap)."
+          ],
+          "ranks": [
+            {
+              "danse": 6
+            }
+          ],
+          "req": [],
+          "cap": "req_cap"
+        },
+        {
+          "id": "wake",
+          "x": 5,
+          "y": 4,
+          "name": "Wake",
+          "icon": "⚱",
+          "kind": "passive",
+          "branch": "requiem",
+          "bt": 4,
+          "desc": "Maelon listens for your music. While a note is ringing, your Death's Door boon answers at 30% health instead of 20%.",
+          "levels": [
+            "Death's Door triggers below 30% HP while a note rings."
+          ],
+          "ranks": [
+            {
+              "wake": 30
+            }
+          ],
+          "req": [],
+          "cap": "req_cap"
+        }
+      ],
+      "branches": [
+        {
+          "id": "composition",
+          "name": "Composition",
+          "icon": "🎼"
+        },
+        {
+          "id": "movements",
+          "name": "Movements",
+          "icon": "♭"
+        },
+        {
+          "id": "requiem",
+          "name": "Requiem of Maelon",
+          "icon": "💀",
+          "god": "maelon"
         }
       ]
     }
