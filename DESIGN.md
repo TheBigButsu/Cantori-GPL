@@ -3993,3 +3993,20 @@ for saves), and this pass fills in the rest of SPD's shape:
   leaves it. A keyboard step onto an item still takes it.
 - **Regeneration** now lasts until the last 10% of the floor's time bar
   (`SPARK_AT = 0.9`), instead of stopping at a fixed turn 350.
+
+## Biome 3 is SPD's Prison — DONE (boss pending the cultist redesign)
+
+Floors 11–15 wear SPD's `tiles_prison.png` (floor, deco, grass, embers, flat
+wall, doors, high grass). Roster: Skeleton, Ghoul and both Slimes from 11;
+Necromancer, Wraith and Hollow Bard from 12; Phantom only on 14, the last
+floor before the boss. Hollow Acolyte, Imp and Brute left the biome (Brute is
+cut; Imp moves to Town with the gnolls). The boss is the Cultist ×3, moved here
+from Town — its redesign and the potion altars come next. Town temporarily
+fights the Mummy until the Djinn replaces it.
+
+- **Skeleton** (SPD): 25 HP, 2–10; bursts for 9 on everything adjacent when it dies.
+- **Necromancer** (SPD): never strikes. Marks a tile beside you and raises one
+  skeleton there next turn; drags a skeleton that lost you back to your side;
+  mends a hurt one a fifth of its HP or drives a whole one on (adrenaline, ×1.5
+  speed for 3 turns); keeps two tiles off you; its skeleton dies with it and
+  pays no XP. Data: `summons: "skeleton"`.

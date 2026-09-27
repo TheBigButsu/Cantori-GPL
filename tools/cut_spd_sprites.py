@@ -81,6 +81,12 @@ MONSTERS = {
     "rose_ghost": ("ghost", 0, 14, 15),         # SPD GhostSprite — the Dried Rose's ghost
     "monk": ("monk", 1, 15, 14),                # SPD MonkSprite (idle starts on frame 1)
     "warlock": ("warlock", 0, 12, 15),          # SPD WarlockSprite
+    "skeleton": ("skeleton", 0, 12, 15),        # SPD SkeletonSprite (biome 3)
+    "necromancer": ("necromancer", 0, 16, 16),  # SPD NecromancerSprite (biome 3)
+    "gnoll_scout": ("gnoll", 0, 12, 15),        # SPD GnollSprite — the sewer "scout" (biome 4)
+    "prison_guard": ("guard", 0, 12, 16),       # SPD GuardSprite (biome 4)
+    "gnoll_brute": ("brute", 0, 12, 16),        # SPD BruteSprite (biome 4)
+    "gnoll_shaman": ("shaman", 0, 12, 15),      # SPD ShamanSprite, red robe row (biome 4)
 }
 
 # Cantori item key -> index into SPD's sprites/items.png, a 16x16 grid 16 cells
@@ -120,6 +126,11 @@ ENV = {"terrain_features": dict({"plant_" + k: 7 * 16 + i for i, k in enumerate(
        # Traps: terrain_features rows 0-6 are Trap shapes (DOTS 0, GRILL 2, DIAMOND 4,
        # CROSSHAIR 5 …) and columns its colours (RED 0 … BLACK 8): index = colour + 16 * shape.
        # 122 / 125: RAISED_HIGH_GRASS and its _ALT (DungeonTileSheet RAISED_OTHER = xy(9, 8)).
+       # tiles_prison.png, the same GROUND block (0-3), FLAT_WALL xy(1,4) = 48,
+       # FLAT_DOOR / _OPEN 56 / 57, and the raised high grass 122 / 125 — biome 3.
+       "tiles_prison": {"prison_floor": 0, "prison_floor_deco": 1, "prison_lawn": 2, "prison_embers": 3,
+                        "prison_wall": 48, "prison_door": 56, "prison_door_open": 57,
+                        "prison_grass": 122, "prison_grass_alt": 125},
        "tiles_caves": {"forest_floor": 0, "forest_floor_deco": 1, "forest_lawn": 2, "forest_embers": 3,
                        "forest_grass": 122, "forest_grass_alt": 125}}
 

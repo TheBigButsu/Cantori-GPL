@@ -164,8 +164,8 @@ window.CANTORI_DATA = {
       "atkMax": 18,
       "glyph": "P",
       "color": "#7ee0d0",
-      "minFloor": 13,
-      "maxLvl": 18,
+      "minFloor": 14,
+      "maxLvl": 19,
       "ac": 35
     },
     "imp": {
@@ -212,8 +212,8 @@ window.CANTORI_DATA = {
       "speed": 1,
       "toHit": 3,
       "ac": 20,
-      "minFloor": 12,
-      "maxLvl": 17,
+      "minFloor": 11,
+      "maxLvl": 16,
       "auraRange": 3,
       "auraAttack": 1.5,
       "auraName": "a black pall",
@@ -242,22 +242,6 @@ window.CANTORI_DATA = {
       "glyph": "a",
       "color": "#c58fd6"
     },
-    "brute": {
-      "name": "Brute",
-      "hp": 40,
-      "atkMin": 4,
-      "atkMax": 8,
-      "walkSpeed": 0.9,
-      "attackSpeed": 1,
-      "speed": 1,
-      "toHit": 5,
-      "ac": 18,
-      "minFloor": 12,
-      "maxLvl": 17,
-      "charge": true,
-      "glyph": "B",
-      "color": "#a07850"
-    },
     "hollow_bard": {
       "name": "Hollow Bard",
       "hp": 18,
@@ -267,14 +251,43 @@ window.CANTORI_DATA = {
       "speed": 1,
       "toHit": 5,
       "ac": 14,
-      "minFloor": 13,
-      "maxLvl": 18,
+      "minFloor": 12,
+      "maxLvl": 17,
       "ranged": true,
       "range": 5,
       "hexChance": 35,
       "hexes": "hex,blind,vertigo,charm,berserk",
       "glyph": "b",
       "color": "#e0b0c8"
+    },
+    "skeleton": {
+      "name": "Skeleton",
+      "hp": 25,
+      "atkMin": 2,
+      "atkMax": 10,
+      "speed": 1,
+      "toHit": 6,
+      "ac": 14,
+      "minFloor": 11,
+      "maxLvl": 16,
+      "burstRadius": 1,
+      "burstDmg": 9,
+      "glyph": "s",
+      "color": "#e8e4d8"
+    },
+    "necromancer": {
+      "name": "Necromancer",
+      "hp": 40,
+      "atkMin": 0,
+      "atkMax": 0,
+      "speed": 1,
+      "toHit": 8,
+      "ac": 16,
+      "minFloor": 12,
+      "maxLvl": 17,
+      "summons": "skeleton",
+      "glyph": "n",
+      "color": "#6a6478"
     },
     "keener": {
       "walkSpeed": 1.2,
@@ -323,7 +336,7 @@ window.CANTORI_DATA = {
       "toHit": 2,
       "ac": 18,
       "minFloor": 7,
-    "maxLvl": 12
+      "maxLvl": 12
     },
     "Goblin_archer": {
       "name": "Goblin Archer",
@@ -337,7 +350,7 @@ window.CANTORI_DATA = {
       "range": 4,
       "ranged": true,
       "minFloor": 8,
-    "maxLvl": 13
+      "maxLvl": 13
     },
     "monk": {
       "name": "Monk",
@@ -2276,83 +2289,75 @@ window.CANTORI_DATA = {
     },
     {
       "key": "crypt",
-      "name": "Mummy's Crypt",
-      "floor": "tomb_floor",
-      "wall": "tomb_wall",
+      "name": "The Prison",
+      "floor": "prison_floor",
+      "wall": "prison_wall",
       "monsters": [
+        "skeleton",
         "ghoul",
-        "wraith",
-        "phantom",
-        "imp",
         "red_slime",
         "black_slime",
-        "hollow_acolyte",
-        "brute",
-        "hollow_bard"
+        "necromancer",
+        "wraith",
+        "hollow_bard",
+        "phantom"
       ],
-      "boss": "mummy",
+      "boss": "cultist",
       "door": "door",
       "spawnMix": {
-        "ghoul": [
-          30,
+        "skeleton": [
+          35,
+          25,
           20,
-          10,
-          5,
+          20,
           0
         ],
-        "wraith": [
-          null,
-          15,
+        "ghoul": [
+          25,
           15,
           10,
-          0
-        ],
-        "phantom": [
-          null,
-          null,
-          15,
-          15,
-          0
-        ],
-        "imp": [
-          null,
-          null,
-          null,
-          15,
+          10,
           0
         ],
         "red_slime": [
-          30,
-          20,
+          25,
+          15,
           10,
           10,
           0
         ],
         "black_slime": [
-          null,
+          15,
           10,
           10,
           10,
           0
         ],
-        "hollow_acolyte": [
-          40,
-          20,
-          15,
-          10,
-          0
-        ],
-        "brute": [
+        "necromancer": [
           null,
           15,
           15,
           15,
+          0
+        ],
+        "wraith": [
+          null,
+          10,
+          15,
+          10,
           0
         ],
         "hollow_bard": [
           null,
-          null,
           10,
+          20,
+          15,
+          0
+        ],
+        "phantom": [
+          null,
+          null,
+          null,
           10,
           0
         ]
@@ -2415,8 +2420,19 @@ window.CANTORI_DATA = {
           "Statue",
           "MagicWell",
           "Runestone"
-        ]
-      }
+        ],
+        "tiles": {
+          "lawn": "prison_lawn",
+          "embers": "prison_embers",
+          "grass": "prison_grass",
+          "grass_alt": "prison_grass_alt",
+          "door": "prison_door",
+          "door_open": "prison_door_open"
+        }
+      },
+      "floorDeco": "prison_floor_deco",
+      "bossCount": 3,
+      "horror": "wraith"
     },
     {
       "key": "town",
@@ -2458,8 +2474,7 @@ window.CANTORI_DATA = {
           35
         ]
       },
-      "boss": "cultist",
-      "bossCount": 3,
+      "boss": "mummy",
       "door": "door",
       "spawnEvery": 50,
       "spawnCap": 11,

@@ -527,6 +527,32 @@ async function main() {
   });
   check(pick.problems.length === 0, "pick-up/regen: " + pick.problems.join("; "));
 
+  // Biome 3's Necromancer: marks a tile beside you, raises a skeleton there the
+  // next turn, and takes it with it when it dies.
+  const necro = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    let lane = null;
+    for (let t = 0; t < 15 && !lane; t++) {
+      c.regenerate(); c.hurt(-999);
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      const q = c.peek();
+      lane = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => [1, 2, 3].every((k) => c.passableAt(q.x + dx * k, q.y + dy * k) && [1, 9, 10, 11].indexOf(c.tileAt(q.x + dx * k, q.y + dy * k)) >= 0));
+    }
+    if (!lane) return { problems: ["no straight lane to test the necromancer on"] };
+    const q = c.peek(), [dx, dy] = lane, nx = q.x + dx * 3, ny = q.y + dy * 3;
+    c.spawnMonsterAt("necromancer", nx, ny); c.huntNow(nx, ny);
+    let sk = null;
+    for (let i = 0; i < 4 && !sk; i++) { c.hurt(-999); c.tick(1); sk = c.peek().mlist.find((m) => m.type === "skeleton"); }
+    if (!sk) problems.push("the necromancer never raised a skeleton");
+    else if (Math.max(Math.abs(sk.x - q.x), Math.abs(sk.y - q.y)) !== 1) problems.push("the skeleton was not raised beside the player");
+    const nm = c.peek().mlist.find((m) => m.type === "necromancer");
+    if (nm) c.killAt(nm.x, nm.y);
+    if (c.peek().mlist.some((m) => m.type === "skeleton")) problems.push("the skeleton outlived its necromancer");
+    c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(necro.problems.length === 0, "necromancer: " + necro.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {

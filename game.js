@@ -4338,6 +4338,7 @@
     if (target.horror) { horrorDeadAt = turns; xp = 0; }
     else if (target.boss) xp = 15 + Math.round(target.maxHp * 0.4);
     else if (player.level > monMaxLvl(target)) xp = 0;   // outgrown: SPD's maxLvl
+    else if (target.summoned) xp = 0;                    // raised by something else: its XP is the caster's
     else { const mf = (VERMIN[target.type] && VERMIN[target.type].minFloor) || 1; xp = Math.max(1, Math.ceil(mf / 2)); }
     if (xp > 0) gainXP(xp);
     // ...and two levels past that it stops paying out at all, as SPD's loot does.
@@ -4345,6 +4346,9 @@
     tickBoonKillCounters();
     _boss.onKill(target);
     if (target.boss && !monsters.some((m) => m.boss)) onBossDefeated(target.x, target.y);
+    // SPD: a necromancer's skeleton does not outlive it (and still bursts).
+    const mn = target.minion;
+    if (mn && mn.hp > 0 && monsters.includes(mn)) { mn.hp = 0; killMonster(mn, "collapses"); }
   }
 
   // The level past which a monster teaches you nothing — SPD's Mob.maxLvl. The
@@ -5895,7 +5899,7 @@
     // Frost Nova: chilled things move and swing at half their clip. Applied here
     // rather than by editing m.speed, so it is one place, it cannot leak into the
     // data row, and it lifts by itself when the counter runs out.
-    return (v > 0 ? v : 1) * (m.chill > 0 ? 0.5 : 1);
+    return (v > 0 ? v : 1) * (m.chill > 0 ? 0.5 : 1) * (m.adrenaline > 0 ? 1.5 : 1);   // a necromancer's adrenaline
   };
   const monWalkSpeed = (m) => monSpeed(m, "walkSpeed");
   const monAtkSpeed = (m) => monSpeed(m, "attackSpeed");
@@ -6820,6 +6824,7 @@
       return;
     }
     if (m.chill > 0) m.chill--;
+    if (m.adrenaline > 0) m.adrenaline--;
     // Dominated: it has a side now. Unlike berserk it never weighs the player as a
     // target at all — it goes for the nearest OTHER monster and waits if there is
     // none, which is what separates "it fights for you" from "it fights everyone".
@@ -6853,8 +6858,106 @@
       // nothing closer than you → fall through to the normal states
     }
     if (m.state === SLEEPING) { actSleeping(m); return; }
-    if (m.state === HUNTING) { actHunting(m); return; }
+    if (m.state === HUNTING) { if (m.summons) necroAct(m); else actHunting(m); return; }
     actWandering(m);
+  }
+
+  // ---- Necromancer (SPD actors/mobs/Necromancer.java) ----------------------
+  // It never strikes. It raises ONE minion (its row's `summons`) on a tile beside
+  // you — marked a turn ahead, so you can step off the spot — and once it has
+  // one, it keeps it on you: a minion that has lost you is pulled back to your
+  // side the same telegraphed way, a hurt one is mended a fifth of its health,
+  // a whole one is driven on (adrenaline: half again as fast for 3 turns). It
+  // keeps its distance, and when it dies its minion goes with it. Kill the
+  // caster, not the bones.
+  const NECRO_RANGE = 4;           // SPD: it only raises within 4 tiles of you
+  function necroMinion(m) {
+    const mn = m.minion;
+    if (mn && mn.hp > 0 && monsters.includes(mn)) return mn;
+    m.minion = null;
+    return null;
+  }
+  function necroAct(m) {
+    const seen = canSee(m);
+    if (seen) { m.target = { x: player.x, y: player.y }; m.seenAt = turns; m.huntBlind = 0; }
+    const mn = necroMinion(m);
+    // A marked summoning lands now.
+    if (m.summonAt) {
+      let at = m.summonAt; m.summonAt = null;
+      const free = (x, y) => passableFor(m, x, y) && !monsterAt(x, y) && !(x === player.x && y === player.y);
+      if (!free(at.x, at.y)) {
+        // Something stepped onto the mark: take the nearest free tile beside you
+        // instead, and if there is none the spell bites whoever is in the way.
+        at = null;
+        for (const [dx, dy] of DIRS8) { const x = player.x + dx, y = player.y + dy; if (inBounds(x, y) && free(x, y)) { at = { x, y }; break; } }
+        if (!at) {
+          const d = randInt(2, 10);
+          player.hp -= d; flash(player); floatText(player.x, player.y, "-" + d, "#b38fd6");
+          log("The summoning has nowhere to land — it tears at you instead. (-" + d + ")", "hurt");
+          if (player.hp <= 0) { updateHUD(); die(); }
+          return;
+        }
+      }
+      if (mn) { mn.x = at.x; mn.y = at.y; startHunting(mn); log("The " + monName(m) + " drags its " + monName(mn).toLowerCase() + " back to your side!", "hurt"); }
+      else {
+        const k = m.summons;
+        if (!VERMIN[k]) return;
+        const sk = makeMonster(k, at.x, at.y);
+        sk.summoned = true; sk.summoner = m;
+        startHunting(sk);
+        monsters.push(sk); m.minion = sk;
+        log("The " + monName(m) + " raises a " + monName(sk).toLowerCase() + " beside you!", "hurt");
+      }
+      spawnBurst(at.x, at.y, "#b38fd6");
+      return;
+    }
+    const d = cheb(m.x, m.y, player.x, player.y);
+    if (seen && d <= NECRO_RANGE && (!mn || cheb(mn.x, mn.y, player.x, player.y) > 1)) {
+      // mark the tile beside you nearest to the caster that it can see
+      let best = null, bd = 1e9;
+      for (const [dx, dy] of DIRS8) {
+        const x = player.x + dx, y = player.y + dy;
+        if (!inBounds(x, y) || !passableFor(m, x, y) || monsterAt(x, y)) continue;
+        if (!lineOfSight(m.x, m.y, x, y)) continue;
+        const dd = Math.hypot(x - m.x, y - m.y);
+        if (dd < bd) { bd = dd; best = { x, y }; }
+      }
+      if (best) {
+        m.summonAt = best;
+        floatText(m.x, m.y, "☠", "#b38fd6");
+        if (!mn) log("The " + monName(m) + " begins to chant — something is coming up beside you.", "hurt");
+        return;
+      }
+    }
+    if (seen && mn) {
+      if (mn.hp < mn.maxHp) {
+        const h = Math.max(1, Math.floor(mn.maxHp / 5));
+        mn.hp = Math.min(mn.maxHp, mn.hp + h);
+        spawnStreak(m.x, m.y, mn.x, mn.y, "#8ed69a", 260);
+        floatText(mn.x, mn.y, "+" + h, "#8ed69a");
+        return;
+      }
+      if (!(mn.adrenaline > 0)) {
+        mn.adrenaline = 3;
+        spawnStreak(m.x, m.y, mn.x, mn.y, "#e0685a", 260);
+        floatText(mn.x, mn.y, "rage", "#e0685a");
+        return;
+      }
+    }
+    // Keep its distance: never within reach of your blade if it can help it.
+    if (seen && d <= 2) {
+      let best = null, bd = d;
+      for (const [dx, dy] of DIRS8) {
+        const x = m.x + dx, y = m.y + dy;
+        if (!canStep(m.x, m.y, dx, dy, m) || shuns(x, y) || monsterAt(x, y) || (x === player.x && y === player.y)) continue;
+        const dd = cheb(x, y, player.x, player.y);
+        if (dd > bd) { bd = dd; best = { x, y }; }
+      }
+      if (best) moveMonster(m, best.x, best.y);
+      return;
+    }
+    if (seen && d <= NECRO_RANGE) return;          // in range, nothing to do this turn: it waits
+    actHunting(m);                                   // otherwise close in along the trail
   }
   // A lightweight monster-vs-monster strike (Anger of Kethara only) — no crits,
   // affixes, or identify progress; just a hit-chance roll and flat damage.
@@ -7424,6 +7527,9 @@
   // panel with a seam that splits open.
   function drawDoor(px, py, closed, b) {
     const cx = px + tile / 2, cy = py + tile / 2;
+    // A biome that names SPD door tiles (the prison's) draws those.
+    const dtl = biome && biome.spd && biome.spd.tiles;
+    if (dtl && dtl.door && drawImg(SPRITES[closed ? dtl.door : (dtl.door_open || dtl.door)], px, py)) return;
     if (biome && biome.door === "bush") {
       const blobs = closed
         ? [[0.30, 0.42, 0.30], [0.66, 0.40, 0.30], [0.48, 0.66, 0.34], [0.48, 0.30, 0.26]]
@@ -8132,6 +8238,16 @@
 
     drawGases(SX, SY, now);
     drawAttackReticle(SX, SY, now);
+    for (const m of monsters) {                      // a necromancer's mark, a turn before it lands
+      if (!m.summonAt || m.hp <= 0) continue;
+      const t = m.summonAt;
+      if (!inBounds(t.x, t.y) || !visible[t.y][t.x]) continue;
+      ctx.save();
+      ctx.strokeStyle = "rgba(179,143,214," + (0.55 + 0.35 * Math.sin(now / 140)).toFixed(3) + ")";
+      ctx.lineWidth = Math.max(2, tile * 0.08);
+      ctx.beginPath(); ctx.arc(SX(t.x) + tile / 2, SY(t.y) + tile / 2, tile * 0.38, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
 
     // plants (drawn where they grow, remembered once seen like the floor itself)
     for (const p of plants) {

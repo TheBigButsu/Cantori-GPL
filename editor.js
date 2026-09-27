@@ -88,6 +88,7 @@
       { f: "hexChance", label: "hex %", type: "num" },
       { f: "hexes", label: "hexes", type: "text", cls: "name" },
       { f: "parry", label: "parry (Monk focus)", type: "bool" },
+      { f: "summons", label: "summons (necromancer: monster key)", type: "text" },
     ],
     gear: [
       { f: "__key", label: "key", type: "key" },
