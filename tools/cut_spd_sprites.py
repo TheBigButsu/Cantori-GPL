@@ -129,6 +129,10 @@ ENV = {"terrain_features": dict({"plant_" + k: 7 * 16 + i for i, k in enumerate(
        "tiles_prison": {"prison_floor": 0, "prison_floor_deco": 1, "prison_lawn": 2, "prison_embers": 3,
                         "prison_wall": 48, "prison_door": 56, "prison_door_open": 57,
                         "prison_grass": 122, "prison_grass_alt": 125},
+       # tiles_sewers.png — SPD's first region — for biome 4 (Town), same cells.
+       "tiles_sewers": {"town_floor": 0, "town_floor_deco": 1, "town_lawn": 2, "town_embers": 3,
+                        "town_wall": 48, "town_door": 56, "town_door_open": 57,
+                        "town_grass": 122, "town_grass_alt": 125},
        "tiles_caves": {"forest_floor": 0, "forest_floor_deco": 1, "forest_lawn": 2, "forest_embers": 3,
                        "forest_grass": 122, "forest_grass_alt": 125}}
 

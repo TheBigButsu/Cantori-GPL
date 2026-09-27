@@ -2466,8 +2466,8 @@ window.CANTORI_DATA = {
     {
       "key": "town",
       "name": "Town",
-      "floor": "arcane_floor",
-      "wall": "arcane_wall",
+      "floor": "town_floor",
+      "wall": "town_wall",
       "monsters": [
         "gnoll_scout",
         "prison_guard",
@@ -2476,11 +2476,11 @@ window.CANTORI_DATA = {
         "imp"
       ],
       "spawnInitial": [
-        8,
-        9,
-        10,
-        10,
-        10
+        16,
+        18,
+        20,
+        22,
+        22
       ],
       "spawnMix": {
         "gnoll_scout": [
@@ -2521,8 +2521,8 @@ window.CANTORI_DATA = {
       },
       "boss": "djinn",
       "door": "door",
-      "spawnEvery": 50,
-      "spawnCap": 11,
+      "spawnEvery": 30,
+      "spawnCap": 26,
       "spd": {
         "standard": [
           6,
@@ -2564,9 +2564,18 @@ window.CANTORI_DATA = {
           "Statue",
           "MagicWell",
           "Runestone"
-        ]
+        ],
+        "tiles": {
+          "lawn": "town_lawn",
+          "embers": "town_embers",
+          "grass": "town_grass",
+          "grass_alt": "town_grass_alt",
+          "door": "town_door",
+          "door_open": "town_door_open"
+        }
       },
-      "gauntlet": true
+      "gauntlet": true,
+      "floorDeco": "town_floor_deco"
     },
     {
       "key": "lake",

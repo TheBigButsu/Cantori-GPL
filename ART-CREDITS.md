@@ -87,6 +87,7 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 | `rose_ghost.png` | `core/src/main/assets/sprites/ghost.png` (idle frame, 2x) | Dried Rose ghost | none |
 | `skeleton.png`, `necromancer.png` | `core/src/main/assets/sprites/skeleton.png` (12×15), `necromancer.png` (16×16), idle frame, 2x | biome 3's Skeleton and Necromancer | none |
 | `gnoll_scout.png`, `prison_guard.png`, `gnoll_brute.png`, `gnoll_shaman.png` | `core/src/main/assets/sprites/gnoll.png` (12×15), `guard.png` (12×16), `brute.png` (12×16), `shaman.png` (12×15), idle frame, 2x | biome 4's gnolls and guard | none |
+| `town_*.png` (9) | `core/src/main/assets/environment/tiles_sewers.png` — SPD's first region — cells 0–3, 48, 56/57, 122/125, 2x | biome 4, the Town's climb | none |
 | `prison_*.png` (9) | `core/src/main/assets/environment/tiles_prison.png`, cells 0–3 (floor, deco, grass, embers), 48 (flat wall), 56/57 (door), 122/125 (high grass), 2x | biome 3, the Prison | none |
 | `bag_backpack.png`, `bag_seed.png`, `bag_scroll.png`, `bag_potion.png` | `core/src/main/assets/sprites/items.png`, the bag row (index 481–484), 2x | the bag tabs and bags | none |
 | `trap_*.png` (9) | `core/src/main/assets/environment/terrain_features.png`, rows 0–5 (colour + 16 × shape, per SPD's Trap classes), 2x | the traps | none |

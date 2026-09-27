@@ -4048,3 +4048,23 @@ after you and strikes (900 HP, 8–14).
 The sprite is original art in the silhouette of a classic RPG elemental — a
 cone of fire with a man above it. Ultima Online's own art is copyrighted and
 not GPL-compatible, so it is not copied.
+
+## Biome 4 rebuilt as the climb — DONE (supersedes "the gauntlet" above)
+
+Town floors are one long climb, 33 × 150 (the map size is now per floor), in
+SPD's sewer tiles. You start at the bottom; the stairs are in the top wall.
+From every junction:
+
+- **Up** — a door onward. Going up always leads on: the route sometimes forks
+  into two climbs, but the forks rejoin at the next junction, so there is never
+  a dead end upward.
+- **Sideways** — a tunnel to a closet (about ten a floor): loot, most of the
+  crates, a monster or two, and one way in. A dead end by design; the fire does
+  not stop rising while you are in there.
+
+The fire rises from the bottom row after 10 turns, one row every two turns
+(a row is marked, then burns), so a straight run has roughly 300 turns against
+a climb of ~145 rows — the slack is what you spend on fights and closets. More
+monsters (16–22 to start, reinforcements every 30 turns up to 26) make it the
+damage-or-survive check it is meant to be. The Djinn's furnace keeps its
+west-to-east fire; the blaze now runs along either axis.

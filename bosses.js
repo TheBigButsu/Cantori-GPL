@@ -45,7 +45,8 @@ window.CantoriBosses = function (deps) {
     spawnGas = deps.spawnGas, gasBurst = deps.gasBurst, gasLine = deps.gasLine, gasRing = deps.gasRing,
     gasAt = deps.gasAt, clearGases = deps.clearGases,
     // Biome 4's blaze, for the Djinn: the front, pushing it, and what is on screen.
-    getBlaze = deps.getBlaze, igniteColumns = deps.igniteColumns, visibleFloor = deps.visibleFloor;
+    getBlaze = deps.getBlaze, igniteColumns = deps.igniteColumns, visibleFloor = deps.visibleFloor,
+    blazeLineTiles = deps.blazeLineTiles;
 
   // A boss's telegraphed move is still a blow: it enters the incoming-damage
   // ladder at the top (attack roll, evasion, RES, armour) exactly like a wolf's
@@ -439,9 +440,7 @@ window.CantoriBosses = function (deps) {
     updateHUD();
   }
   function djinnBeginFan(m) {
-    const b = getBlaze();
-    const k = randInt(1, 4), map = getMap(), tiles = [];
-    for (let x = b.col + 1; x <= b.col + k; x++) for (let y = 0; y < map.length; y++) if (inBounds(x, y) && map[y][x] !== WALL) tiles.push([x, y]);
+    const k = randInt(1, 4), tiles = blazeLineTiles(k);
     m.windup = { kind: "fan", turns: 2, k, tiles, color: "255,120,30" };
     m.fanCd = DJINN_FAN_CD;
     sayMonster(m, "Feed, fire!", "#ff8f4a");

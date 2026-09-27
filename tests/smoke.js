@@ -558,41 +558,33 @@ async function main() {
   });
   check(necro.problems.length === 0, "necromancer/brute/guard: " + necro.problems.join("; "));
 
-  // Biome 4: gauntlet floors. Branching halls that all reach the stairs (no
-  // dead ends), crates that never cut the way on, and a fire that marks a column
-  // then burns it — one column every two turns — and hurts whoever stands in it.
+  // Biome 4: the climb. A tall shaft climbed to stairs at the top, closets off
+  // to the sides, crates that never cut the way on, and a fire that rises from
+  // the bottom — a line marked, then burned, one line every two turns.
   const gaunt = await page.evaluate(() => {
-    const c = window.cantori, T = c.tileConstants(), problems = [];
+    const c = window.cantori, problems = [];
     const back = c.peek().depth;
-    let crates = 0;
+    let crates = 0, closets = 0;
     for (let r = 0; r < 6; r++) {
       c.goDepth(16 + (r % 4));
       if (c.peek().biome !== window.CANTORI_DATA.biomes.find((b) => b.key === "town").name) { problems.push("depth " + c.peek().depth + " is not the Town"); break; }
-      const g = c.peek().grid, st = c.stairsAt();
-      if (!st || !c.reach(st.x, st.y)) problems.push("a gauntlet floor's stairs are unreachable");
-      crates += c.crateCount();
-      let dead = 0;
-      for (let y = 1; y < g.h - 1; y++) for (let x = 1; x < g.w - 1; x++) {
-        if (!c.passableAt(x, y) || c.tileAt(x, y) === T.STAIRS) continue;
-        let n = 0;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (c.passableAt(x + dx, y + dy) || c.tileAt(x + dx, y + dy) === T.CRATE || c.tileAt(x + dx, y + dy) === T.STAIRS) n++;
-        if (n <= 1) dead++;
-      }
-      if (dead) problems.push("a gauntlet floor has " + dead + " dead-end tile(s)");
-      if (!c.blazeInfo()) problems.push("a gauntlet floor has no fire");
+      const ci = c.climbInfo(), st = c.stairsAt(), p = c.peek();
+      if (ci.h < 100) problems.push("the climb is only " + ci.h + " tall");
+      if (!st || !c.reach(st.x, st.y)) problems.push("a climb's stairs are unreachable");
+      else if (!(st.y < 10 && p.y > ci.h - 10)) problems.push("the climb does not run bottom (" + p.y + ") to top (" + st.y + ")");
+      crates += c.crateCount(); closets += ci.closets;
+      const bl = c.blazeInfo();
+      if (!bl || bl.axis !== "y") problems.push("a climb has no rising fire");
     }
-    if (!crates) problems.push("no crates on six gauntlet floors");
-    // the fire: held, then let go
+    if (!crates) problems.push("no crates on six climbs");
+    if (!closets) problems.push("no side closets on six climbs");
+    const H = c.climbInfo().h;
     c.blazeHold(false);
-    c.hurt(-999);
-    for (let i = 0; i < 8 + 10; i++) { c.hurt(-999); c.tick(1); }
-    const col = c.blazeInfo().col;
-    if (!(col >= 4 && col <= 6)) problems.push("after 18 turns the fire front is at column " + col + " (expected ~5)");
+    for (let i = 0; i < 10 + 20; i++) { c.hurt(-999); c.tick(1); }
+    const pos = c.blazeInfo().pos;
+    if (!(pos <= H - 9 && pos >= H - 11)) problems.push("after 30 turns the fire front is at row " + pos + " of " + H + " (expected ~" + (H - 10) + ")");
     const p = c.peek(), hp0 = p.hp;
-    c.place(0 + Math.max(1, col), p.y);                    // step into the burning ground, if there is floor there
-    const inFire = c.peek().x <= col;
-    c.tick(1);
-    if (inFire && !(c.peek().hp < hp0 + 1)) problems.push("standing in the fire did not hurt");
+    if (p.y >= pos) { c.tick(1); if (!(c.peek().hp < hp0)) problems.push("standing in the fire did not hurt"); }
     c.blazeHold(true);
     c.goDepth(back); c.hurt(-999);
     return { problems };

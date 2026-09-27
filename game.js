@@ -19,8 +19,13 @@
   "use strict";
 
   // ---- Map model -----------------------------------------------------------
-  const MAP_W = 47;         // a sprawling floor (~15% less area than the old 51×51)
-  const MAP_H = 47;         // joined by narrow, winding 1-wide hallways between chambers
+  // The floor's size. 47×47 almost everywhere; biome 4's climb is a tall narrow
+  // shaft instead (setMapSize in generateLevel). Everything reads these at call
+  // time, so a floor may choose its own — nothing is sized once at start-up.
+  const STD_W = 47, STD_H = 47;
+  let MAP_W = STD_W;        // a sprawling floor (~15% less area than the old 51×51)
+  let MAP_H = STD_H;        // joined by narrow, winding 1-wide hallways between chambers
+  const CLIMB_W = 33, CLIMB_H = 150;   // biome 4: one long climb, fire rising behind you
   const FOV_RADIUS = 6;     // max line of sight: you see 6 tiles out (walls/closed
                             // doors block); rooms reveal as you move into them.
                             // It was 8, which is a whole ordinary room — you stood in
@@ -2925,80 +2930,96 @@
     rooms.keysNeeded = lv.keys;
     return rooms;
   }
-  // ---- Gauntlet floors (biome 4) -----------------------------------------------
+  // ---- The climb: biome 4's floors ------------------------------------------
   //
-  // Not rooms but a braid of hallways run left to right, with a fire coming along
-  // behind you (the blaze, below). Three or four lanes leave a start hall on the
-  // west edge, wander up and down their own band of the map, widen into chambers,
-  // cross to their neighbours through connectors, and ALL end in one collector
-  // hall on the east edge with the stairs in its wall. Nothing is ever carved
-  // that does not join two other carved things, so there is no dead end to run
-  // into with the fire at your back — every branch converges on the exit.
+  // A long, narrow shaft (CLIMB_W × CLIMB_H) climbed bottom to top with a fire
+  // rising behind you. It is railroaded on purpose — a damage-and-survival check:
+  // cut through what is in front of you fast enough, or outlast the chain of
+  // monsters piling up behind you.
   //
-  // Crates stand where another floor would grow tall grass: clusters in the wide
-  // stretches, each crate vetted so it never cuts the way on or strands a tile.
-  const GAUNTLET_X0 = 2, GAUNTLET_X1 = MAP_W - 4;
-  function buildGauntletFloor() {
-    const X0 = GAUNTLET_X0, X1 = GAUNTLET_X1;
-    const n = randInt(3, 4), top = 4, bot = MAP_H - 5;
-    const home = [];
-    for (let i = 0; i < n; i++) home.push(Math.round(top + i * (bot - top) / (n - 1)));
-    const band = Math.max(2, Math.floor((bot - top) / (n - 1) / 2) - 2);
-    const carve = (x, y) => { if (x >= 1 && x < MAP_W - 1 && y >= 1 && y < MAP_H - 1 && map[y][x] !== STAIRS) map[y][x] = FLOOR; };
-    const laneY = [];                       // laneY[i][x] = the lane's centre row at column x
+  // Two kinds of way out of every junction:
+  //   UP   — a door onward. Going up ALWAYS leads on: the route may fork into
+  //          two climbs, but forks rejoin, and every one reaches the stairs at
+  //          the top. There is no dead end upward.
+  //   SIDE — a tunnel to a closet off to the left or right: loot, crates, a
+  //          monster or two, and one way in. A closet is a dead end by design —
+  //          the fire does not stop rising while you are in there.
+  // The up route keeps to a central band and closets to the outer bands, so a
+  // closet never quietly becomes a shortcut.
+  function buildClimbFloor() {
+    const W = MAP_W, H = MAP_H, cx = Math.floor(W / 2);
+    const bandLo = cx - 6, bandHi = cx + 6;              // where the up route lives
     const rooms = [];
-    for (let i = 0; i < n; i++) {
-      let y = home[i], w = randInt(1, 3);
-      const ly = [], lo = home[i] - band, hi = home[i] + band;
-      let minY = y, maxY = y;
-      for (let x = X0; x <= X1; x++) {
-        if (x > X0 + 2 && x < X1 - 2 && Math.random() < 0.2) {
-          const ny = Math.max(lo, Math.min(hi, y + (Math.random() < 0.5 ? -1 : 1) * randInt(1, 2)));
-          for (let yy = Math.min(y, ny); yy <= Math.max(y, ny); yy++) for (let k = 0; k < w; k++) carve(x - k, yy);
-          y = ny;
+    const carve = (x, y) => { if (x >= 1 && x < W - 1 && y >= 1 && y < H - 1 && map[y][x] !== STAIRS) map[y][x] = FLOOR; };
+    const carveRect = (r) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) carve(x, y); };
+    const door = (x, y) => { if (x >= 1 && x < W - 1 && y >= 1 && y < H - 1) map[y][x] = DOOR; };
+    // the start: a small chamber at the bottom
+    const start = { x: cx - 2, y: H - 6, w: 5, h: 3 };
+    carveRect(start); rooms.push(start);
+    let paths = [cx];                                    // x of each live up-route
+    let y = start.y;                                     // the row the routes leave from
+    const clampX = (x) => Math.max(bandLo, Math.min(bandHi, x));
+    while (y > 12) {
+      const len = randInt(5, 9), top = Math.max(6, y - len);
+      // climb: each route goes up to `top`, with the odd sideways jog
+      const ends = [];
+      for (let px of paths) {
+        const w = randInt(1, 2);
+        door(px, y - 1);                                 // an up door out of the chamber below
+        let x = px;
+        for (let yy = y - 2; yy >= top; yy--) {
+          if (Math.random() < 0.18 && yy < y - 2 && yy > top + 1) {
+            const nx = clampX(x + (Math.random() < 0.5 ? -1 : 1) * randInt(1, 3));
+            for (let xx = Math.min(x, nx); xx <= Math.max(x, nx); xx++) carve(xx, yy);
+            x = nx;
+          }
+          for (let k = 0; k < w; k++) carve(x + k, yy);
         }
-        if (Math.random() < 0.12) w = randInt(1, 3);
-        for (let k = 0; k < w; k++) carve(x, y + k - Math.floor((w - 1) / 2));
-        ly[x] = y; minY = Math.min(minY, y - 1); maxY = Math.max(maxY, y + 1);
+        ends.push(x);
       }
-      laneY.push(ly);
-      rooms.push({ x: X0, y: Math.max(1, minY), w: X1 - X0 + 1, h: Math.min(MAP_H - 2, maxY) - Math.max(1, minY) + 1, lane: i });
-    }
-    // start hall and collector hall, spanning wherever the lanes begin and end
-    const startLo = Math.min(...laneY.map((l) => l[X0])), startHi = Math.max(...laneY.map((l) => l[X0]));
-    const endLo = Math.min(...laneY.map((l) => l[X1])), endHi = Math.max(...laneY.map((l) => l[X1]));
-    for (let y = startLo; y <= startHi; y++) { carve(X0 - 1, y); carve(X0, y); }
-    for (let y = endLo; y <= endHi; y++) { carve(X1, y); carve(X1 + 1, y); }
-    // chambers, inline on a lane
-    for (let c = randInt(4, 7); c > 0; c--) {
-      const i = randInt(0, n - 1), x = randInt(X0 + 5, X1 - 6), cw = randInt(4, 6), ch = randInt(3, 5);
-      const cy = laneY[i][x], rx = x - Math.floor(cw / 2), ry = Math.max(2, Math.min(MAP_H - 3 - ch, cy - Math.floor(ch / 2)));
-      for (let yy = ry; yy < ry + ch; yy++) for (let xx = rx; xx < rx + cw; xx++) carve(xx, yy);
-      // the chamber must still meet its lane: carve the lane's own column through it
-      for (let yy = Math.min(cy, ry); yy <= Math.max(cy, ry + ch - 1); yy++) carve(x, yy);
-      rooms.push({ x: rx, y: ry, w: cw, h: ch });
-    }
-    // connectors between neighbouring lanes
-    for (let i = 0; i + 1 < n; i++) {
-      for (let c = randInt(2, 4); c > 0; c--) {
-        const x = randInt(X0 + 3, X1 - 3), w = randInt(1, 2);
-        const a = laneY[i][x], b = laneY[i + 1][x];
-        for (let yy = Math.min(a, b); yy <= Math.max(a, b); yy++) for (let k = 0; k < w; k++) carve(x + k, yy);
+      // the junction the routes arrive in (one chamber spans all of them — a fork rejoins here)
+      const jl = Math.max(2, Math.min(...ends) - randInt(1, 3)), jr = Math.min(W - 3, Math.max(...ends) + randInt(1, 3));
+      const jh = randInt(3, 4), jy = top - jh;
+      const junction = { x: jl, y: jy, w: jr - jl + 1, h: jh };
+      carveRect(junction); rooms.push(junction);
+      // a closet or two off to the side
+      for (const side of [-1, 1]) {
+        if (Math.random() > 0.45) continue;
+        const cw = randInt(4, 6), ch = randInt(3, 4);
+        const cy = jy + randInt(0, jh - 1);
+        const cxl = side < 0 ? randInt(1, 3) : W - 1 - cw - randInt(0, 2);
+        const closet = { x: cxl, y: Math.max(2, Math.min(H - 3 - ch, cy - Math.floor(ch / 2))), w: cw, h: ch, closet: true };
+        const tunnelFrom = side < 0 ? jl - 1 : jr + 1, tunnelTo = side < 0 ? closet.x + cw : closet.x - 1;
+        if ((side < 0 && tunnelTo >= tunnelFrom) || (side > 0 && tunnelTo <= tunnelFrom)) continue;
+        carveRect(closet);
+        for (let xx = Math.min(tunnelFrom, tunnelTo); xx <= Math.max(tunnelFrom, tunnelTo); xx++) carve(xx, cy);
+        door(side < 0 ? tunnelTo : tunnelTo, cy);          // the closet's door
+        rooms.push(closet);
       }
+      // next: fork, rejoin, or carry on
+      y = jy;
+      const mid = Math.round((jl + jr) / 2);
+      if (paths.length === 1 && Math.random() < 0.4) {
+        const a = clampX(mid - randInt(3, 5)), b2 = clampX(mid + randInt(3, 5));
+        paths = a !== b2 ? [a, b2] : [clampX(mid)];
+      } else paths = [clampX(randInt(jl + 1, jr - 1))];
+      // a fork's branches may start beyond the chamber's walls: run its top row
+      // out to meet each one, or its up door would open onto rock
+      for (const px of paths) for (let xx = Math.min(px, jl); xx <= Math.max(px, jr); xx++) carve(xx, jy);
     }
-    // the way out: stairs set into the east wall, mid-collector
-    const sy = Math.round((endLo + endHi) / 2);
-    map[sy][X1 + 2] = STAIRS;
-    // start: the west hall, on the middle lane's row
-    const mid = laneY[Math.floor(n / 2)][X0];
-    player.x = X0; player.y = mid;
-    rooms.unshift({ x: X0 - 1, y: startLo, w: 2, h: startHi - startLo + 1 });   // rooms[0]: nothing spawns in it
+    // the top: the last routes climb into a final chamber with the stairs in its north wall
+    // (wide enough to meet every route that arrives — one that missed it would be
+    // a stub, and the nub pass would eat it)
+    const fl = Math.min(cx - 3, ...paths), fr = Math.max(cx + 3, ...paths);
+    const fin = { x: fl, y: 3, w: fr - fl + 1, h: 3 };
+    for (const px of paths) { door(px, y - 1); for (let yy = y - 2; yy >= fin.y + fin.h; yy--) carve(px, yy); }
+    carveRect(fin); rooms.push(fin);
+    map[fin.y - 1][cx] = STAIRS;
+    player.x = cx; player.y = start.y + 1;
     return rooms;
   }
-  // Where a lane changes width it can leave a one-tile nub — a dead end, however
-  // short, is exactly what this floor promises not to have. Filling one back in
-  // can never disconnect anything (it only had the one way in), so repeat until
-  // none is left.
+  // Where a route changes width it can leave a one-tile nub; closets are dead
+  // ends on purpose, nubs are not. Filling a nub can never disconnect anything.
   function fillDeadEnds() {
     let changed = true, guard = 0;
     while (changed && guard++ < 50) {
@@ -3011,22 +3032,21 @@
       }
     }
   }
-  // Crate clusters: a handful of blobs of 2–5, each crate kept only if the floor
-  // stays whole without it — same stairs reachable, same number of tiles.
-  function placeCrates() {
+  // Crates stand where other floors grow tall grass: clusters, mostly in the
+  // closets and junctions, each kept only if the floor stays whole without it.
+  function placeCrates(rooms) {
     const st = findStairs();
-    const size = () => floodReach(player.x, player.y, false).size;
-    let whole = size();
-    for (let c = randInt(6, 10); c > 0; c--) {
-      let cx = 0, cy = 0, ok = false;
-      for (let t = 0; t < 30 && !ok; t++) {
-        cx = randInt(GAUNTLET_X0 + 4, GAUNTLET_X1 - 2); cy = randInt(2, MAP_H - 3);
-        ok = map[cy][cx] === FLOOR && Math.abs(cx - player.x) + Math.abs(cy - player.y) > 4;
-      }
-      if (!ok) continue;
-      for (let k = randInt(2, 5), guard = 0; k > 0 && guard < 12; guard++) {
-        const x = cx + randInt(-1, 1), y = cy + randInt(-1, 1);
-        if (!inBounds(x, y) || map[y][x] !== FLOOR || itemAt(x, y) || (x === player.x && y === player.y)) continue;
+    let whole = floodReach(player.x, player.y, false).size;
+    // Mostly in the closets — the loot is off the route, so is most of the
+    // clutter; the odd cluster in a junction is something to shoulder through.
+    const hosts = rooms.slice(1), closets = hosts.filter((r) => r.closet), halls = hosts.filter((r) => !r.closet);
+    for (let c = Math.max(6, Math.floor(hosts.length * 0.5)); c > 0; c--) {
+      const pool = closets.length && (Math.random() < 0.75 || !halls.length) ? closets : halls;
+      const r = pool[randInt(0, pool.length - 1)];
+      if (!r) break;
+      for (let k = randInt(2, 4), guard = 0; k > 0 && guard < 12; guard++) {
+        const x = randInt(r.x, r.x + r.w - 1), y = randInt(r.y, r.y + r.h - 1);
+        if (!inBounds(x, y) || map[y][x] !== FLOOR || itemAt(x, y) || cheb(x, y, player.x, player.y) < 3) continue;
         map[y][x] = CRATE;
         const reach = floodReach(player.x, player.y, false);
         if (!st || !reach.has(st.y * MAP_W + st.x) || reach.size !== whole - 1) { map[y][x] = FLOOR; continue; }
@@ -3048,7 +3068,7 @@
     else log("You smash the crate. Empty.");
     computeFOV();
   }
-  function finishGauntletFloor(rooms) {
+  function finishClimbFloor(rooms) {
     lastRooms = rooms; lastAttach = 0;
     bossActive = false; bossRoom = null;
     if (floorInBiome(depth) === 1 || !biomeScrollFloors) {
@@ -3059,48 +3079,67 @@
     fillDeadEnds();
     fixOpenCorners(rooms);
     fillDeadEnds();
-    placeCrates();
+    // Backstop, as every generator has one: the stairs must be reachable.
+    const st = findStairs();
+    if (st && !window.__climbNoRepair && !floodReach(player.x, player.y, false).has(st.y * MAP_W + st.x)) { _genRepaired++; carveCorridor({ x: player.x, y: player.y }, { x: st.x, y: st.y + 1 }); }
+    placeCrates(rooms);
     spawnMonsters(rooms);
     spawnItems(rooms);
     placeTraps();
-    blaze = { col: -1, warn: 0, manual: false };
+    blaze = { axis: "y", pos: MAP_H, warn: 0, manual: false };
     floorEpilogue(rooms);
-    log("Smoke on the wind behind you. Something is burning — and it is coming this way.", "hurt");
+    log("Smoke rises from below. Something is burning — and it is climbing after you.", "hurt");
   }
 
   // ---- The blaze: biome 4's chasing fire ------------------------------------
   //
-  // A wall of fire sweeps the floor from west to east, the way SPD's second boss
-  // fills its arena: a column is marked one turn (telegraphed, pulsing), then goes
-  // up the next, so the front advances one column every two turns. Everything
-  // west of the front is burning ground — standing in it hurts every turn, crates
-  // and doors burn, items there are lost. It replaces the Horror on these floors:
-  // the fire is the clock. BLAZE_GRACE turns pass before the first column goes.
-  // On the Djinn's floor it only moves when the Djinn fans it (`manual`).
-  const BLAZE_GRACE = 8, BLAZE_EVERY = 2;
-  let blaze = null;               // { col, warn, manual } — col: the easternmost burning column
+  // A wall of fire sweeps the floor the way SPD's second boss fills its arena: a
+  // line is marked one turn (telegraphed, pulsing) and goes up the next, so the
+  // front advances one line every two turns. On the climb it rises from the
+  // bottom row (axis "y"); in the Djinn's furnace it runs west to east (axis
+  // "x") and moves only when the Djinn fans it (`manual`). Everything behind the
+  // front is burning ground — standing in it hurts every turn, crates, doors and
+  // grass burn, items there are lost. It replaces the Horror: the fire is the
+  // clock. BLAZE_GRACE turns pass before the first line goes.
+  const BLAZE_GRACE = 10, BLAZE_EVERY = 2;
+  let blaze = null;               // { axis, pos, warn, manual } — pos: the newest burning line
   let blazeHold = false;          // dev: freeze the front (tests)
-  const inBlaze = (x, y) => !!blaze && x <= blaze.col;
+  const inBlaze = (x, y) => !!blaze && (blaze.axis === "x" ? x <= blaze.pos : y >= blaze.pos);
+  const blazeNext = (i) => (blaze.axis === "x" ? blaze.pos + i : blaze.pos - i);   // the i-th line ahead
   function blazeDamage() { return randInt(6, 12) + Math.floor(depth / 4); }
-  function igniteColumns(k) {
-    for (let i = 0; i < k && blaze.col < MAP_W - 1; i++) {
-      blaze.col++;
-      const x = blaze.col;
-      for (let y = 0; y < MAP_H; y++) {
-        if (map[y][x] === CRATE || map[y][x] === DOOR || map[y][x] === GRASS || map[y][x] === LAWN) map[y][x] = map[y][x] === GRASS || map[y][x] === LAWN ? EMBERS : FLOOR;
+  // Every open tile on the next k lines — what a telegraph highlights.
+  function blazeLineTiles(k) {
+    const out = [];
+    if (!blaze) return out;
+    for (let i = 1; i <= k; i++) {
+      const L = blazeNext(i);
+      if (blaze.axis === "x") { for (let y = 0; y < MAP_H; y++) if (inBounds(L, y) && map[y][L] !== WALL) out.push([L, y]); }
+      else { for (let x = 0; x < MAP_W; x++) if (inBounds(x, L) && map[L][x] !== WALL) out.push([x, L]); }
+    }
+    return out;
+  }
+  function igniteLines(k) {
+    for (let i = 0; i < k; i++) {
+      const L = blazeNext(1);
+      if (blaze.axis === "x" ? L >= MAP_W : L < 0) break;
+      blaze.pos = L;
+      const cells = blaze.axis === "x" ? Array.from({ length: MAP_H }, (_, y) => [L, y]) : Array.from({ length: MAP_W }, (_, x) => [x, L]);
+      for (const [x, y] of cells) {
+        const t = map[y][x];
+        if (t === CRATE || t === DOOR) map[y][x] = FLOOR;
+        else if (t === GRASS || t === LAWN) map[y][x] = EMBERS;
       }
-      items = items.filter((it) => it.x !== x);
-      plants = plants.filter((p) => p.x !== x);
+      items = items.filter((it) => !inBlaze(it.x, it.y));
+      plants = plants.filter((p) => !inBlaze(p.x, p.y));
     }
     computeFOV();
   }
   function blazeTick() {
     if (!blaze || blazeHold) return;
     if (!blaze.manual && turns >= BLAZE_GRACE) {
-      if ((turns - BLAZE_GRACE) % BLAZE_EVERY === 0) blaze.warn = 1;       // mark the next column
-      else if (blaze.warn) { blaze.warn = 0; igniteColumns(1); }
+      if ((turns - BLAZE_GRACE) % BLAZE_EVERY === 0) blaze.warn = 1;       // mark the next line
+      else if (blaze.warn) { blaze.warn = 0; igniteLines(1); }
     }
-    if (blaze.col < 0) return;
     if (inBlaze(player.x, player.y)) {
       const d = blazeDamage();
       player.hp -= d; flash(player); floatText(player.x, player.y, "🔥-" + d, "#ff8f4a");
@@ -3113,18 +3152,20 @@
       if (m.hp <= 0) killMonster(m, "burns");
     }
   }
-  // Charred ground behind the front, flames licking along it, and the marked
-  // column pulsing ahead of it.
+  // Charred ground behind the front, flames licking along its edge, and the
+  // marked line pulsing ahead of it.
   function drawBlaze(SX, SY, now) {
     if (!blaze) return;
+    const edge = (x, y) => (blaze.axis === "x" ? x >= blaze.pos - 1 : y <= blaze.pos + 1);
+    const next = blazeNext(1);
     ctx.save();
-    for (let y = 0; y < MAP_H; y++) for (let x = 0; x <= Math.min(MAP_W - 1, blaze.col + 1); x++) {
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
       if (!explored[y][x] || map[y][x] === WALL) continue;
       const px = SX(x), py = SY(y);
-      if (x <= blaze.col) {
+      if (inBlaze(x, y)) {
         ctx.fillStyle = "rgba(70,18,4,0.55)"; ctx.fillRect(px, py, tile, tile);
-        if (visible[y][x] && x >= blaze.col - 1 && Math.random() < 0.5) gasParts.push({ t: "flame", x: x + Math.random(), y: y + Math.random(), vy: 0, life: 0.6, left: 0.6 });
-      } else if (blaze.warn) {
+        if (visible[y][x] && edge(x, y) && Math.random() < 0.5) gasParts.push({ t: "flame", x: x + Math.random(), y: y + Math.random(), vy: 0, life: 0.6, left: 0.6 });
+      } else if (blaze.warn && (blaze.axis === "x" ? x === next : y === next)) {
         ctx.fillStyle = "rgba(255,120,30," + (0.22 + 0.18 * Math.sin(now / 90)).toFixed(3) + ")";
         ctx.fillRect(px, py, tile, tile);
       }
@@ -3228,6 +3269,8 @@
 
   function generateLevel() {
     artPending = false; player.timeFreeze = 0; player.capeTurns = 0;
+    { const bi = DATA.biomes[biomeOf(depth)]; const climb = bi && bi.gauntlet && !isBossDepth(depth);
+      MAP_W = climb ? CLIMB_W : STD_W; MAP_H = climb ? CLIMB_H : STD_H; }
     map = blankGrid(WALL);
     explored = blankGrid(false);
     beenSeen = blankGrid(false);
@@ -3258,7 +3301,7 @@
     biome = DATA.biomes[biomeIndex];
 
     ironKeys = 0; wells = []; spdInfo = null; plants = []; gases = {}; blaze = null;
-    if (!isBossDepth(depth) && biome.gauntlet) { finishGauntletFloor(buildGauntletFloor()); return; }
+    if (!isBossDepth(depth) && biome.gauntlet) { finishClimbFloor(buildClimbFloor()); return; }
     if (!isBossDepth(depth) && useSpdFloors()) {
       const spdRooms = buildSpdFloor();
       if (spdRooms) { finishSpdFloor(spdRooms); return; }
@@ -3303,7 +3346,7 @@
     // A boss floor is a hand-laid arena instead: connectivity comes from the shape.
     if (bossFloor) buildArena(rooms);
     // The gauntlet biome's boss floor keeps the fire, but only the boss moves it.
-    if (bossFloor && biome.gauntlet) blaze = { col: 0, warn: 0, manual: true };
+    if (bossFloor && biome.gauntlet) blaze = { axis: "x", pos: 0, warn: 0, manual: true };
     else {
       connectRooms(rooms, attachEdges);
       thinCorridors(rooms);   // narrow any hallway blob left by overlapping/converging paths
@@ -3442,6 +3485,7 @@
   // onward. `depth`/`biome` are left untouched by the caller, so this floor
   // still reads (and renders) as belonging to the biome just cleared.
   function generateShopLevel() {
+    MAP_W = STD_W; MAP_H = STD_H;
     map = blankGrid(WALL);
     explored = blankGrid(false);
     beenSeen = blankGrid(false);
@@ -8425,7 +8469,8 @@
     spawnGas, gasBurst, gasLine, gasRing, gasAt, clearGases,
     // Biome 4's blaze, for the Djinn.
     getBlaze: () => blaze,
-    igniteColumns: (k) => { if (blaze) igniteColumns(k); },
+    igniteColumns: (k) => { if (blaze) igniteLines(k); },
+    blazeLineTiles: (k) => blazeLineTiles(k),
     visibleFloor: () => { const out = []; for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (visible[y][x] && passable(x, y) && !inBlaze(x, y)) out.push([x, y]); return out; },
   });
 
@@ -12097,8 +12142,9 @@
     // Poke a monster's live fields (state, focus, hp …) for a test.
     setMonsterAt: (x, y, o) => { const m = monsterAt(x, y); if (!m) return false; if (o.state) setState(m, o.state); Object.assign(m, o); return true; },
     hexMe: (k) => applyHex(k),
-    blazeInfo: () => (blaze ? { col: blaze.col, warn: blaze.warn, manual: blaze.manual } : null),
+    blazeInfo: () => (blaze ? { axis: blaze.axis, pos: blaze.pos, col: blaze.pos, warn: blaze.warn, manual: blaze.manual } : null),
     blazeHold: (on) => { blazeHold = !!on; },
+    climbInfo: () => ({ w: MAP_W, h: MAP_H, closets: (lastRooms || []).filter((r) => r.closet).length, rooms: (lastRooms || []).length }),
     bossWindup: () => { const b = monsters.find((m) => m.boss && m.windup); return b ? { kind: b.windup.kind, turns: b.windup.turns, centers: (b.windup.centers || []).map((c) => c.slice()), k: b.windup.k || 0, tiles: (b.windup.tiles || []).length } : null; },
     // Straight to a depth, skipping the merchant — for tests of a biome's floors.
     goDepth: (d) => { inShop = false; depth = d; generateLevel(); return depth; },
