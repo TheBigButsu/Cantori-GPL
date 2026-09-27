@@ -90,6 +90,7 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 | `plant_*.png` (11) | `core/src/main/assets/environment/terrain_features.png`, row 7, 2x | the plants | none |
 | `seed_*.png` (11) | `core/src/main/assets/sprites/items.png`, the seed row (index 384 on), 2x | the seeds | none |
 | `forest_floor.png`, `forest_floor_deco.png`, `forest_lawn.png`, `forest_embers.png`, `forest_grass.png`, `forest_grass_alt.png` | `core/src/main/assets/environment/tiles_caves.png`, cells 0–3, 122 and 125, 2x | the forest's floor (SPD's caves) | none |
+| `fx_steam.png` | `core/src/main/assets/effects/specks.png`, Speck's STEAM frame (index 13, 7×7), native size | every gas's puff, tinted per gas as SPD's Speck does | none |
 | `art_*.png` (11) | `core/src/main/assets/sprites/items.png`, the artifact row (index 240 on), 2x | the eleven artifacts | none |
 
 `hero_monk.png` is a modified version of SPD's art, released under GPLv3 like

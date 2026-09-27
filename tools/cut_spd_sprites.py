@@ -124,6 +124,20 @@ ENV = {"terrain_features": dict({"plant_" + k: 7 * 16 + i for i, k in enumerate(
                        "forest_grass": 122, "forest_grass_alt": 125}}
 
 
+# Effect sheets (assets/effects/*.png). specks.png is Speck's 7x7 film; every gas
+# (ToxicGas, ParalyticGas, ConfusionGas, CorrosiveGas, SmokeScreen) pours the
+# STEAM frame, index 13, tinted — so one white puff at native size serves them all.
+FX_URL = ("https://raw.githubusercontent.com/00-Evan/shattered-pixel-dungeon/"
+          + SPD_COMMIT + "/core/src/main/assets/effects/{}.png")
+FX = {"specks": {"fx_steam": (13, 7)}}
+
+
+def cut_film(sheet, index, size):
+    cols = sheet.width // size
+    x, y = (index % cols) * size, (index // cols) * size
+    return sheet.crop((x, y, x + size, y + size))
+
+
 def cut_monster(sheet, col, fw, fh):
     frame = sheet.crop((col * fw, 0, (col + 1) * fw, fh)).resize((fw * 2, fh * 2), Image.NEAREST)
     tile = Image.new("RGBA", (32, 32))
@@ -163,6 +177,13 @@ def main():
             path = os.path.join(out_dir, key + ".png")
             cut_item(env, index).save(path)
             print("wrote", os.path.relpath(path), "from environment/" + sheet_name + ".png #" + str(index))
+    for sheet_name, cells in FX.items():
+        with urllib.request.urlopen(FX_URL.format(sheet_name)) as r:
+            fx = Image.open(io.BytesIO(r.read())).convert("RGBA")
+        for key, (index, size) in cells.items():
+            path = os.path.join(out_dir, key + ".png")
+            cut_film(fx, index, size).save(path)
+            print("wrote", os.path.relpath(path), "from effects/" + sheet_name + ".png #" + str(index))
     return 0
 
 

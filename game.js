@@ -2508,7 +2508,7 @@
       spawnGas(kind, Math.round(cx + Math.cos(a * Math.PI / 180) * r), Math.round(cy + Math.sin(a * Math.PI / 180) * r), amount);
     }
   }
-  function clearGases() { gases = {}; }
+  function clearGases() { gases = {}; gasParts = []; }
   // Damage from a gas: RES softens it, armour does not (it is in your lungs).
   function gasHurt(w, dmg, icon, color, msg) {
     if (dmg <= 0) return;
@@ -2591,68 +2591,122 @@
   }
   // Drawn as a translucent wash over the tile, thicker where the volume is, with a
   // slow drift so a cloud reads as a cloud and not as paint. Only what you can see.
-  // Gas is drawn the way SPD draws its Blobs — as drifting puffs rather than
-  // painted tiles — because a flat tint at 0.12–0.55 was simply missed on a
-  // phone: a confusion trap went off and read as the floor changing colour.
-  // Each gassy tile gets a soft radial blob about 1.7 tiles wide (neighbours
-  // overlap into one cloud with no grid seams), then 1–3 puffs that wander on a
-  // slow per-tile phase and swell and shrink, so the cloud visibly moves. The
-  // thinner the gas, the fewer and fainter the puffs, which is how you see a
-  // cloud about to clear. Fire licks and throws embers upward; frost drifts
-  // pale flakes; confusion shimmers between its two colours.
-  const gasHash = (x, y, i) => { const h = Math.sin(x * 127.1 + y * 311.7 + i * 74.7) * 43758.5453; return h - Math.floor(h); };
-  const rgba = (c, a) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + Math.max(0, Math.min(1, a)).toFixed(3) + ")";
+  // ---- Gas particles: SPD's BlobEmitter, Speck, FlameParticle, SnowParticle ----
+  //
+  // Drawn exactly the way SPD draws its Blobs, because a hand-made cloud never
+  // felt like SPD's: every visible tile holding gas "pours" a particle every
+  // `every` seconds at a random point inside it (BlobEmitter.emit). The gases
+  // pour Speck.STEAM — one 7-pixel puff from SPD's effects/specks.png, recoloured
+  // solid ("hardlight") — which spins, grows from 1× to 2×, and fades in and out
+  // over a 1–3 s life (Speck.update). Fire pours FlameParticle: a 4-pixel orange
+  // square that rises, shrinks and blends additively. Frost streams
+  // SnowParticle: single white pixels drifting down. All sizes are in SPD's
+  // 16-pixel tile, scaled to ours.
+  //   toxic      Speck.TOXIC      0x50FF60  spin +30   0.4 s
+  //   paralytic  Speck.PARALYSIS  0xFFFF66  spin −30   0.4 s
+  //   confusion  Speck.CONFUSION  random    spin ±20   0.4 s  (light mode)
+  //   corrosive  Speck.CORROSION  0xAAAAAA→0xFF8800      0.4 s
+  //   smoke      Speck.SMOKE      0x000000  1–1.5 s     0.1 s
+  const GAS_FX = {
+    toxic:     { speck: 0x50ff60, spin: 30, every: 0.4 },
+    paralytic: { speck: 0xffff66, spin: -30, every: 0.4 },
+    confusion: { speck: "random", spin: 0, every: 0.4, light: true },
+    corrosive: { speck: 0xaaaaaa, to: 0xff8800, spin: 30, every: 0.4, smoky: true },
+    smoke:     { speck: 0x000000, spin: 30, every: 0.1, life: [1, 1.5], smoky: true },
+    fire:      { flame: true, every: 0.03 },
+    frost:     { snow: true, every: 0.05 },
+  };
+  let gasParts = [], gasClock = {}, gasLastT = 0;
+  const speckCache = {};
+  // Speck.hardlight(c): the puff's own alpha, filled with one flat colour.
+  function tintedSpeck(col) {
+    const key = col | 0;
+    if (speckCache[key]) return speckCache[key];
+    const src = SPRITES.fx_steam;
+    if (!ready(src)) return null;
+    const cv = document.createElement("canvas"); cv.width = cv.height = 7;
+    const c2 = cv.getContext("2d");
+    c2.drawImage(src, 0, 0);
+    c2.globalCompositeOperation = "source-in";
+    c2.fillStyle = "#" + ("00000" + key.toString(16)).slice(-6);
+    c2.fillRect(0, 0, 7, 7);
+    return (speckCache[key] = cv);
+  }
+  const lerpCol = (a, b, t) => {
+    const ch = (sh) => Math.round(((a >> sh) & 255) + (((b >> sh) & 255) - ((a >> sh) & 255)) * t);
+    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  };
+  function emitGas(kind, x, y) {
+    const F = GAS_FX[kind];
+    const px = x + Math.random(), py = y + Math.random();
+    if (F.flame) { gasParts.push({ t: "flame", x: px, y: py, vy: 0, life: 0.6, left: 0.6 }); return; }
+    if (F.snow) { const v = (5 + Math.random() * 3) / 16; gasParts.push({ t: "snow", x: px, y: py - v * 1.2, vy: v, life: 1.2, left: 1.2 }); return; }
+    const life = F.life ? F.life[0] + Math.random() * (F.life[1] - F.life[0]) : 1 + Math.random() * 2;
+    const col = F.speck === "random" ? ((Math.floor(Math.random() * 32) * 0x81f3a1) & 0xffffff) | 0x80 : F.speck;
+    const spin = F.speck === "random" ? Math.random() * 40 - 20 : F.spin;
+    gasParts.push({ t: "speck", kind, x: px, y: py, col, spin, ang: Math.random() * 360, life, left: life });
+  }
   function drawGases(SX, SY, now) {
-    const t = now / 1000;
-    ctx.save();
+    const dt = Math.min(0.1, gasLastT ? (now - gasLastT) / 1000 : 0);
+    gasLastT = now;
+    // pour: every visible gassy tile emits once per interval
     for (const kind of Object.keys(gases)) {
-      const G = GAS[kind], g = gases[kind], col = G.rgb;
-      const alt = kind === "confusion" ? [235, 125, 190] : null;
+      const F = GAS_FX[kind]; if (!F) continue;
+      gasClock[kind] = (gasClock[kind] || 0) + dt;
+      let n = Math.floor(gasClock[kind] / F.every);
+      if (n <= 0) continue;
+      gasClock[kind] -= n * F.every;
+      n = Math.min(n, 3);
+      const g = gases[kind];
       for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
-        const v = g[y * MAP_W + x];
-        if (v <= 0 || !visible[y][x]) continue;
-        const cx = SX(x) + tile / 2, cy = SY(y) + tile / 2;
-        const dens = (G.fire || G.frost) ? Math.min(1, 0.55 + 0.1 * v) : Math.min(1, 0.22 + Math.log10(v + 1) * 0.3);
-        const baseA = (G.blocksSight ? 0.8 : G.fire ? 0.6 : 0.5) * dens;
-        const rad = tile * 0.85;
-        const grd = ctx.createRadialGradient(cx, cy, tile * 0.1, cx, cy, rad);
-        grd.addColorStop(0, rgba(col, baseA));
-        grd.addColorStop(0.6, rgba(col, baseA * 0.6));
-        grd.addColorStop(1, rgba(col, 0));
-        ctx.fillStyle = grd;
-        ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
-        const n = dens > 0.65 ? 3 : dens > 0.4 ? 2 : 1;
-        for (let i = 0; i < n; i++) {
-          const ph = gasHash(x, y, i) * Math.PI * 2;
-          if (G.fire) {
-            // a tongue of flame: rises, narrows and fades, then starts again
-            const life = (t * 1.4 + gasHash(x, y, i + 7)) % 1;
-            const fx = cx + Math.sin(ph + t * 3) * tile * 0.18;
-            const fy = cy + tile * 0.3 - life * tile * 0.7;
-            const fr = tile * 0.2 * (1 - life * 0.7);
-            ctx.fillStyle = rgba([255, 200 - Math.round(life * 120), 60], 0.85 * (1 - life));
-            ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = rgba([255, 240, 170], 0.7 * (1 - life));
-            ctx.beginPath(); ctx.arc(fx, fy + fr * 0.2, fr * 0.45, 0, Math.PI * 2); ctx.fill();
-            continue;
-          }
-          const px = cx + Math.sin(t * 0.7 + ph) * tile * 0.26;
-          const py = cy + Math.cos(t * 0.55 + ph * 1.3) * tile * 0.26;
-          const pr = tile * (0.2 + 0.16 * dens) * (0.85 + 0.15 * Math.sin(t * 1.6 + ph));
-          const pc = alt && Math.sin(t * 1.2 + ph) > 0 ? alt : col;
-          ctx.fillStyle = rgba(pc, (G.blocksSight ? 0.55 : 0.42) * dens);
-          ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = rgba([255, 255, 255], 0.1 * dens);          // a lit edge, so a puff reads as round
-          ctx.beginPath(); ctx.arc(px - pr * 0.25, py - pr * 0.3, pr * 0.45, 0, Math.PI * 2); ctx.fill();
-          if (G.frost) {
-            const fl = (t * 0.5 + gasHash(x, y, i + 3)) % 1;
-            ctx.fillStyle = rgba([245, 250, 255], 0.9 * (1 - fl));
-            const s2 = Math.max(1.5, tile * 0.06);
-            ctx.fillRect(cx + (gasHash(x, y, i + 5) - 0.5) * tile * 0.8, cy - tile * 0.4 + fl * tile * 0.8, s2, s2);
-          }
-        }
+        if (g[y * MAP_W + x] <= 0 || !visible[y][x]) continue;
+        for (let i = 0; i < n; i++) emitGas(kind, x, y);
       }
     }
+    if (!gasParts.length) return;
+    const k = tile / 16;                          // SPD pixels → ours
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const keep = [];
+    for (const q of gasParts) {
+      q.left -= dt;
+      if (q.left <= 0) continue;
+      keep.push(q);
+      const p = 1 - q.left / q.life;             // 0 → 1
+      if (q.t === "flame") {
+        q.vy -= (80 / 16) * dt; q.y += q.vy * dt;
+        const pp = q.left / q.life, size = 4 * pp * k;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = pp > 0.8 ? (1 - pp) * 5 : 1;
+        ctx.fillStyle = "#ee7722";
+        ctx.fillRect(SX(q.x) - size / 2, SY(q.y) - size / 2, size, size);
+        continue;
+      }
+      if (q.t === "snow") {
+        q.y += q.vy * dt;
+        const pp = q.left / q.life;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = Math.min(1, (pp < 0.5 ? pp : 1 - pp) * 1.5);
+        ctx.fillStyle = "#ffffff";
+        const s2 = Math.max(1.5, k * 1.2);
+        ctx.fillRect(SX(q.x), SY(q.y), s2, s2);
+        continue;
+      }
+      const F = GAS_FX[q.kind];
+      const tri = p < 0.5 ? p : 1 - p;
+      const a = F.smoky ? Math.sqrt(tri) : Math.sqrt(tri * 0.5);
+      const img = tintedSpeck(F.to != null ? lerpCol(F.speck, F.to, p) : q.col);
+      if (!img) continue;
+      q.ang += q.spin * dt;
+      const size = 7 * (1 + p) * k;
+      ctx.globalCompositeOperation = F.light ? "lighter" : "source-over";
+      ctx.globalAlpha = a;
+      ctx.save();
+      ctx.translate(SX(q.x), SY(q.y)); ctx.rotate(q.ang * Math.PI / 180);
+      ctx.drawImage(img, -size / 2, -size / 2, size, size);
+      ctx.restore();
+    }
+    gasParts = keep.length > 4000 ? keep.slice(-4000) : keep;
     ctx.restore();
   }
   // A potion, trap or plant letting its gas out at (x, y), sized from its row.
@@ -5536,6 +5590,9 @@
   }
 
   // Returns true if a turn was spent.
+  // Where the current tap was headed; null for a keyboard step, which (as in SPD,
+  // where a key press "handles" the next cell) always means that cell.
+  let moveGoal = null;
   function playerAct(dx, dy) {
     if (dead || confirmOpen || (dx === 0 && dy === 0)) return false;
     if (player.meditate) endMeditate("you move");
@@ -5617,7 +5674,7 @@
         }
       }
       computeFOV();
-      pickUp();
+      if (!moveGoal || (moveGoal.x === player.x && moveGoal.y === player.y)) pickUp();
       const tr = trapAt(player.x, player.y);
       if (tr && !tr.sprung) { triggerTrap(tr); if (dead) return true; }
       if (map[player.y][player.x] === STAIRS) { descend(); return true; }  // fresh level, no world turn
@@ -6434,10 +6491,11 @@
   // has noticed you — and the price lands at 450, with 150 turns left to leave.
   const FLOOR_STAGES = [
     { at: 200, msg: "The spark has left this location." },
-    { at: 350, spark: true, msg: "You feel yourself losing your way." },
+    { at: 350, msg: "You feel yourself losing your way." },
     { at: 450, msg: "You must leave now, or you do not think you ever will." },
   ];
   const FLOOR_WARNING = FLOOR_STAGES[0].at;   // when the TIME bar turns
+  const SPARK_AT = 0.9;                         // regeneration stops with 10% of the bar left
   const HORROR_RESPAWN = 60;      // turns after a kill before the next one comes
   const HORROR_HP_MULT = 3;       // it is the same creature, wrong
   const HORROR_DMG_MULT = 4;      // and it hits like nothing else on the floor
@@ -6484,6 +6542,15 @@
       restBreak();                                            // never rest through the floor losing patience
       flashScreen("#3a1e1e", 420);
       if (st.spark) { sparkGone = true; player.regenAcc = 0; }
+    }
+    // Your wounds keep closing until the last tenth of the bar — the spark goes
+    // out then, not at a fixed turn, so a floor you banked time on keeps healing
+    // you for as long as the bar is mostly full. (It used to go out at turn 350
+    // of 600, over a third of the floor's time before the Horror itself.)
+    if (!sparkGone && turns >= Math.floor(floorPatience * SPARK_AT)) {
+      sparkGone = true; player.regenAcc = 0;
+      log("The floor's patience is almost gone — your wounds stop closing.", "hurt");
+      flashScreen("#3a1e1e", 420);
     }
     if (turns < floorPatience) return;
     if (monsters.some((m) => m.horror && m.hp > 0)) return;    // one at a time
@@ -7110,6 +7177,11 @@
     }
     if (walkPath.length) { walkPath = []; return; }           // tap while travelling = stop
     if (!inBounds(tx, ty)) return;
+    // SPD's pick-up rule: an item comes with you only when you went there FOR it
+    // — the tile you tapped, or a tap on the tile you already stand on. Walking
+    // over loot on the way somewhere else leaves it lying where it is.
+    moveGoal = { x: tx, y: ty };
+    if (tx === player.x && ty === player.y) { if (itemAt(tx, ty)) { pickUp(); updateHUD(); } return; }
     const adjacent = cheb(player.x, player.y, tx, ty) === 1;
     // tap the shopkeeper or fountain (merchant floor only, wall-mounted like a
     // torch) — adjacent opens their UI directly; otherwise walk up to them first.
@@ -7316,6 +7388,7 @@
     // Seeds and the plants they grow (SPD's art — tools/cut_spd_sprites.py).
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].cat === "seed" || DATA.consumables[k].cat === "bag"),
     "bag_backpack",                                     // the backpack tab's icon
+    "fx_steam",                                         // SPD's gas puff (effects/specks.png)
     ...Object.keys(DATA.traps || {}).map((k) => "trap_" + k),
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].plant).map((k) => "plant_" + DATA.consumables[k].plant),
   ]));
@@ -11207,7 +11280,7 @@
       e.preventDefault();
       if (pendingSkill && skillDef(pendingSkill) && skillDef(pendingSkill).kind === "dragonkick") { executeDragonKick(pendingSkill, dir); return; }
       if (pendingSkill && skillDef(pendingSkill) && skillDef(pendingSkill).kind === "rush") { executeRush(pendingSkill, dir); return; }
-      walkPath = []; playerAct(dir[0], dir[1]);
+      walkPath = []; moveGoal = null; playerAct(dir[0], dir[1]);
     }
   });
 
@@ -11570,7 +11643,14 @@
     // one the generator uses to guarantee connectivity — so tests/smoke.js can prove
     // a floor is completable without depending on monster positions or explored state.
     reach: (tx, ty, blockThorns) => inBounds(tx, ty) && floodReach(player.x, player.y, !!blockThorns).has(ty * MAP_W + tx),
-    step: (dx, dy) => playerAct(dx, dy),
+    step: (dx, dy) => { moveGoal = null; return playerAct(dx, dy); },
+    tapAt: (x, y) => walkTo(x, y),
+    putItem: (key, x, y) => { items.push({ x, y, key }); },
+    itemCountAt: (x, y) => items.filter((it) => it.x === x && it.y === y).length,
+    // Walk a tap's route to the end synchronously (the game loop does it one
+    // step per frame), for tests that need the arrival.
+    finishWalk: () => { let g = 0; while (walkPath.length && g++ < 200) { const n = walkPath.shift(); if (!playerAct(n.x - player.x, n.y - player.y)) { walkPath = []; break; } } },
+    setTurns: (n) => { turns = n; },
     // Gases, for tests and trying patterns in the console.
     spawnGas: (k, x, y, n) => spawnGas(k, x, y, n),
     gasBurst: (k, x, y, r, n) => gasBurst(k, x, y, r, n),

@@ -3981,3 +3981,15 @@ for saves), and this pass fills in the rest of SPD's shape:
 - **Hero blurbs:** Chadwick the Human knight of Kethara's church, Brynn the
   Goliath monk of the Western shores, ToneTum the Gnome wizard of the Eastern
   Highlands, Sera the Elvish bard of Duskhaven.
+
+## QoL: SPD's gas effects, tap-to-pick-up, longer regeneration — DONE
+
+- **Gas** is drawn with SPD's own emitters: each visible gassy tile pours a
+  Speck.STEAM puff (cut from `effects/specks.png`) tinted per gas, spinning,
+  growing 1×→2× and fading over 1–3 s; fire pours FlameParticle squares, frost
+  streams SnowParticle pixels. Periods and colours are SPD's (`GAS_FX`).
+- **Pick-up** is SPD's: an item comes with you only if you tapped its tile (or
+  tap the tile you are standing on). Walking over loot on the way elsewhere
+  leaves it. A keyboard step onto an item still takes it.
+- **Regeneration** now lasts until the last 10% of the floor's time bar
+  (`SPARK_AT = 0.9`), instead of stopping at a fixed turn 350.

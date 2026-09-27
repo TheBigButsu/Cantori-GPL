@@ -491,6 +491,42 @@ async function main() {
   });
   check(ui.problems.length === 0, "ui: " + ui.problems.join("; "));
 
+  // Pick-up is SPD's: an item comes with you only if you tapped its tile (or
+  // your own); walking over it on the way elsewhere leaves it. Regeneration
+  // lasts until the last 10% of the floor's time bar.
+  const pick = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    let lane = null;
+    for (let t = 0; t < 10 && !lane; t++) {
+      c.regenerate(); c.hurt(-999);
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      const q = c.peek();
+      lane = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => [1, 2].every((k) => c.passableAt(q.x + dx * k, q.y + dy * k) && c.tileAt(q.x + dx * k, q.y + dy * k) === 1 && !c.itemCountAt(q.x + dx * k, q.y + dy * k)));
+    }
+    if (!lane) return { problems: ["no straight lane of floor to test pick-up on"] };
+    const q = c.peek(), [dx, dy] = lane;
+    const ax = q.x + dx, ay = q.y + dy, bx = q.x + dx * 2, by = q.y + dy * 2;
+    c.putItem("heal", ax, ay);
+    c.tapAt(bx, by); c.finishWalk();
+    if (c.peek().x !== bx || c.peek().y !== by) problems.push("the tap-walk did not arrive");
+    else if (!c.itemCountAt(ax, ay)) problems.push("walking over an item on the way elsewhere picked it up");
+    c.tapAt(ax, ay); c.finishWalk();
+    if (c.itemCountAt(ax, ay)) problems.push("tapping an item's tile and walking there did not pick it up");
+    c.putItem("heal", ax, ay);
+    c.tapAt(ax, ay);            // standing on it: tap your own tile
+    if (c.itemCountAt(ax, ay)) problems.push("tapping the tile you stand on did not pick up the item there");
+    // regeneration: still on at 85% of the bar, gone at 90%
+    c.regenerate();
+    const pat = c.peek().patience || c.floorStages().patience;
+    c.setTurns(Math.floor(pat * 0.85)); c.tick(1);
+    if (c.sparkGone()) problems.push("regeneration stopped before the last 10% of the time bar");
+    c.setTurns(Math.floor(pat * 0.9)); c.tick(1);
+    if (!c.sparkGone()) problems.push("regeneration did not stop at the last 10% of the time bar");
+    c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(pick.problems.length === 0, "pick-up/regen: " + pick.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {
