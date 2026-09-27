@@ -634,6 +634,64 @@ async function main() {
   });
   check(djinn.problems.length === 0, "djinn: " + djinn.problems.join("; "));
 
+  // Boons, Hades-style: three gods per offer, a sworn god always among them,
+  // one boon per slot (a new one replaces), upgrades, gated passives/capstones,
+  // hooks that fire, and a stress run with every boon at III.
+  const boons = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, problems = [];
+    c.regenerate(); c.hurt(-999); c.boonClear();
+    const o0 = c.boonOfferPreview();
+    if (o0.length !== 3) problems.push("an offer had " + o0.length + " cards");
+    if (new Set(o0.map((x) => x.god)).size !== o0.length) problems.push("an offer repeated a god: " + JSON.stringify(o0));
+    if (c.boonOfferable("k_ironlaw")) problems.push("a passive was offerable with none of its god's boons");
+    c.giveBoon("k_judgement");
+    if (!c.boonOfferable("k_ironlaw")) problems.push("a passive was not offerable after taking its god's boon");
+    for (let i = 0; i < 25; i++) if (!c.boonOfferPreview().some((x) => x.god === "kethara")) { problems.push("an offer after swearing to Kethara had no Kethara boon"); break; }
+    c.giveBoon("m_rot");
+    let st = c.boonState();
+    if (st.lv.k_judgement) problems.push("taking a second Attack boon did not replace the first");
+    if (st.slots.attack !== "m_rot") problems.push("the attack slot is " + st.slots.attack);
+    c.giveBoon("m_rot"); st = c.boonState();
+    if (st.lv.m_rot !== 2) problems.push("taking a held boon again did not upgrade it (lv " + st.lv.m_rot + ")");
+    if (c.boonOfferable("second_chance")) problems.push("a capstone was offerable with one Maelon boon");
+    c.giveBoon("grace"); c.giveBoon("m_fester");
+    if (!c.boonOfferable("second_chance")) problems.push("the Maelon capstone was not offerable with three Maelon boons");
+    // hooks: Rotting Touch poisons, Rebuke binds, Emergency Kit heals below 20%
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    const p = c.peek();
+    const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => c.passableAt(p.x + dx, p.y + dy));
+    if (side) {
+      const [dx, dy] = side, rx = p.x + dx, ry = p.y + dy;
+      c.spawnMonsterAt("rat", rx, ry); c.setMonsterAt(rx, ry, { hp: 999, maxHp: 999 });   // a hit that kills never poisons
+      let poisoned = false;
+      for (let i = 0; i < 20 && !poisoned; i++) { c.hurt(-999); c.step(dx, dy); const r = c.peek().mlist.find((m) => m.type === "rat"); if (!r) break; poisoned = r.dots.some((d) => d.tag === "poison"); }
+      if (!poisoned) problems.push("Rotting Touch never poisoned the rat");
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    }
+    c.boonClear(); c.giveBoon("g_kit");
+    const mx = c.peek().maxHp;
+    c.hurt(c.peek().hp - Math.max(1, Math.floor(mx * 0.1)));
+    const low = c.peek().hp; c.tick(1);
+    if (!(c.peek().hp > low)) problems.push("Emergency Kit did not heal below 20% HP");
+    // stress: every boon at III, a crowd, many turns — no errors, and the game goes on
+    c.boonClear(); c.boonGrantAll();
+    for (let f = 0; f < 3; f++) {
+      c.regenerate(); c.hurt(-999);
+      const q = c.peek();
+      for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [0, 2]]) if (c.passableAt(q.x + ddx, q.y + ddy)) c.spawnMonsterAt(["rat", "bat", "snake"][f % 3], q.x + ddx, q.y + ddy);
+      for (let t = 0; t < 80; t++) {
+        c.hurt(-999);
+        if (t % 17 === 0) c.hurt(c.peek().hp - Math.max(1, Math.floor(c.peek().maxHp * 0.1)));
+        const mm = c.peek().mlist.find((m) => Math.max(Math.abs(m.x - c.peek().x), Math.abs(m.y - c.peek().y)) === 1);
+        if (mm) c.step(Math.sign(mm.x - c.peek().x), Math.sign(mm.y - c.peek().y));
+        else { const dd = [[1, 0], [-1, 0], [0, 1], [0, -1]][t % 4]; if (!c.step(dd[0], dd[1])) c.tick(1); }
+      }
+    }
+    c.boonClear(); c.hurt(-999);
+    return { problems };
+  });
+  check(boons.problems.length === 0, "boons: " + boons.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {

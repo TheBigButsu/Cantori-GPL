@@ -257,7 +257,7 @@
   // it bare-skinned, tier + plus in medium, none in light or heavy. See ARMOR_SUB.
   // Happy Feet is the first thing that adds AC from a passive, and the Meditate
   // afterglow the first that adds it on a timer.
-  const playerAC = () => AC_BASE + armorDexAllowed(mod("DEX")) + armorAC() + passiveMod("ac") + timedBonus("ac") + balladBonus();
+  const playerAC = () => AC_BASE + armorDexAllowed(mod("DEX")) + armorAC() + passiveMod("ac") + timedBonus("ac") + balladBonus() + boonAC();
   // Evasion is NOT armour class. AC is how hard you are to aim at; Evasion is
   // slipping a blow that was already aimed true — it is rolled AFTER the attack
   // roll has beaten your AC. Keeping them apart is what lets Ourn's Foresight
@@ -292,8 +292,7 @@
   // longer quietly multiply your damage), and a crit is now a good roll rather
   // than a different attack.
   const BASE_CRIT = 5, BASE_CRIT_DMG = 125;
-  const timedBlowBonus = () => (player.boons && player.boons.has("timed_blow")) ? player.level : 0;
-  const critChance = () => (BASE_CRIT + timedBlowBonus() + mod("DEX") + mod("LCK") * CRIT_PER_LCK_MOD) / 100;
+  const critChance = () => (BASE_CRIT + mod("DEX") + mod("LCK") * CRIT_PER_LCK_MOD) / 100;
   const critMult = () => (BASE_CRIT_DMG + mod("LCK") * CRITDMG_PER_LCK_MOD) / 100;
   // To-hit is difference-based and still easy to read: 50% at even acc/eva, and
   // every point of lead pushes it toward — but never all the way to — certainty.
@@ -385,6 +384,8 @@
     player.burn = null; player.poison = 0;     // nor does anything still burning in you
     player.toxin = 0; player.para = 0;         // nor a draught still working through you
     player.boons = new Set();                  // boons are earned fresh each run
+    player.boonLv = {}; player.boonSlots = {}; player.doorUsed = {};
+    player.momentum = null; player.strideHaste = 0; player.delayed = []; player.breathArmed = false; player.steps = 0;
     player.killCount = 0; player.secondChanceUsed = false;
     player.boonAcc = 0; player.boonEva = 0; player.boonHaste = 0; player.hasteBuff = 0;
     player.invisible = 0;                      // timed buffs don't carry across a new run
@@ -669,7 +670,7 @@
   }
   const isRing = (inst) => !!(inst && GEAR[inst.key] && GEAR[inst.key].cat === "ring");
   const RARITY_STEP = { white: 0, green: 1, blue: 2, purple: 3, gold: 4 };
-  const ringLevel = (inst) => 1 + (RARITY_STEP[inst.rarity] || 0) + (inst.plus || 0);
+  const ringLevel = (inst) => 1 + (RARITY_STEP[inst.rarity] || 0) + (inst.plus || 0) + ringMastery();
   // Total level of every worn ring with this effect — two Rings of Haste stack, as
   // in SPD.
   function ringL(effect) {
@@ -926,7 +927,7 @@
     if (cap > 0 && d.regen) {
       artCharge(a);
       if (a.charge < cap) {
-        a.part = (a.part || 0) + d.regen(a) * (cost || 1);
+        a.part = (a.part || 0) + d.regen(a) * (cost || 1) * (1 + bv("o_clockwork") / 100);   // Ourn's Clockwork
         if (a.part >= 1) { const n = Math.floor(a.part); a.part -= n; a.charge = Math.min(cap, a.charge + n); }
       }
     }
@@ -1014,12 +1015,7 @@
   // see rageTick(). Stored rather than recomputed so the decay is visible.
   const rageBonus = (statKey) => (player.rage && player.rage.amount > 0 && player.rage.stats.indexOf(statKey) >= 0 ? player.rage.amount : 0);
   const eff = (statKey) => {
-    let v = player.stats[statKey] + equipStat(statKey) + rageBonus(statKey);   // base + gear + rage
-    if (player.boons) {
-      if (statKey === "INT" && player.boons.has("scribe")) v += guildQualityBonus();
-      if (statKey === "STR" && player.boons.has("blacksmith")) v += guildQualityBonus();
-    }
-    return v;
+    return player.stats[statKey] + equipStat(statKey) + rageBonus(statKey);   // base + gear + rage
   };
   // An enchant effect's tiered value for the item bearing it (its gear def's own
   // tier, clamped into the tierValues range — untiered starter gear reads as
@@ -1174,9 +1170,11 @@
   // Ourn's blessings are speed itself rather than a weapon trick, so they are the
   // one source that hastens hand AND foot together — which is what makes his tree
   // the speed tree instead of a second attack-speed tree.
-  const ourrnHaste = () => ((player.boonHaste || 0) + (player.hasteBuff || 0)) / 100;   // Dilating Pupils (permanent) + Speed of Light (decaying)
+  // Ourn's boons are speed itself — Stride of Hours and Momentum hasten hand AND
+  // foot; Light Load (the Guild) only the feet.
+  const ourrnHaste = () => ((player.hasteBuff || 0) + (player.strideHaste || 0) + (player.momentum && player.momentum.turns > 0 ? player.momentum.amt : 0)) / 100;
   const atkHaste = () => enchantHaste("haste") + ourrnHaste();
-  const walkHaste = () => enchantHaste("walkHaste") + ourrnHaste();
+  const walkHaste = () => enchantHaste("walkHaste") + ourrnHaste() + lightLoadHaste();
   const playerActSpeed = () => weaponSpeed() * (1 + atkHaste());
   // The Metrognome trinket: a worn one grants +1 to EITHER walk speed or attack
   // speed (its rolled variant), never both. Lower action-cost = you act more often
@@ -1198,7 +1196,8 @@
   // slime in it.
   const walkCost = () => (1 / (1 + walkHaste() + (metroMode() === "walk" ? 1 : 0))) * auraMult("auraWalk") / Math.pow(1.1, ringL("haste"))
     * (player.cripple > 0 ? 2 : 1);   // SPD's Cripple (a guard's chains): every step takes twice as long
-  const attackCost = () => (1 / (playerActSpeed() + (metroMode() === "attack" ? 1 : 0))) * auraMult("auraAttack") / Math.pow(1.08, ringL("furor"));
+  const attackCost = () => (1 / (playerActSpeed() + (metroMode() === "attack" ? 1 : 0))) * auraMult("auraAttack") / Math.pow(1.08, ringL("furor"))
+    * (boonLv("o_eternal") && ourrnHaste() > 0 ? 1 - bv("o_eternal") / 100 : 1);   // Eternal Moment
   // The "power" an item's enchant procs at: weapon top-end damage, armor defense,
   // or (for jewelry) its tier + plus.
   function itemPower(inst) {
@@ -2616,6 +2615,7 @@
       for (const kind of Object.keys(gases)) {
         if (dead) return;
         if (w !== player && w.hp <= 0) break;
+        if (w === player && boonLv("a_fey") && (kind === "fire" || kind === "frost" || kind === "confusion")) continue;   // Fey Weather
         if (gases[kind][w.y * MAP_W + w.x] > 0) GAS[kind].affect(w);
       }
     }
@@ -2857,7 +2857,8 @@
     map[y][x] = LAWN;
     if (who !== player) return;
     const sandals = Math.max(0, artLvl("sandals"));
-    if (Math.random() < 1 / (25 - Math.min(16, (artLvl("sandals") >= 0 ? 4 : 0) + sandals))) {
+    const odds = boonLv("a_forager") ? bv("a_forager") : 25 - Math.min(16, (artLvl("sandals") >= 0 ? 4 : 0) + sandals);
+    if (Math.random() < 1 / odds * (boonLv("a_greenthumb") >= 2 ? 2 : 1)) {
       const k = seedKeyOf(randomPlantKind(false));
       if (k && !itemAt(x, y)) items.push({ x, y, key: k });
     }
@@ -2867,6 +2868,7 @@
     const d = CONSUM[key];
     if (!d || !d.plant || !plantable(x, y)) return false;
     plants.push({ x, y, kind: d.plant });
+    greenThumbTwins(d.plant, x, y);
     return true;
   }
   function useSeed(idx, arr) {
@@ -3059,7 +3061,8 @@
     map[y][x] = FLOOR;
     bump(player, x, y);
     floatText(x, y, "crack", "#c8a070");
-    const r = Math.random();
+    // A third of crates hold something — Salvager raises that to 60–80%.
+    const r = Math.random() * (boonLv("g_salvager") ? 0.36 / (0.5 + bv("g_salvager") / 100) : 1);
     let it = null;
     if (r < 0.12) it = Object.assign({}, rollGearDrop(depth));
     else if (r < 0.28) it = { key: weightedConsumKey() };
@@ -3301,6 +3304,7 @@
     biome = DATA.biomes[biomeIndex];
 
     ironKeys = 0; wells = []; spdInfo = null; plants = []; gases = {}; blaze = null;
+    boonNewFloor();
     if (!isBossDepth(depth) && biome.gauntlet) { finishClimbFloor(buildClimbFloor()); return; }
     if (!isBossDepth(depth) && useSpdFloors()) {
       const spdRooms = buildSpdFloor();
@@ -4641,7 +4645,7 @@
     if (xp > 0) gainXP(xp);
     // ...and two levels past that it stops paying out at all, as SPD's loot does.
     if (!target.boss && !target.horror && player.level <= monMaxLvl(target) + 2) wealthDrop(target);
-    tickBoonKillCounters();
+    tickBoonKillCounters(target);
     _boss.onKill(target);
     if (target.boss && !monsters.some((m) => m.boss)) onBossDefeated(target.x, target.y);
     // SPD: a necromancer's skeleton does not outlive it (and still bursts).
@@ -4669,61 +4673,9 @@
     st.cd = Math.max(0, st.cd - cur.killCd);
     if (st.cd === 0) log("Blink is ready again.", "hit");
   }
-  const MAELON_KEYS = ["compost", "second_chance", "leper", "merciful", "dread", "grace"];
-  const maelonBoonCount = () => (player.boons ? MAELON_KEYS.filter((k) => player.boons.has(k)).length : 0);
-  const GRACE_BASE = 2, GRACE_PER_LEVEL = 5;   // Maelon's Grace heals 2 + level/5 a kill
-  // Kill-counter-driven boons: Maelon's Compost Pile (every 5), Kethara's Gift of
-  // the Faithful (every 10), Ourn's Future Sight (every 10) / Dilating Pupils
-  // (every 5) / The Pride Before The Fall (every 15, no floor — can go negative).
-  function tickBoonKillCounters() {
-    if (!player.boons || !player.boons.size) return;
-    player.killCount = (player.killCount || 0) + 1;
-    const kc = player.killCount;
-    // Maelon's Grace: a little back on EVERY kill, not every Nth. This existed once
-    // as a placeholder keyed by the god's own name, with its whole effect living
-    // here rather than in data.js, and the 20-boon rewrite dropped it on the floor —
-    // which is also why a later audit that diffed only data.js boon keys concluded,
-    // wrongly, that the game had never had a healing boon.
-    if (player.boons.has("grace")) {
-      const heal = Math.min(player.maxHp - player.hp, GRACE_BASE + Math.floor(player.level / GRACE_PER_LEVEL));
-      if (heal > 0) { player.hp += heal; floatText(player.x, player.y, "+" + heal, "#8ed69a"); updateHUD(); }
-    }
-    if (player.boons.has("compost") && kc % 5 === 0) {
-      const s = STAT_KEYS.slice(0, 4)[randInt(0, 3)];   // STR/INT/VIT/DEX only
-      player.stats[s]++;
-      if (s === "VIT") player.maxHp = computeMaxHp();
-      if (s === "INT") { player.maxMp = computeMaxMp(); player.mp = Math.min(player.mp + 1, player.maxMp); }
-      floatText(player.x, player.y, "+1 " + s, "#e0685a");
-      log("Maelon's Compost Pile bears fruit. (+1 " + s + ")", "hit");
-    }
-    if (player.boons.has("gift") && kc % 10 === 0) {
-      player.stats.RES++;
-      floatText(player.x, player.y, "+1 RES", "#b491d6");
-      log("Kethara's Gift of the Faithful strengthens your resolve. (+1 RES)", "hit");
-    }
-    if (player.boons.has("foresight") && kc % FORESIGHT_KILLS === 0) {
-      // One or the other, never both — a coin per milestone. Both, every ten kills,
-      // is what put a player at +27 to hit: 270 kills is an ordinary run.
-      let gain;
-      if (Math.random() < 0.5) { player.boonAcc = (player.boonAcc || 0) + 1; gain = "+1 to hit"; }
-      else { player.boonEva = (player.boonEva || 0) + 1; gain = "+1 Evasion — " + Math.round(dodgeChance() * 100) + "% to slip a blow"; }
-      floatText(player.x, player.y, "✦", "#9ad0ff");
-      log("Ourn's Future Sight sharpens your senses. (" + gain + ")", "hit");
-    }
-    if (player.boons.has("dilating") && kc % 5 === 0) {
-      player.boonHaste = (player.boonHaste || 0) + 1;
-      floatText(player.x, player.y, "+1% haste", "#9ad0ff");
-      log("Your pupils dilate a fraction further. (+1% Haste)", "hit");
-    }
-    if (player.boons.has("pride") && kc % 15 === 0) {
-      for (const s of STAT_KEYS) player.stats[s]--;
-      player.maxHp = computeMaxHp();
-      player.maxMp = computeMaxMp(); player.mp = Math.min(player.mp, player.maxMp);
-      floatText(player.x, player.y, "-1 all", "#e0685a");
-      log("The Pride Before The Fall claims its due. (-1 to all stats)", "hurt");
-    }
-    updateHUD();
-  }
+  // Kill-driven boon effects (Grace, Tithe, Momentum, Second Breath, Plague
+  // Bearer) live in boonOnKill — see the Boons section.
+  function tickBoonKillCounters(target) { boonOnKill(target); }
   // Fire an item's enchants at a target. `power` is the source's primary number
   // (weapon atk on your strike, armor def when you retaliate). Returns nothing;
   // handles the target's death from burst damage.
@@ -5222,7 +5174,8 @@
     for (const e of enchants) {
       if (target.hp <= 0) break;
       const def = LOOT.enchants[e] || {};
-      const proc = ((def.proc != null ? def.proc : 1) + Math.max(0, mod("LCK")) * 3 / 100) * (1 + 0.15 * ringL("arcana"));   // LCK: +3% per modifier point to all procs; Ring of Arcana multiplies
+      const proc = ((def.proc != null ? def.proc : 1) + Math.max(0, mod("LCK")) * 3 / 100) * (1 + 0.15 * ringL("arcana"))
+        * (player.focusTurns > 0 && boonLv("g_focus") ? 1 + bv("g_focus") / 100 : 1);   // Enchanter's Focus   // LCK: +3% per modifier point to all procs; Ring of Arcana multiplies
       if (Math.random() >= proc) continue;
       const fx = def.effect || {};
       const icon = def.icon || "✦", color = def.color || "#cfe6ff";
@@ -5340,7 +5293,8 @@
       // A flat multiplier on the blow, used by Riposte (a fraction) and Sneak
       // Attack (a multiple). Separate from `per`, which is Dragon Kick's run-up.
       if (opts && opts.mult != null) dmg = Math.max(1, Math.round(dmg * opts.mult));
-      const crit = Math.random() < critChance();       // 5%+ chance for 125%+ damage
+      dmg = Math.max(1, Math.round((dmg + honedBonus()) * boonDamageMult(target, true)));
+      const crit = Math.random() < critChance() || measuredCrit(target);       // 5%+ chance for 125%+ damage
       if (crit) dmg = Math.round(dmg * critMult());
       dmg = _boss.damageIn(target, dmg);   // a boss's playbook (e.g. the Golem's nodes) may shield it
       target.hp -= dmg;
@@ -5376,17 +5330,10 @@
         }
       }
       // Maelon's Merciful End: an execute threshold on a connecting hit.
-      if (target.hp > 0 && player.boons && player.boons.has("merciful") && target.hp / target.maxHp < player.level / 100) {
+      if (target.hp > 0 && boonLv("merciful") && !target.boss && target.hp / target.maxHp < player.level * bv("merciful") / 10000) {
         target.hp = 0; floatText(target.x, target.y, "EXECUTED", "#e0685a");
       }
-      // Maelon's Leper Colony: chance to poison on a connecting hit.
-      if (target.hp > 0 && player.boons && player.boons.has("leper")) {
-        const poisonChance = Math.min(0.75, (player.level / 100) * maelonBoonCount());
-        if (Math.random() < poisonChance) {
-          addPoison(target, 2);
-          floatText(target.x, target.y, "☠", "#9ad06a");
-        }
-      }
+      if (target.hp > 0) boonOnWeaponHit(target);
       if (target.hp <= 0) {
         killMonster(target, "dies");
       } else {
@@ -5409,6 +5356,8 @@
       // was simply eaten — a bear that thundered four squares still hit for 1
       // against any real armour, which made its signature move read as a whiff.
       dmg += bonus;
+      dmg = boonBeforeStruck(attacker, dmg);
+      if (dmg <= 0) return;
       // Healing Smite's overflow becomes a shield: it eats damage before your HP
       // does, and is spent doing it.
       if (player.shield > 0 && dmg > 0) {
@@ -5434,8 +5383,8 @@
       const verb = bonus > 0 ? " charges you!" : attacker.ranged ? " strikes from afar." : " hits you.";
       log("The " + monName(attacker) + verb + " (-" + dmg + ")", "hurt");
       if (player.hp <= 0) {
-        // Maelon's Second Chance: intercept one fatal blow per run, then it's spent.
-        if (player.boons && player.boons.has("second_chance") && !player.secondChanceUsed) {
+        // Maelon's Death Refused: intercept one fatal blow per run, then it's spent.
+        if (boonLv("second_chance") && !player.secondChanceUsed) {
           player.secondChanceUsed = true;
           player.boons.delete("second_chance");
           player.hp = player.maxHp;
@@ -5446,15 +5395,7 @@
         } else { die(); return; }
       }
       rollHexes(attacker);   // the Hollow Bard's songs ride a connecting blow, never a miss
-      // Maelon's Endless Dread: a wounding blow risks the attacker fleeing in terror.
-      if (attacker.hp > 0 && player.boons && player.boons.has("dread")) {
-        const fearChance = Math.max(0, mod("VIT") + mod("RES") + mod("LCK")) / 100;
-        if (Math.random() < fearChance) {
-          attacker.fleeing = (attacker.fleeing || 0) + 10;
-          floatText(attacker.x, attacker.y, "flees!", "#e0a848");
-          log("The " + monName(attacker) + " recoils in dread and flees!", "hit");
-        }
-      }
+      boonOnStruck(attacker, dmg);
       // Retribution reflects before the gear does, and off the damage that actually
       // landed — so armour and RES reduce what comes back too. Bracing behind a
       // shield should not turn you into a bigger mirror.
@@ -5489,6 +5430,7 @@
     return best;
   }
   function onBossDefeated(x, y) {
+    if (boonLv("g_masterwork")) masterwork();
     bossActive = false;
     if (biome.final) { win(); return; }
     // The exit opens on the wall of the boss room nearest to where it fell —
@@ -5594,33 +5536,398 @@
     document.getElementById("classSelect").hidden = false;
   }
 
-  // ---- Boons: pick one of three at each boss kill; effects are permanent -------
+  // ---- Boons: the gods' blessings, Hades-style --------------------------------
   //
-  // `pool` narrows the draw to a subset of the boon table — the altar passes one
-  // god's roster so a paid offer stays inside the domain you paid for. Called with
-  // no arguments (boss kill, run start) it draws from every boon you don't hold.
+  // Six gods, ten boons each (data.js → boons; the canon is docs/BOONS.md). A
+  // boon is one of:
+  //   a SLOT boon — attack / magic / move / struck / door (below 20% HP). You hold
+  //     one per slot; taking another of the same slot replaces it, and the offer
+  //     says so. That is the trade that makes a pick a choice.
+  //   a PASSIVE — improves its god's other boons; offered once you hold one of
+  //     that god's boons.
+  //   a CAPSTONE — offered once you hold three of that god's boons.
+  // Each has up to three levels; an offer can be "II" of one you already hold.
+  //
+  // Offers show three boons from three different gods. Once you take a god's
+  // boon that god is SWORN, and every later offer carries one of a sworn god's
+  // boons — so a run can commit to a god and keep finding it. Each god owns a
+  // keyword that its boons create and feed on (Kethara: Bound, Auvris: Wild,
+  // Maelon: Rot, Ourn: Haste/Chill, the Label: Madness, the Guild: gear), and the
+  // rest of the game — gases, plants, statuses, rings, artifacts — feeds them too.
+  const BOONS = DATA.boons || {};
+  const BOON_SLOTS = ["attack", "magic", "move", "struck", "door"];
+  const SLOT_LABEL = { attack: "Attack", magic: "Magic", move: "Move", struck: "Struck", door: "Death's Door", passive: "Passive", capstone: "Capstone" };
+  const ROMAN = ["", "I", "II", "III", "IV"];
+  const boonLv = (k) => (player.boonLv && player.boonLv[k]) || 0;
+  // A boon's number at its current level (vals[level − 1]); 0 if not held.
+  const bv = (k) => { const b = BOONS[k], lv = boonLv(k); if (!lv || !b || !b.vals || !b.vals.length) return 0; return b.vals[Math.min(lv, b.vals.length) - 1]; };
+  const boonMaxLv = (k) => ((BOONS[k] && BOONS[k].levels) || [1]).length;
+  const godCount = (g) => (player.boons ? [...player.boons].filter((k) => BOONS[k] && BOONS[k].god === g).length : 0);
+  const swornGods = () => { const out = new Set(); if (player.boons) for (const k of player.boons) if (BOONS[k]) out.add(BOONS[k].god); return out; };
+  const godName = (g) => ((DATA.gods || {})[g] || {}).name || g;
+
+  // ---- keyword helpers ----
+  const isBound = (m) => (m.stun || 0) > 0 || (m.para || 0) > 0;
+  const isMad = (m) => (m.berserk || 0) > 0 || (m.fleeing || 0) > 0;
+  // Bind a foe (Kethara): a stun, lengthened by Iron Law. Bosses shrug off all but a turn.
+  function bindMon(m, turns) {
+    if (!m || m.hp <= 0) return;
+    let n = turns + bv("k_ironlaw");
+    if (m.boss) n = Math.min(n, boonLv("k_ironlaw") >= 2 ? 2 : 1);
+    m.stun = Math.max(m.stun || 0, n);
+    floatText(m.x, m.y, "⛓", "#e8c060");
+  }
+  // The share your blows (and Sera's notes) gain against a foe in a god's keyword state.
+  function boonDamageMult(m, weapon) {
+    let pct = 0;
+    if (isBound(m)) { pct += bv("k_chains"); if (weapon) pct += bv("k_judgement"); }
+    if (isMad(m)) pct += bv("l_madones");
+    if ((m.chill || 0) > 0 && boonLv("o_entropy") >= 3) pct += 10;
+    return 1 + pct / 100;
+  }
+  const honedBonus = () => (boonLv("g_honed") ? bv("g_honed") * godCount("guild") + (boonLv("g_honed") === 2 ? 1 : 0) : 0);
+  const festerBonus = () => (boonLv("m_fester") ? Math.round(bv("m_fester") * godCount("maelon") + (boonLv("m_fester") === 2 ? 1 : 0)) : 0);
+  const ringMastery = () => (player && player.boonLv ? bv("g_rings") + (boonLv("g_rings") === 2 ? 1 : 0) : 0);
+  const lightLoadHaste = () => (boonLv("g_lightload") && invArr().length <= 15 ? bv("g_lightload") / 100 : 0);
+  const shopPotionPrice = () => Math.round(SHOP_POTION_PRICE * (1 - bv("g_salvager") / 100));
+  function boonAC() {
+    let ac = 0;
+    if (boonLv("k_discipline")) ac += bv("k_discipline") * godCount("kethara") + (boonLv("k_discipline") === 2 ? 1 : 0);
+    if (boonLv("k_sanctuary") && player.hp < player.maxHp * 0.2) ac += boonLv("k_sanctuary") >= 3 ? 7 : 5;
+    return ac;
+  }
+  // Measured Strike (Ourn): every Nth hit in a row on the same foe is a critical.
+  function measuredCrit(m) {
+    if (!boonLv("o_measured")) return false;
+    player.measured = player.measured && player.measured.m === m ? { m, n: player.measured.n + 1 } : { m, n: 1 };
+    return player.measured.n % bv("o_measured") === 0;
+  }
+  // A Wild effect (Auvris) — Chaos Theory may fire it twice.
+  function wild(fn) { fn(); if (boonLv("a_chaos") && Math.random() * 100 < bv("a_chaos")) fn(); }
+  function randomWildGas() { return ["fire", "frost", "toxic", "confusion"][randInt(0, 3)]; }
+  const feyScale = (n) => Math.round(n * (1 + bv("a_fey") / 100));
+  function sproutPlant(x, y, kind) {
+    kind = kind || randomPlantKind(false);
+    if (!kind || !inBounds(x, y) || !passable(x, y)) return false;
+    plants.push({ x, y, kind });
+    greenThumbTwins(kind, x, y);
+    return true;
+  }
+  // Green Thumb: a plant grows a twin (two at III) on open ground beside it.
+  function greenThumbTwins(kind, x, y) {
+    const n = boonLv("a_greenthumb") ? bv("a_greenthumb") : 0;
+    for (let i = 0, g = 0; i < n && g < 12; g++) {
+      const [dx, dy] = DIRS8[randInt(0, 7)], tx = x + dx, ty = y + dy;
+      if (plantable(tx, ty) && !plantAt(tx, ty)) { plants.push({ x: tx, y: ty, kind }); i++; }
+    }
+  }
+  function nearestVisibleFoe(n) {
+    return monsters.filter((m) => m.hp > 0 && !m.dominated && inBounds(m.x, m.y) && visible[m.y][m.x])
+      .sort((a, b) => cheb(a.x, a.y, player.x, player.y) - cheb(b.x, b.y, player.x, player.y)).slice(0, n || 1);
+  }
+
+  // ---- hooks ----
+  function boonOnWeaponHit(t) {
+    if (boonLv("k_judgement") && isBound(t)) t.stun = (t.stun || 0) + 1;
+    if (boonLv("a_thornlash") && Math.random() * 100 < bv("a_thornlash")) wild(() => {
+      const kind = randomPlantKind(false);
+      if (kind && PLANT_FX[kind]) { floatText(t.x, t.y, "🌿", "#7ecf6a"); PLANT_FX[kind].go(t.x, t.y, t); greenThumbTwins(kind, t.x, t.y); }
+    });
+    if (t.hp > 0 && boonLv("m_rot")) { addPoison(t, bv("m_rot")); floatText(t.x, t.y, "☠", "#9ad06a"); }
+    if (t.hp > 0 && boonLv("o_entropy")) t.chill = Math.max(t.chill || 0, bv("o_entropy"));
+    if (t.hp > 0 && !t.boss && boonLv("l_mouths") && Math.random() * 100 < bv("l_mouths")) {
+      t.berserk = Math.max(t.berserk || 0, (boonLv("l_mouths") >= 3 ? 4 : 3) + hungryBonus());
+      floatText(t.x, t.y, "MAD", "#a080d8");
+    }
+  }
+  const hungryBonus = () => (boonLv("l_hungry") ? bv("l_hungry") * godCount("label") + (boonLv("l_hungry") === 2 ? 1 : 0) : 0);
+  // Before a blow lands on you: Foresight's free misses, Borrowed Time's split,
+  // Reinforced's extra block.
+  function boonBeforeStruck(attacker, dmg) {
+    if (boonLv("o_foresight") && (player.foresightLeft || 0) > 0) {
+      player.foresightLeft--; floatText(player.x, player.y, "foreseen", "#7fb4e8");
+      log("You saw it coming — the " + monName(attacker) + "'s blow meets nothing.", "hit");
+      return 0;
+    }
+    if (boonLv("g_reinforced")) dmg = Math.max(1, dmg - bv("g_reinforced"));
+    if (boonLv("o_borrowed") && dmg > 1 && Math.random() * 100 < bv("o_borrowed")) {
+      const later = Math.floor(dmg / 2);
+      dmg -= later;
+      (player.delayed = player.delayed || []).push({ at: turns + 3, dmg: later });
+      floatText(player.x, player.y, "⌛" + later, "#7fb4e8");
+    }
+    return dmg;
+  }
+  function boonOnStruck(a, dmg) {
+    if (boonLv("o_stride")) player.strideHaste = 0;
+    if (!a || a.hp <= 0) return;
+    if (boonLv("k_rebuke") && !(a.rebukeCd > turns)) { a.rebukeCd = turns + (boonLv("k_rebuke") >= 2 ? 3 : 5); bindMon(a, bv("k_rebuke")); }
+    if (boonLv("a_bramble")) {
+      const d = bv("a_bramble") + Math.floor(depth / 4);
+      a.hp -= d; flash(a); floatText(a.x, a.y, "🌵-" + d, "#7ecf6a"); addPoison(a, boonLv("a_bramble"));
+      if (a.hp <= 0) { killMonster(a, "is torn apart on your thorns"); return; }
+    }
+    if (boonLv("m_contagion")) addPoison(a, bv("m_contagion"));
+    if (boonLv("l_gaze") && !a.boss && Math.random() * 100 < bv("l_gaze")) {
+      a.fleeing = Math.max(a.fleeing || 0, (boonLv("l_gaze") >= 3 ? 4 : 3) + hungryBonus());
+      floatText(a.x, a.y, "flees!", "#a080d8");
+    }
+    if (boonLv("g_reinforced") && Math.random() * 100 < [10, 15, 20][boonLv("g_reinforced") - 1]) {
+      a.hp -= dmg; flash(a); floatText(a.x, a.y, "↩-" + dmg, "#d0a060");
+      if (a.hp <= 0) killMonster(a, "is broken on your armour");
+    }
+  }
+  let sigils = [];                 // Procession's marks on the floor
+  function boonOnStep(dx, dy) {
+    player.steps = (player.steps || 0) + 1;
+    const n = player.steps;
+    if (boonLv("k_procession") && n % bv("k_procession") === 0) {
+      sigils.push({ x: player.x, y: player.y });
+      const cap = boonLv("k_procession") >= 3 ? 4 : 3;
+      while (sigils.length > cap) sigils.shift();
+    }
+    if (boonLv("a_overgrowth")) wild(() => {
+      const t = map[player.y][player.x];
+      if (t === FLOOR) map[player.y][player.x] = LAWN;
+      if (n % bv("a_overgrowth") === 0) {
+        for (const [ox, oy] of DIRS8) {
+          const x = player.x + ox, y = player.y + oy;
+          if (inBounds(x, y) && (map[y][x] === FLOOR || map[y][x] === LAWN) && !monsterAt(x, y) && !itemAt(x, y)) { map[y][x] = GRASS; break; }
+        }
+      }
+    });
+    if (boonLv("m_gravewind")) {
+      const r = boonLv("m_gravewind") >= 2 ? 4 : 3;
+      if (player.hp < player.maxHp && monsters.some((m) => m.hp > 0 && m.dots && m.dots.some((d) => d.tag === "poison") && cheb(m.x, m.y, player.x, player.y) <= r)) {
+        player.hp = Math.min(player.maxHp, player.hp + bv("m_gravewind"));
+      }
+    }
+    if (boonLv("o_stride")) player.strideHaste = Math.min([20, 25, 30][boonLv("o_stride") - 1], (player.strideHaste || 0) + bv("o_stride"));
+    if (boonLv("l_geometry") && n % bv("l_geometry") === 0 && (dx || dy)) {
+      let tx = player.x, ty = player.y;
+      for (let i = 0; i < 2; i++) { const nx = tx + dx, ny = ty + dy; if (!passable(nx, ny) || monsterAt(nx, ny) || map[ny][nx] === CHASM || inBlaze(nx, ny)) break; tx = nx; ty = ny; }
+      if (tx !== player.x || ty !== player.y) { spawnSpiral(player.x, player.y, "#a080d8"); player.x = tx; player.y = ty; snapPlayer(); computeFOV(); floatText(tx, ty, "⤳", "#a080d8"); }
+    }
+  }
+  function boonOnKill(t) {
+    if (!player.boons || !player.boons.size || !t) return;
+    if (boonLv("grace")) {
+      const heal = Math.min(player.maxHp - player.hp, bv("grace") + Math.floor(player.level / 5));
+      if (heal > 0) { player.hp += heal; floatText(player.x, player.y, "+" + heal, "#8ed69a"); }
+    }
+    if (boonLv("k_tithe") && isBound(t)) {
+      player.mp = Math.min(player.maxMp, player.mp + bv("k_tithe"));
+      if (boonLv("k_tithe") >= 3) player.hp = Math.min(player.maxHp, player.hp + 2);
+    }
+    if (boonLv("o_momentum")) player.momentum = { amt: bv("o_momentum"), turns: boonLv("o_momentum") >= 3 ? 4 : 3 };
+    if (player.breathArmed) {
+      player.breathArmed = false;
+      const h = Math.round(player.maxHp * bv("m_breath") / 100);
+      player.hp = Math.min(player.maxHp, player.hp + h);
+      floatText(player.x, player.y, "+" + h, "#d0584a");
+      log("Second Breath — death feeds you. (+" + h + ")", "hit");
+    }
+    if (boonLv("m_plague") && t.dots) {
+      const p = t.dots.find((d) => d.tag === "poison");
+      if (p && p.dmg > 0) {
+        const dose = Math.round(p.dmg * bv("m_plague") / 100);
+        for (const o of monsters) if (o !== t && o.hp > 0 && !o.dominated && cheb(o.x, o.y, t.x, t.y) === 1) { addPoison(o, dose); floatText(o.x, o.y, "☠", "#9ad06a"); }
+      }
+    }
+    updateHUD();
+  }
+  // Cast detection. Skills are cast in two dozen places, each paying its own MP
+  // and setting its own cooldown, so the magic slot watches for the fact of a
+  // cast instead — a cooldown that went UP, or MP that went down — once a turn.
+  function boonDetectCast() {
+    if (!player.skills) return;
+    let cast = false;
+    for (const k in player.skills) { const st = player.skills[k]; if ((st.cd || 0) > (st._pcd || 0)) cast = true; }
+    const spent = Math.max(0, (player._pmp != null ? player._pmp : player.mp) - player.mp);
+    if (spent > 0) cast = true;
+    if (!cast) return;
+    player.focusTurns = 3;                                    // Enchanter's Focus
+    if (boonLv("k_edict")) {
+      for (const m of monsters) if (m.hp > 0 && !m.dominated && cheb(m.x, m.y, player.x, player.y) === 1) bindMon(m, bv("k_edict"));
+      if (boonLv("k_edict") >= 2) { const f = nearestVisibleFoe(1)[0]; if (f && cheb(f.x, f.y, player.x, player.y) <= 3) bindMon(f, bv("k_edict")); }
+    }
+    if (boonLv("a_surge")) {
+      for (const f of nearestVisibleFoe(boonLv("a_surge") >= 3 ? 2 : 1)) wild(() => releaseGas(randomWildGas(), f.x, f.y, feyScale(bv("a_surge")), 0));
+    }
+    if (boonLv("m_harvest") && spent > 0 && monsters.some((m) => m.hp > 0 && visible[m.y] && visible[m.y][m.x] && m.dots && m.dots.some((d) => d.tag === "poison"))) {
+      const back = Math.max(1, Math.round(spent * bv("m_harvest") / 100));
+      player.mp = Math.min(player.maxMp, player.mp + back);
+      floatText(player.x, player.y, "+" + back + " MP", "#9ad0ff");
+    }
+  }
+  function boonTick() {
+    // remember this turn's cooldowns and MP for next turn's cast detection
+    for (const k in (player.skills || {})) player.skills[k]._pcd = player.skills[k].cd || 0;
+    player._pmp = player.mp;
+    if (player.focusTurns > 0) player.focusTurns--;
+    if (player.momentum && player.momentum.turns > 0) player.momentum.turns--;
+    // Borrowed Time comes due
+    if (player.delayed && player.delayed.length) {
+      const due = player.delayed.filter((d) => d.at <= turns);
+      player.delayed = player.delayed.filter((d) => d.at > turns);
+      for (const d of due) {
+        player.hp -= d.dmg; flash(player); floatText(player.x, player.y, "⌛-" + d.dmg, "#7fb4e8");
+        log("Borrowed time comes due. (-" + d.dmg + ")", "hurt");
+        if (player.hp <= 0) { updateHUD(); die(); return; }
+      }
+    }
+    // Death's Door: once a floor each, when you fall below 20%
+    if (player.hp > 0 && player.hp < player.maxHp * 0.2) {
+      const used = player.doorUsed || (player.doorUsed = {});
+      const door = player.boonSlots && player.boonSlots.door;
+      if (door && !used[door]) { used[door] = true; deathsDoor(door); }
+    }
+    // capstones on a clock
+    if (boonLv("a_storm") && turns % bv("a_storm") === 0) {
+      const f = nearestVisibleFoe(1)[0];
+      if (f) wild(() => { gasBurst(randomWildGas(), f.x, f.y, 1, feyScale(400)); log("A storm of seasons breaks over the " + monName(f) + ".", "hit"); });
+    }
+    if (boonLv("l_watches") && turns % bv("l_watches") === 0) {
+      const f = nearestVisibleFoe(1)[0];
+      if (f) {
+        const d = 20 + depth;
+        f.hp -= d; flash(f); floatText(f.x, f.y, "👁-" + d, "#a080d8"); spawnBurst(f.x, f.y, "#a080d8");
+        log("Something from beyond the stars looks at the " + monName(f) + ". (-" + d + ")", "hit");
+        if (f.hp <= 0) killMonster(f, "is unmade");
+      }
+    }
+    // the Label's tentacle goes back where it came from
+    for (const m of monsters) if (m.lifespan != null && --m.lifespan <= 0 && m.hp > 0) { m.hp = 0; monsters = monsters.filter((x) => x !== m); spawnBurst(m.x, m.y, "#a080d8"); }
+  }
+  function deathsDoor(k) {
+    const b = BOONS[k] || {};
+    flashScreen(b.color || "#e0685a", 360);
+    log(b.name + " — at death's door, your god answers.", "hit");
+    if (k === "k_sanctuary") {
+      const r = boonLv(k) >= 3 ? 4 : 3;
+      for (const m of monsters) if (m.hp > 0 && !m.dominated && cheb(m.x, m.y, player.x, player.y) <= r) bindMon(m, bv(k));
+    } else if (k === "a_lastbloom") {
+      if (plantable(player.x, player.y) || !plantAt(player.x, player.y)) plants.push({ x: player.x, y: player.y, kind: "sungrass" });
+      if (bv(k) > 0) player.hp = Math.min(player.maxHp, player.hp + bv(k));
+      triggerPlant(player.x, player.y, player);
+    } else if (k === "m_breath") {
+      player.breathArmed = true;
+    } else if (k === "o_stopwatch") {
+      player.timeFreeze = Math.max(player.timeFreeze || 0, bv(k));
+      log("Time stops. Only you move.", "hit");
+    } else if (k === "l_door") {
+      const spot = DIRS8.map(([dx, dy]) => ({ x: player.x + dx, y: player.y + dy })).find((q) => passable(q.x, q.y) && !monsterAt(q.x, q.y));
+      if (spot && VERMIN.eldritch_tentacle) {
+        const t = makeMonster("eldritch_tentacle", spot.x, spot.y);
+        t.dominated = true; t.lifespan = bv(k); t.maxHp = t.hp = t.hp + depth * 2;
+        t.atkMin += Math.floor(depth / 3); t.atkMax += Math.floor(depth / 2);
+        setState(t, WANDERING);
+        monsters.push(t); spawnBurst(spot.x, spot.y, "#a080d8");
+        log("A door opens where there was no door. Something reaches through — for them.", "hit");
+      }
+    } else if (k === "g_kit") {
+      const before = player.hp;
+      applyEffect((CONSUM.heal && CONSUM.heal.effect) || "heal");
+      const gained = player.hp - before;
+      if (gained > 0 && bv(k) > 100) player.hp = Math.min(player.maxHp, player.hp + Math.round(gained * (bv(k) - 100) / 100));
+      log("The Guild's emergency kit — a free Potion of Healing.", "hit");
+    }
+    updateHUD();
+  }
+  function boonNewFloor() {
+    sigils = [];
+    player.doorUsed = {};
+    player.breathArmed = false;
+    player.delayed = [];
+    player.foresightLeft = boonLv("o_foresight") ? bv("o_foresight") : 0;
+    player.strideHaste = 0;
+    // Price of Knowing: the stars take something back on every new floor.
+    if (boonLv("l_price") && depth > 1) {
+      const s2 = STAT_KEYS[randInt(0, STAT_KEYS.length - 1)];
+      player.stats[s2]--;
+      player.maxHp = computeMaxHp(); player.hp = Math.min(player.hp, player.maxHp);
+      player.maxMp = computeMaxMp(); player.mp = Math.min(player.mp, player.maxMp);
+      log("The price of knowing: -1 " + s2 + ".", "hurt");
+    }
+  }
+  // Masterwork: at a boss kill, everything you wear gains one enchantment it lacks.
+  function masterwork() {
+    let n = 0;
+    for (const it of wornItems()) {
+      const cat = GEAR[it.key] && GEAR[it.key].cat;
+      const pool = Object.keys(LOOT.enchants).filter((e) => { const sl = LOOT.enchants[e].slots; return (!sl || sl.indexOf(cat) >= 0) && (it.enchants || []).indexOf(e) < 0; });
+      if (!pool.length) continue;
+      (it.enchants = it.enchants || []).push(pool[randInt(0, pool.length - 1)]);
+      n++;
+    }
+    if (n) log("Masterwork — the Guild's hand is on everything you wear. (+1 enchantment on " + n + " items)", "hit");
+  }
+
+  // ---- offers ----
+  // What of a god's roster may be offered now: new boons whose prerequisites you
+  // meet, and upgrades of ones you hold.
+  function boonOfferable(k) {
+    const b = BOONS[k];
+    if (!b) return false;
+    const lv = boonLv(k);
+    if (lv) return lv < boonMaxLv(k);
+    if (b.kind === "passive" && godCount(b.god) < 1) return false;
+    if (b.kind === "capstone" && godCount(b.god) < 3) return false;
+    return true;
+  }
+  function pickFromGod(g, avoid) {
+    const ks = Object.keys(BOONS).filter((k) => BOONS[k].god === g && boonOfferable(k) && !avoid.has(k));
+    if (!ks.length) return null;
+    const ups = ks.filter((k) => boonLv(k)), fresh = ks.filter((k) => !boonLv(k));
+    const list = ups.length && (!fresh.length || Math.random() < 0.3) ? ups : fresh;
+    return list[randInt(0, list.length - 1)];
+  }
+  // Three cards from three different gods, one of them from a god you have sworn
+  // to (if any); an altar's `pool` keeps it inside the one god you paid.
+  function buildBoonOffer(pool) {
+    const picked = new Set(), cards = [];
+    if (pool) {
+      const ks = pool.filter((k) => boonOfferable(k));
+      for (let i = ks.length - 1; i > 0; i--) { const j = randInt(0, i); const t = ks[i]; ks[i] = ks[j]; ks[j] = t; }
+      return ks.slice(0, 3);
+    }
+    const gods = Object.keys(DATA.gods || {});
+    for (let i = gods.length - 1; i > 0; i--) { const j = randInt(0, i); const t = gods[i]; gods[i] = gods[j]; gods[j] = t; }
+    const sworn = gods.filter((g) => swornGods().has(g) && pickFromGod(g, picked));
+    const usedGods = new Set();
+    if (sworn.length) { const g = sworn[0], k = pickFromGod(g, picked); if (k) { cards.push(k); picked.add(k); usedGods.add(g); } }
+    for (const g of gods) {
+      if (cards.length >= 3) break;
+      if (usedGods.has(g)) continue;
+      const k = pickFromGod(g, picked);
+      if (k) { cards.push(k); picked.add(k); usedGods.add(g); }
+    }
+    for (const g of gods) { if (cards.length >= 3) break; const k = pickFromGod(g, picked); if (k) { cards.push(k); picked.add(k); } }
+    return cards;
+  }
   function offerBoons(pool, subtitle) {
-    const all = DATA.boons || {};
-    const avail = (pool || Object.keys(all)).filter((k) => all[k] && !(player.boons && player.boons.has(k)));
-    if (!avail.length) return;
-    for (let i = avail.length - 1; i > 0; i--) { const j = randInt(0, i); const t = avail[i]; avail[i] = avail[j]; avail[j] = t; }
-    const pick = avail.slice(0, 3);
+    const pick = buildBoonOffer(pool);
+    if (!pick.length) return;
     const wrap = document.getElementById("boonChoices");
     if (!wrap) return;
     wrap.innerHTML = "";
     boonOffer = pick.slice();
     for (const k of pick) {
-      const g = all[k];
+      const g = BOONS[k];
+      const lv = boonLv(k), nextLv = lv + 1;
+      const slot = BOON_SLOTS.indexOf(g.kind) >= 0 ? g.kind : null;
+      const replaces = slot && player.boonSlots && player.boonSlots[slot] && player.boonSlots[slot] !== k ? BOONS[player.boonSlots[slot]] : null;
+      const text = (g.levels && g.levels[nextLv - 1]) || g.desc || "";
       // One row per boon, as SPD's King's Crown lays out an armour ability: a wide
-      // button that reads as the choice, and an info button beside it for the
-      // whole story. The row carries the first sentence; the ⓘ carries the rest.
+      // button that reads as the choice, and an info button beside it.
       const row = document.createElement("div");
       row.className = "boon-row";
       const btn = document.createElement("button");
       btn.className = "boon-choice"; btn.type = "button";
       btn.innerHTML = `<span class="b-icon" style="color:${g.color || "#f0c14b"}">${g.icon || "✦"}</span>` +
-        `<span class="b-text"><span class="b-name" style="color:${g.color || "#f0c14b"}">${g.name}</span>` +
-        `<span class="b-desc">${firstSentence(g.desc)}</span></span>`;
+        `<span class="b-text"><span class="b-name" style="color:${g.color || "#f0c14b"}">${g.name}${lv ? " " + ROMAN[nextLv] : ""}</span>` +
+        `<span class="b-tag">${godName(g.god)} · ${SLOT_LABEL[g.kind] || ""}${lv ? " · upgrade" : ""}${replaces ? " · replaces " + replaces.name : ""}</span>` +
+        `<span class="b-desc">${firstSentence(text)}</span></span>`;
       btn.addEventListener("click", () => confirmBoon(k));
       const info = document.createElement("button");
       info.className = "boon-info"; info.type = "button"; info.textContent = "i";
@@ -5631,20 +5938,19 @@
     }
     closeBoonPop();
     const sub = document.querySelector("#boons .boon-sub");
-    if (sub) sub.textContent = subtitle || "A god extends a blessing \u2014 take one.";
+    if (sub) sub.textContent = subtitle || (swornGods().size ? "Your gods are listening — and one more besides." : "A god extends a blessing — take one.");
     walkPath = [];                  // don't let a queued walk fire under the modal
     boonPending = true;
     document.getElementById("boons").hidden = false;
   }
   let boonOffer = [];
-  // The row's one-liner: the description up to its first full stop, which is
-  // where every boon in data.js says what it does before it says how.
+  // The row's one-liner: the description up to its first full stop.
   const firstSentence = (t) => { t = String(t || ""); const m = t.match(/^.*?[.!?](\s|$)/); return m ? m[0].trim() : t; };
-  const godOfBoon = (key) => { const gs = DATA.gods || {}; for (const g in gs) if ((gs[g].boons || []).indexOf(key) >= 0) return gs[g].name || g; return null; };
+  const godOfBoon = (key) => { const b = BOONS[key]; return b ? godName(b.god) : null; };
   // The small window over the choice — SPD opens its info and "are you sure" as
   // their own windows on top, and so does this: one box, two uses.
   function boonPop(key, body, buttons) {
-    const g = (DATA.boons || {})[key] || {};
+    const g = BOONS[key] || {};
     const ic = document.getElementById("boonPopIcon");
     ic.textContent = g.icon || "✦"; ic.style.color = g.color || "#f0c14b";
     const tt = document.getElementById("boonPopTitle");
@@ -5657,12 +5963,14 @@
   }
   const closeBoonPop = () => { const el = document.getElementById("boonPop"); if (el) el.hidden = true; };
   function boonInfo(key) {
-    const g = (DATA.boons || {})[key] || {}, god = godOfBoon(key);
-    boonPop(key, (god ? `<div class="spd-god">A blessing of ${god}</div>` : "") + `<div>${g.desc || ""}</div>`,
-      [["Close", "", closeBoonPop]]);
+    const g = BOONS[key] || {}, lv = boonLv(key);
+    const lvls = (g.levels || [g.desc]).map((t, i) => `<div class="spd-lv${i + 1 === lv ? " cur" : ""}${i === lv ? " next" : ""}"><b>${ROMAN[i + 1]}</b> ${t}</div>`).join("");
+    boonPop(key, `<div class="spd-god">${godName(g.god)} · ${SLOT_LABEL[g.kind] || ""}</div>${lvls}`, [["Close", "", closeBoonPop]]);
   }
   function confirmBoon(key) {
-    boonPop(key, "Take this boon? It stays with you for the rest of the run.",
+    const g = BOONS[key] || {}, slot = BOON_SLOTS.indexOf(g.kind) >= 0 ? g.kind : null;
+    const old = slot && player.boonSlots && player.boonSlots[slot] && player.boonSlots[slot] !== key ? BOONS[player.boonSlots[slot]] : null;
+    boonPop(key, boonLv(key) ? "Strengthen this boon?" : old ? "Take this boon? It replaces " + old.name + "." : "Take this boon? It stays with you for the rest of the run.",
       [["Yes", "primary", () => { closeBoonPop(); pickBoon(key); }], ["No", "", closeBoonPop]]);
   }
   function pickBoon(key) {
@@ -5670,10 +5978,25 @@
     const el = document.getElementById("boons"); if (el) el.hidden = true;
     boonPending = false;
     if (!player.boons) player.boons = new Set();
-    player.boons.add(key);
-    const g = (DATA.boons || {})[key] || {};
-    log("You accept " + (g.name || "a boon") + ".", "hit");
-    // Guild's Artificer's Tools: 3-5 Scrolls of Upgrade, straight into the pack.
+    if (!player.boonLv) player.boonLv = {};
+    if (!player.boonSlots) player.boonSlots = {};
+    const g = BOONS[key] || {};
+    const was = boonLv(key);
+    if (was) {
+      player.boonLv[key] = Math.min(boonMaxLv(key), was + 1);
+      log(g.name + " grows stronger. (" + ROMAN[player.boonLv[key]] + ")", "hit");
+    } else {
+      const slot = BOON_SLOTS.indexOf(g.kind) >= 0 ? g.kind : null;
+      if (slot && player.boonSlots[slot] && player.boonSlots[slot] !== key) {
+        const old = player.boonSlots[slot];
+        player.boons.delete(old); delete player.boonLv[old];
+        log((BOONS[old] || {}).name + " is set aside.", "");
+      }
+      if (slot) player.boonSlots[slot] = key;
+      player.boons.add(key); player.boonLv[key] = 1;
+      log("You accept " + (g.name || "a boon") + ".", "hit");
+    }
+    // Artificer's Tools: 3–5 Scrolls of Upgrade, straight into the pack — each pick.
     if (key === "artificer") {
       const n = randInt(3, 5);
       for (let i = 0; i < n; i++) {
@@ -5681,18 +6004,16 @@
       }
       log("The Guild's artificers press " + n + " Scrolls of Upgrade into your hands.", "hit");
     }
-    // Ourn's The Pride Before The Fall: +10 to every base stat, right away.
-    if (key === "pride") {
+    // Price of Knowing: the stats up front (the difference, on an upgrade).
+    if (key === "l_price") {
+      const add = bv("l_price") - (was ? g.vals[was - 1] : 0);
       const beforeHp = player.maxHp, beforeMp = player.maxMp;
-      for (const s of STAT_KEYS) player.stats[s] += 10;
-      player.maxHp = computeMaxHp();
-      player.hp += Math.max(0, player.maxHp - beforeHp);
-      player.maxMp = computeMaxMp();
-      player.mp += Math.max(0, player.maxMp - beforeMp);
-      floatText(player.x, player.y, "+10 ALL", "#9ad0ff");
-      log("The Pride Before The Fall floods you with power. (+10 to all stats)", "hit");
+      for (const s2 of STAT_KEYS) player.stats[s2] += add;
+      player.maxHp = computeMaxHp(); player.hp += Math.max(0, player.maxHp - beforeHp);
+      player.maxMp = computeMaxMp(); player.mp += Math.max(0, player.maxMp - beforeMp);
+      floatText(player.x, player.y, "+" + add + " ALL", "#a080d8");
     }
-    grantBoonSkills(key);   // wires up any active ability this boon unlocks (wall/pull/eye/anger/speed of light)
+    if (key === "o_foresight") player.foresightLeft = bv("o_foresight");
     updateHUD(); updateHotbar();
     if (charOpen) renderChar();
   }
@@ -5978,6 +6299,7 @@
         }
       }
       computeFOV();
+      boonOnStep(dx, dy);
       if (!moveGoal || (moveGoal.x === player.x && moveGoal.y === player.y)) pickUp();
       const tr = trapAt(player.x, player.y);
       if (tr && !tr.sprung) { triggerTrap(tr); if (dead) return true; }
@@ -6364,6 +6686,8 @@
   let legLog = null;   // { m, legs } while a monster is taking its action
   function moveMonster(m, nx, ny) {
     m.x = nx; m.y = ny;
+    const sg = sigils.findIndex((q) => q.x === nx && q.y === ny);           // Procession's sigils
+    if (sg >= 0 && !m.dominated) { sigils.splice(sg, 1); bindMon(m, bv("k_procession") >= 3 ? 3 : 2); }
     if (legLog && legLog.m === m) legLog.legs.push([nx, ny]);
     // A walker flattens tall grass and sets off plants; a flier passes over both.
     if (!m.flying) { trample(nx, ny, m); if (plants.length) triggerPlant(nx, ny, m); }
@@ -7114,13 +7438,17 @@
 
   function monsterAct(m) {
     if (m.hp <= 0) return;
+    if (boonLv("k_absolute") && !isBound(m) && !m.dominated && !(m.absCd > turns) && monsters.some((o) => o !== m && o.hp > 0 && isBound(o) && cheb(o.x, o.y, m.x, m.y) === 1)) {
+      m.absCd = turns + 10; bindMon(m, 1);                  // Absolute Order: control spreads
+    }
     if (m.raging) {                                          // a brute's rage burns down
       m.hp -= 4;
       if (m.hp <= 0) { killMonster(m, "collapses, its rage spent"); return; }
     }
     if (m.dots && m.dots.length) {              // burn/poison ticks at the start of its action
       for (const dot of m.dots.slice()) {
-        m.hp -= dot.dmg; flash(m); floatText(m.x, m.y, dot.icon + "-" + dot.dmg, dot.color);
+        const fest = dot.tag === "poison" ? festerBonus() : 0;
+        m.hp -= dot.dmg + fest; flash(m); floatText(m.x, m.y, dot.icon + "-" + (dot.dmg + fest), dot.color);
         // Poison has no fixed duration — its own stack decays by 1 each tick,
         // fading out once spent. A `decay` dot (ToneTum's Burning Sensation) runs on
         // rounds AND cools by 1 a turn, to a floor of 1: it hits hardest the moment
@@ -7353,6 +7681,7 @@
   function worldTurn(cost) {
     cost = cost == null ? 1 : cost;
     turns++;
+    boonDetectCast();
     // Top turn-timer bar: 5 turns of banked time, drained by this action's cost
     // (a hasted action costs less and drains it slower; a slowed one drains it
     // faster). Wraps back up when it empties — a rolling pace indicator.
@@ -7373,10 +7702,10 @@
     // carried as a fraction so a small ring still gives the odd extra tick.
     const en = ringL("energy");
     if (en > 0) { player.energyAcc = (player.energyAcc || 0) + 0.15 * en; while (player.energyAcc >= 1) { player.energyAcc -= 1; cdTick++; } }
-    if (player.boons && player.boons.has("rhythm")) {
+    if (boonLv("rhythm")) {
       let waiting = 0;
       for (const k in player.skills) if (player.skills[k].cd > 0) waiting++;
-      cdTick = 1 + waiting;
+      cdTick = 1 + waiting + bv("rhythm");
     }
     for (const k in player.skills) {
       const st = player.skills[k];
@@ -7422,6 +7751,7 @@
     artifactTick(cost);
     gasTick(); if (dead) return;
     blazeTick(); if (dead) return;
+    boonTick(); if (dead) return;
     if (player.bless && player.bless.turns > 0 && --player.bless.turns === 0) { player.bless = null; log("The starlight fades."); }
     // Timekeeper's Hourglass: while time is stopped, nothing else gets a turn.
     const frozen = player.timeFreeze > 0;
@@ -9057,7 +9387,7 @@
       const def = CONSUM[key];
       const row = document.createElement("div");
       row.className = "shop-row";
-      const canAfford = player.gold >= SHOP_POTION_PRICE && (player.inv.length < INV_MAX || !!ownedBagFor("potion"));
+      const canAfford = player.gold >= shopPotionPrice() && (player.inv.length < INV_MAX || !!ownedBagFor("potion"));
       if (!canAfford) row.classList.add("disabled");
       const ic = document.createElement("span"); ic.className = "s-ic";
       const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
@@ -9065,7 +9395,7 @@
       drawGlyphInto(cc, 0, 0, 48, def.glyph || "!", def.color || "#cfc3a0");
       ic.appendChild(cv);
       const nm = document.createElement("span"); nm.className = "s-name"; nm.textContent = def.name;
-      const pr = document.createElement("span"); pr.className = "s-price"; pr.textContent = SHOP_POTION_PRICE + "g";
+      const pr = document.createElement("span"); pr.className = "s-price"; pr.textContent = shopPotionPrice() + "g";
       row.appendChild(ic); row.appendChild(nm); row.appendChild(pr);
       row.addEventListener("click", () => buyPotion(i));
       stockHost.appendChild(row);
@@ -9113,9 +9443,10 @@
   function buyPotion(slot) {
     const key = shopStock[slot];
     if (!key) return;
-    if (player.gold < SHOP_POTION_PRICE) { log("Not enough gold."); return; }
+    const price = shopPotionPrice();
+    if (player.gold < price) { log("Not enough gold."); return; }
     if (!invAdd({ key, count: 1 })) { log("Your pack is full."); return; }
-    player.gold -= SHOP_POTION_PRICE;
+    player.gold -= price;
     // Bought stock is identified stock. The merchant already names every bottle on
     // the shelf and the purchase line says what you walked out with, so leaving the
     // pack calling it an "Ochre Potion" was the UI disagreeing with itself rather
@@ -9673,9 +10004,7 @@
       floatText(player.x, player.y, "★", "#f0c14b");
       log("Insight blooms — you gain a skill point.", "hit");
     } else if (fx === "poison") {
-      if (player.boons && player.boons.has("leper")) {
-        log("Your body shrugs off the poison — Maelon's Leper Colony holds.", "hit");
-      } else {
+      {
         const dose = toxinDose(player.maxHp, false);
         toxinPlayer(dose);
         log("It was poison! It burns through you — " + dose + " this turn, and half again each turn after.", "hurt");
@@ -11535,18 +11864,18 @@
       `<div class="sktiers">${html}${placed ? "" : detail}</div>`;
   }
   function charBoonsHTML() {
-    const boons = DATA.boons || {};
-    const owned = player.boons ? [...player.boons] : [];
-    let list = "";
-    if (owned.length) {
-      for (const k of owned) {
-        const g = boons[k]; if (!g) continue;
-        list += `<div class="god"><span style="color:${g.color || "#f0c14b"}">${g.icon || "✦"}</span> <b style="color:${g.color || "#f0c14b"}">${g.name}</b> — ${g.desc || ""}</div>`;
-      }
-    } else {
-      list = `<div class="god"><em>None yet.</em></div>`;
-    }
-    return `<div class="cboon">Defeat a boss and a god offers you a blessing — one of three, chosen on the spot. They last the whole run.<br><br>${list}</div>`;
+    const owned = player.boons ? [...player.boons].filter((k) => BOONS[k]) : [];
+    if (!owned.length) return `<div class="cboon">Defeat a boss and three gods each offer a blessing — take one. Take a god's boon and that god is sworn: every later offer carries one of theirs.<br><br><div class="god"><em>None yet.</em></div></div>`;
+    const slots = BOON_SLOTS.map((sl) => {
+      const k = player.boonSlots && player.boonSlots[sl], g = k && BOONS[k];
+      return `<div class="god"><span class="b-tag">${SLOT_LABEL[sl]}</span> ` + (g ? `<span style="color:${g.color}">${g.icon} <b>${g.name} ${ROMAN[boonLv(k)]}</b></span> — ${(g.levels || [])[boonLv(k) - 1] || g.desc}` : `<em>empty</em>`) + `</div>`;
+    }).join("");
+    const rest = owned.filter((k) => BOON_SLOTS.indexOf(BOONS[k].kind) < 0).map((k) => {
+      const g = BOONS[k];
+      return `<div class="god"><span class="b-tag">${SLOT_LABEL[g.kind]}</span> <span style="color:${g.color}">${g.icon} <b>${g.name} ${ROMAN[boonLv(k)]}</b></span> — ${(g.levels || [])[boonLv(k) - 1] || g.desc}</div>`;
+    }).join("");
+    const sworn = [...swornGods()].map((g) => godName(g) + " (" + godCount(g) + ")").join(", ");
+    return `<div class="cboon">Sworn to: <b>${sworn}</b><br><br>${slots}${rest}</div>`;
   }
 
   // ---- Hotbar --------------------------------------------------------------
@@ -11960,6 +12289,13 @@
     turnMeter: () => ({ turnMeter, lastActionCost }),
     offerBoons, pickBoon,
     boonChoices: () => (boonPending ? boonOffer.slice() : []),
+    boonState: () => ({ lv: Object.assign({}, player.boonLv || {}), slots: Object.assign({}, player.boonSlots || {}), sworn: [...swornGods()] }),
+    boonOfferPreview: () => buildBoonOffer().map((k) => ({ key: k, god: BOONS[k].god, kind: BOONS[k].kind })),
+    boonOfferable: (k) => boonOfferable(k),
+    // Stress: every boon at its top level at once (slots take the last of each kind).
+    boonGrantAll: () => { player.boons = new Set(); player.boonLv = {}; player.boonSlots = {}; for (const k in BOONS) { player.boons.add(k); player.boonLv[k] = boonMaxLv(k); if (BOON_SLOTS.indexOf(BOONS[k].kind) >= 0) player.boonSlots[BOONS[k].kind] = k; } player.foresightLeft = 3; },
+    boonClear: () => { player.boons = new Set(); player.boonLv = {}; player.boonSlots = {}; },
+    setBoonSlot: (kind, k) => { if (!player.boonSlots) player.boonSlots = {}; player.boonSlots[kind] = k; },
     // Press row i, then Yes in the confirm — the same two taps a player makes.
     pickBoonAt: (i) => { const rows = document.querySelectorAll("#boonChoices .boon-choice"); if (!rows[i]) return false; rows[i].click(); const yes = document.querySelector("#boonPopBtns button.primary"); if (!yes) return false; yes.click(); return true; },
     giveBoon: (k) => pickBoon(k),

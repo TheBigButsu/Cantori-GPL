@@ -422,6 +422,18 @@ window.CANTORI_DATA = {
       "atkMax": 8,
       "toHit": 3
     },
+    "eldritch_tentacle": {
+      "name": "Tentacle from Beyond",
+      "glyph": "~",
+      "color": "#a080d8",
+      "hp": 30,
+      "speed": 1,
+      "walkSpeed": 0.6,
+      "ac": 12,
+      "atkMin": 4,
+      "atkMax": 9,
+      "toHit": 6
+    },
     "rose_ghost": {
       "name": "Ghost",
       "glyph": "g",
@@ -1916,137 +1928,1061 @@ window.CANTORI_DATA = {
     }
   },
   "boons": {
-    "artificer": {
-      "name": "Artificer's Tools",
-      "desc": "The Guild presses 3-5 Scrolls of Upgrade into your hands at once — each permanently upgrades an equipped item's +X by one, and can't be dropped.",
-      "icon": "⚒",
-      "color": "#f0c14b"
+    "k_judgement": {
+      "name": "Judgement",
+      "god": "kethara",
+      "kind": "attack",
+      "icon": "⚖",
+      "color": "#e8c060",
+      "desc": "Your weapon deals +40% to a Bound foe, and each hit holds it Bound a turn longer.",
+      "levels": [
+        "Your weapon deals +40% to a Bound foe, and each hit holds it Bound a turn longer.",
+        "+55% to a Bound foe; each hit extends its Bound by a turn.",
+        "+70% to a Bound foe; each hit extends its Bound by a turn."
+      ],
+      "vals": [
+        40,
+        55,
+        70
+      ]
     },
-    "scribe": {
-      "name": "Scribe's Intellect",
-      "desc": "Your INT rises with your gear: Total Equipment Upgrades × Quality Multiplier (White ×1.0 … Gold ×5.0), rounded to the nearest 0.5.",
+    "k_edict": {
+      "name": "Edict",
+      "god": "kethara",
+      "kind": "magic",
       "icon": "📜",
-      "color": "#f0c14b"
+      "color": "#e8c060",
+      "desc": "Casting a skill Binds every foe beside you for 1 turn.",
+      "levels": [
+        "Casting a skill Binds every foe beside you for 1 turn.",
+        "Casting a skill Binds every foe beside you for 1 turn, and the nearest foe within 3 as well.",
+        "Casting a skill Binds every foe beside you for 2 turns, and the nearest foe within 3 as well."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
     },
-    "blacksmith": {
-      "name": "Blacksmith's Arm",
-      "desc": "Your STR rises with your gear: Total Equipment Upgrades × Quality Multiplier (White ×1.0 … Gold ×5.0), rounded to the nearest 0.5.",
-      "icon": "🔨",
-      "color": "#f0c14b"
+    "k_procession": {
+      "name": "Procession",
+      "god": "kethara",
+      "kind": "move",
+      "icon": "✥",
+      "color": "#e8c060",
+      "desc": "Every 4th step leaves a Sigil (up to 3). The next foe to step on one is Bound for 2 turns.",
+      "levels": [
+        "Every 4th step leaves a Sigil (up to 3). The next foe to step on one is Bound for 2 turns.",
+        "Every 3rd step leaves a Sigil (up to 3); Bound for 2 turns.",
+        "Every 3rd step leaves a Sigil (up to 4); Bound for 3 turns."
+      ],
+      "vals": [
+        4,
+        3,
+        3
+      ]
     },
-    "blessing": {
-      "name": "Guild's Blessing",
-      "desc": "White drop chance falls by 1% per character level, redistributed equally to Green/Blue/Purple.",
-      "icon": "✦",
-      "color": "#f0c14b"
+    "k_rebuke": {
+      "name": "Rebuke",
+      "god": "kethara",
+      "kind": "struck",
+      "icon": "✋",
+      "color": "#e8c060",
+      "desc": "A foe that hits you is Bound for 1 turn (once per foe every 5 turns).",
+      "levels": [
+        "A foe that hits you is Bound for 1 turn (once per foe every 5 turns).",
+        "A foe that hits you is Bound for 1 turn (once per foe every 3 turns).",
+        "A foe that hits you is Bound for 2 turns (once per foe every 3 turns)."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
     },
-    "refinement": {
-      "name": "Guild's Refinement",
-      "desc": "Doubles the maximum +X a dropped item can roll, and weights the roll toward the higher end.",
-      "icon": "💎",
-      "color": "#f0c14b"
+    "k_sanctuary": {
+      "name": "Sanctuary",
+      "god": "kethara",
+      "kind": "door",
+      "icon": "⛨",
+      "color": "#e8c060",
+      "desc": "Once a floor, falling below 20% HP Binds every foe within 3 for 3 turns. +5 AC while below 20%.",
+      "levels": [
+        "Once a floor, falling below 20% HP Binds every foe within 3 for 3 turns. +5 AC while below 20%.",
+        "…Binds every foe within 3 for 4 turns. +5 AC while below 20%.",
+        "…Binds every foe within 4 for 5 turns. +7 AC while below 20%."
+      ],
+      "vals": [
+        3,
+        4,
+        5
+      ]
     },
-    "compost": {
-      "name": "Compost Pile",
-      "desc": "Every 5th kill, gain +1 to a random stat (STR/INT/VIT/DEX).",
+    "k_ironlaw": {
+      "name": "Iron Law",
+      "god": "kethara",
+      "kind": "passive",
+      "icon": "⛓",
+      "color": "#e8c060",
+      "desc": "Every Bind you cause lasts 1 turn longer.",
+      "levels": [
+        "Every Bind you cause lasts 1 turn longer.",
+        "Every Bind you cause lasts 1 turn longer, bosses included.",
+        "Every Bind you cause lasts 2 turns longer."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "k_chains": {
+      "name": "Chains of Office",
+      "god": "kethara",
+      "kind": "passive",
+      "icon": "⚜",
+      "color": "#e8c060",
+      "desc": "Bound foes take +15% damage from you.",
+      "levels": [
+        "Bound foes take +15% damage from you.",
+        "Bound foes take +20% damage from you.",
+        "Bound foes take +25% damage from you."
+      ],
+      "vals": [
+        15,
+        20,
+        25
+      ]
+    },
+    "k_tithe": {
+      "name": "Tithe",
+      "god": "kethara",
+      "kind": "passive",
+      "icon": "🪙",
+      "color": "#e8c060",
+      "desc": "Killing a Bound foe restores 2 MP.",
+      "levels": [
+        "Killing a Bound foe restores 2 MP.",
+        "Killing a Bound foe restores 3 MP.",
+        "Killing a Bound foe restores 4 MP and 2 HP."
+      ],
+      "vals": [
+        2,
+        3,
+        4
+      ]
+    },
+    "k_discipline": {
+      "name": "Discipline",
+      "god": "kethara",
+      "kind": "passive",
+      "icon": "🛡",
+      "color": "#e8c060",
+      "desc": "+1 AC for each Kethara boon you hold.",
+      "levels": [
+        "+1 AC for each Kethara boon you hold.",
+        "+1 AC per Kethara boon, +1 more.",
+        "+2 AC for each Kethara boon you hold."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "k_absolute": {
+      "name": "Absolute Order",
+      "god": "kethara",
+      "kind": "capstone",
+      "icon": "☀",
+      "color": "#e8c060",
+      "desc": "A foe that starts its turn beside a Bound foe is Bound too (once every 10 turns per foe). Order spreads.",
+      "levels": [
+        "A foe that starts its turn beside a Bound foe is Bound too (once every 10 turns per foe). Order spreads."
+      ],
+      "vals": [
+        1
+      ]
+    },
+    "a_thornlash": {
+      "name": "Thornlash",
+      "god": "auvris",
+      "kind": "attack",
+      "icon": "🌿",
+      "color": "#7ecf6a",
+      "desc": "25% of your weapon hits sprout a random plant under the target, which goes off at once.",
+      "levels": [
+        "25% of your weapon hits sprout a random plant under the target, which goes off at once.",
+        "35% of hits sprout a plant under the target.",
+        "45% of hits sprout a plant under the target."
+      ],
+      "vals": [
+        25,
+        35,
+        45
+      ]
+    },
+    "a_surge": {
+      "name": "Wild Surge",
+      "god": "auvris",
+      "kind": "magic",
+      "icon": "🌪",
+      "color": "#7ecf6a",
+      "desc": "Casting a skill looses a random cloud — fire, frost, toxic or confusion — on the nearest foe.",
+      "levels": [
+        "Casting a skill looses a random cloud — fire, frost, toxic or confusion — on the nearest foe.",
+        "…a bigger cloud.",
+        "…a bigger cloud, and on the two nearest foes."
+      ],
+      "vals": [
+        300,
+        450,
+        600
+      ]
+    },
+    "a_overgrowth": {
+      "name": "Overgrowth",
+      "god": "auvris",
+      "kind": "move",
       "icon": "🌱",
-      "color": "#e0685a"
+      "color": "#7ecf6a",
+      "desc": "Grass springs up in your footsteps; every 5th step grows tall grass, which hides you.",
+      "levels": [
+        "Grass springs up in your footsteps; every 5th step grows tall grass, which hides you.",
+        "…every 4th step grows tall grass.",
+        "…every 3rd step grows tall grass."
+      ],
+      "vals": [
+        5,
+        4,
+        3
+      ]
     },
-    "second_chance": {
-      "name": "Second Chance",
-      "desc": "The first fatal blow you take this run is intercepted — a full heal, then this blessing is spent.",
-      "icon": "♻",
-      "color": "#e0685a"
+    "a_bramble": {
+      "name": "Bramble Hide",
+      "god": "auvris",
+      "kind": "struck",
+      "icon": "🌵",
+      "color": "#7ecf6a",
+      "desc": "A foe that hits you takes 2 + depth/4 thorn damage and 1 poison.",
+      "levels": [
+        "A foe that hits you takes 2 + depth/4 thorn damage and 1 poison.",
+        "3 + depth/4 thorn damage and 2 poison.",
+        "4 + depth/4 thorn damage and 3 poison."
+      ],
+      "vals": [
+        2,
+        3,
+        4
+      ]
     },
-    "leper": {
-      "name": "Leper Colony",
-      "desc": "Immune to poison. On a connecting hit, a chance to poison your target — chance scales with your level and your Maelon blessings (capped at 75%).",
-      "icon": "☣",
-      "color": "#e0685a"
+    "a_lastbloom": {
+      "name": "Last Bloom",
+      "god": "auvris",
+      "kind": "door",
+      "icon": "🌻",
+      "color": "#7ecf6a",
+      "desc": "Once a floor, falling below 20% HP grows a Sungrass under you — it heals you while you stand in it.",
+      "levels": [
+        "Once a floor, falling below 20% HP grows a Sungrass under you — it heals you while you stand in it.",
+        "…and heals 10 at once.",
+        "…and heals 20 at once."
+      ],
+      "vals": [
+        0,
+        10,
+        20
+      ]
     },
-    "merciful": {
-      "name": "Merciful End",
-      "desc": "On a connecting hit, if the target's health is below your level%, the blow is instantly fatal.",
-      "icon": "🗡",
-      "color": "#e0685a"
+    "a_greenthumb": {
+      "name": "Green Thumb",
+      "god": "auvris",
+      "kind": "passive",
+      "icon": "🪴",
+      "color": "#7ecf6a",
+      "desc": "Every plant you grow or sprout grows a twin beside it.",
+      "levels": [
+        "Every plant you grow or sprout grows a twin beside it.",
+        "…a twin, and seeds drop twice as often.",
+        "…two twins."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "a_fey": {
+      "name": "Fey Weather",
+      "god": "auvris",
+      "kind": "passive",
+      "icon": "🌦",
+      "color": "#7ecf6a",
+      "desc": "Fire, frost and confusion gas no longer affect you, and clouds you loose are 50% larger.",
+      "levels": [
+        "Fire, frost and confusion gas no longer affect you, and clouds you loose are 50% larger.",
+        "…clouds you loose are 75% larger.",
+        "…clouds you loose are twice as large."
+      ],
+      "vals": [
+        50,
+        75,
+        100
+      ]
+    },
+    "a_chaos": {
+      "name": "Chaos Theory",
+      "god": "auvris",
+      "kind": "passive",
+      "icon": "🎲",
+      "color": "#7ecf6a",
+      "desc": "Each Wild effect has a 15% chance to happen twice.",
+      "levels": [
+        "Each Wild effect has a 15% chance to happen twice.",
+        "20% chance to happen twice.",
+        "25% chance to happen twice."
+      ],
+      "vals": [
+        15,
+        20,
+        25
+      ]
+    },
+    "a_forager": {
+      "name": "Forager",
+      "god": "auvris",
+      "kind": "passive",
+      "icon": "🧺",
+      "color": "#7ecf6a",
+      "desc": "Trampled grass drops a seed 1 time in 8 (it was 1 in 25).",
+      "levels": [
+        "Trampled grass drops a seed 1 time in 8 (it was 1 in 25).",
+        "1 time in 6.",
+        "1 time in 5."
+      ],
+      "vals": [
+        8,
+        6,
+        5
+      ]
+    },
+    "a_storm": {
+      "name": "Storm of Seasons",
+      "god": "auvris",
+      "kind": "capstone",
+      "icon": "⛈",
+      "color": "#7ecf6a",
+      "desc": "Every 20 turns, a random storm of gas bursts on the nearest foe you can see.",
+      "levels": [
+        "Every 20 turns, a random storm of gas bursts on the nearest foe you can see."
+      ],
+      "vals": [
+        20
+      ]
+    },
+    "m_rot": {
+      "name": "Rotting Touch",
+      "god": "maelon",
+      "kind": "attack",
+      "icon": "☠",
+      "color": "#d0584a",
+      "desc": "Your weapon hits add 2 poison.",
+      "levels": [
+        "Your weapon hits add 2 poison.",
+        "Your weapon hits add 3 poison.",
+        "Your weapon hits add 4 poison."
+      ],
+      "vals": [
+        2,
+        3,
+        4
+      ]
+    },
+    "m_harvest": {
+      "name": "Harvest",
+      "god": "maelon",
+      "kind": "magic",
+      "icon": "🌾",
+      "color": "#d0584a",
+      "desc": "Casting a skill while a poisoned foe is in sight refunds half its MP.",
+      "levels": [
+        "Casting a skill while a poisoned foe is in sight refunds half its MP.",
+        "…refunds 60% of its MP.",
+        "…refunds 75% of its MP."
+      ],
+      "vals": [
+        50,
+        60,
+        75
+      ]
+    },
+    "m_gravewind": {
+      "name": "Grave Wind",
+      "god": "maelon",
+      "kind": "move",
+      "icon": "🍂",
+      "color": "#d0584a",
+      "desc": "Each step heals 1 while a poisoned foe is within 3 tiles.",
+      "levels": [
+        "Each step heals 1 while a poisoned foe is within 3 tiles.",
+        "Each step heals 1 while a poisoned foe is within 4.",
+        "Each step heals 2 while a poisoned foe is within 4."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "m_contagion": {
+      "name": "Contagion",
+      "god": "maelon",
+      "kind": "struck",
+      "icon": "🦠",
+      "color": "#d0584a",
+      "desc": "A foe that hits you gets 3 poison.",
+      "levels": [
+        "A foe that hits you gets 3 poison.",
+        "A foe that hits you gets 4 poison.",
+        "A foe that hits you gets 5 poison."
+      ],
+      "vals": [
+        3,
+        4,
+        5
+      ]
+    },
+    "m_breath": {
+      "name": "Second Breath",
+      "god": "maelon",
+      "kind": "door",
+      "icon": "💀",
+      "color": "#d0584a",
+      "desc": "Once a floor, below 20% HP, your next kill heals 30% of your max HP.",
+      "levels": [
+        "Once a floor, below 20% HP, your next kill heals 30% of your max HP.",
+        "…heals 40%.",
+        "…heals 50%."
+      ],
+      "vals": [
+        30,
+        40,
+        50
+      ]
+    },
+    "m_fester": {
+      "name": "Fester",
+      "god": "maelon",
+      "kind": "passive",
+      "icon": "🩸",
+      "color": "#d0584a",
+      "desc": "Poison deals +1 a tick for each Maelon boon you hold.",
+      "levels": [
+        "Poison deals +1 a tick for each Maelon boon you hold.",
+        "…+1 per boon, +1 more.",
+        "+2 a tick for each Maelon boon you hold."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "m_plague": {
+      "name": "Plague Bearer",
+      "god": "maelon",
+      "kind": "passive",
+      "icon": "⚰",
+      "color": "#d0584a",
+      "desc": "A poisoned foe that dies passes its remaining poison to every foe beside it.",
+      "levels": [
+        "A poisoned foe that dies passes its remaining poison to every foe beside it.",
+        "…and half again as much.",
+        "…and twice as much."
+      ],
+      "vals": [
+        100,
+        150,
+        200
+      ]
     },
     "grace": {
       "name": "Maelon's Grace",
-      "desc": "Regain 2 + (character level / 5) HP on every kill. It only ever tops you up to full — nothing is wasted on an already-whole body.",
-      "icon": "☙",
-      "color": "#8ed69a"
+      "god": "maelon",
+      "kind": "passive",
+      "icon": "✚",
+      "color": "#d0584a",
+      "desc": "Regain 2 + level/5 HP on every kill.",
+      "levels": [
+        "Regain 2 + level/5 HP on every kill.",
+        "Regain 3 + level/5 HP on every kill.",
+        "Regain 4 + level/5 HP on every kill."
+      ],
+      "vals": [
+        2,
+        3,
+        4
+      ]
     },
-    "dread": {
-      "name": "Endless Dread",
-      "desc": "When a foe wounds you, it risks fleeing in terror — chance equal to the average of your VIT/RES/LCK%.",
-      "icon": "💀",
-      "color": "#e0685a"
+    "merciful": {
+      "name": "Merciful End",
+      "god": "maelon",
+      "kind": "passive",
+      "icon": "🗡",
+      "color": "#d0584a",
+      "desc": "A hit kills outright any foe below your level% of its health.",
+      "levels": [
+        "A hit kills outright any foe below your level% of its health.",
+        "…below 1.25× your level%.",
+        "…below 1.5× your level%."
+      ],
+      "vals": [
+        100,
+        125,
+        150
+      ]
     },
-    "wall": {
-      "name": "Wall of Faith",
-      "desc": "Active — tap a tile to raise a 5-tile wall of stone along the nearest axis, shoving any foe caught in it back a step. Cooldown 150 turns.",
-      "icon": "🧱",
-      "color": "#b491d6"
+    "second_chance": {
+      "name": "Death Refused",
+      "god": "maelon",
+      "kind": "capstone",
+      "icon": "⚱",
+      "color": "#d0584a",
+      "desc": "The first killing blow each run heals you fully instead.",
+      "levels": [
+        "The first killing blow each run heals you fully instead."
+      ],
+      "vals": [
+        1
+      ]
     },
-    "pull": {
-      "name": "Faith's Pull",
-      "desc": "Active — tap a tile to bend a wide 9×9 swath of ground to Kethara's will for 5 turns, pulling every foe within it toward the center. Cooldown 150 turns.",
-      "icon": "🌀",
-      "color": "#b491d6"
-    },
-    "gift": {
-      "name": "Gift of the Faithful",
-      "desc": "Every 10th kill, gain +1 RES.",
-      "icon": "🕊",
-      "color": "#b491d6"
-    },
-    "eye": {
-      "name": "Eye of Kethara",
-      "desc": "Active — tap a foe to fix it in place for 25 turns. Cooldown falls with RES.",
-      "icon": "👁",
-      "color": "#b491d6"
-    },
-    "anger": {
-      "name": "Anger of Kethara",
-      "desc": "Active — tap a foe to send it into a berserk rage, turning it on whatever's nearest. Cooldown falls with RES.",
-      "icon": "😡",
-      "color": "#b491d6"
-    },
-    "foresight": {
-      "name": "Future Sight",
-      "desc": "Every 25th kill, gain +1 to hit OR +1 Evasion — the coin decides. Evasion is a chance to slip a blow that had already landed.",
-      "icon": "🔮",
-      "color": "#9ad0ff"
+    "o_measured": {
+      "name": "Measured Strike",
+      "god": "ourn",
+      "kind": "attack",
+      "icon": "⏱",
+      "color": "#7fb4e8",
+      "desc": "Every 3rd hit in a row on the same foe is a critical.",
+      "levels": [
+        "Every 3rd hit in a row on the same foe is a critical.",
+        "…and +25% critical damage.",
+        "Every 2nd hit in a row on the same foe is a critical."
+      ],
+      "vals": [
+        3,
+        3,
+        2
+      ]
     },
     "rhythm": {
       "name": "Rhythm of the Universe",
-      "desc": "Every skill already on cooldown makes all of them tick faster: cooldowns fall by 1 a turn, plus 1 more for each skill waiting. Two on cooldown is 3 a turn, five is 6 — the more you have spent, the faster it all comes back.",
-      "icon": "♫",
-      "color": "#8fd6e0"
+      "god": "ourn",
+      "kind": "magic",
+      "icon": "🎼",
+      "color": "#7fb4e8",
+      "desc": "Each skill on cooldown makes all of them tick faster (1 + 1 per waiting skill a turn).",
+      "levels": [
+        "Each skill on cooldown makes all of them tick faster (1 + 1 per waiting skill a turn).",
+        "…+1 more a turn.",
+        "…+2 more a turn."
+      ],
+      "vals": [
+        0,
+        1,
+        2
+      ]
     },
-    "timed_blow": {
-      "name": "Perfectly Timed Blow",
-      "desc": "Critical chance rises by 1% for every character level.",
-      "icon": "⏱",
-      "color": "#9ad0ff"
+    "o_stride": {
+      "name": "Stride of Hours",
+      "god": "ourn",
+      "kind": "move",
+      "icon": "👣",
+      "color": "#7fb4e8",
+      "desc": "Each step gives +2% haste, up to 20%. Being hit resets it.",
+      "levels": [
+        "Each step gives +2% haste, up to 20%. Being hit resets it.",
+        "+3% a step, up to 25%.",
+        "+4% a step, up to 30%."
+      ],
+      "vals": [
+        2,
+        3,
+        4
+      ]
     },
-    "dilating": {
-      "name": "Dilating Pupils",
-      "desc": "Every 5th kill, gain +1% Haste, permanently.",
-      "icon": "👀",
-      "color": "#9ad0ff"
+    "o_borrowed": {
+      "name": "Borrowed Time",
+      "god": "ourn",
+      "kind": "struck",
+      "icon": "⌛",
+      "color": "#7fb4e8",
+      "desc": "25% of blows against you are split: half lands now, half 3 turns later.",
+      "levels": [
+        "25% of blows against you are split: half lands now, half 3 turns later.",
+        "30% of blows are split.",
+        "35% of blows are split."
+      ],
+      "vals": [
+        25,
+        30,
+        35
+      ]
     },
-    "pride": {
-      "name": "The Pride Before The Fall",
-      "desc": "At once, +10 to all base stats. But every 15th kill after, -1 to all base stats — with no floor.",
-      "icon": "☄",
-      "color": "#9ad0ff"
+    "o_stopwatch": {
+      "name": "Stopwatch",
+      "god": "ourn",
+      "kind": "door",
+      "icon": "⏸",
+      "color": "#7fb4e8",
+      "desc": "Once a floor, falling below 20% HP stops time for 3 turns.",
+      "levels": [
+        "Once a floor, falling below 20% HP stops time for 3 turns.",
+        "…for 4 turns.",
+        "…for 5 turns."
+      ],
+      "vals": [
+        3,
+        4,
+        5
+      ]
     },
-    "speed_of_light": {
-      "name": "Speed of Light",
-      "desc": "Active — 25 MP for an instant +100% Haste that decays 1%/turn back to baseline. Cooldown 500 turns.",
-      "icon": "⚡",
-      "color": "#9ad0ff"
+    "o_entropy": {
+      "name": "Entropy",
+      "god": "ourn",
+      "kind": "passive",
+      "icon": "❄",
+      "color": "#7fb4e8",
+      "desc": "Your weapon hits Chill the foe (half speed) for 1 turn.",
+      "levels": [
+        "Your weapon hits Chill the foe (half speed) for 1 turn.",
+        "…for 2 turns.",
+        "…for 2 turns, and a Chilled foe takes +10% from you."
+      ],
+      "vals": [
+        1,
+        2,
+        2
+      ]
+    },
+    "o_clockwork": {
+      "name": "Clockwork",
+      "god": "ourn",
+      "kind": "passive",
+      "icon": "⚙",
+      "color": "#7fb4e8",
+      "desc": "Your artifact charges 40% faster.",
+      "levels": [
+        "Your artifact charges 40% faster.",
+        "…60% faster.",
+        "…80% faster."
+      ],
+      "vals": [
+        40,
+        60,
+        80
+      ]
+    },
+    "o_foresight": {
+      "name": "Foresight",
+      "god": "ourn",
+      "kind": "passive",
+      "icon": "👁",
+      "color": "#7fb4e8",
+      "desc": "The first blow aimed at you on each floor always misses.",
+      "levels": [
+        "The first blow aimed at you on each floor always misses.",
+        "The first 2 blows each floor miss.",
+        "The first 3 blows each floor miss."
+      ],
+      "vals": [
+        1,
+        2,
+        3
+      ]
+    },
+    "o_momentum": {
+      "name": "Momentum",
+      "god": "ourn",
+      "kind": "passive",
+      "icon": "💨",
+      "color": "#7fb4e8",
+      "desc": "Each kill gives +30% haste for 3 turns.",
+      "levels": [
+        "Each kill gives +30% haste for 3 turns.",
+        "+40% haste for 3 turns.",
+        "+50% haste for 4 turns."
+      ],
+      "vals": [
+        30,
+        40,
+        50
+      ]
+    },
+    "o_eternal": {
+      "name": "Eternal Moment",
+      "god": "ourn",
+      "kind": "capstone",
+      "icon": "♾",
+      "color": "#7fb4e8",
+      "desc": "While any haste is on you, every attack costs 20% less time.",
+      "levels": [
+        "While any haste is on you, every attack costs 20% less time."
+      ],
+      "vals": [
+        20
+      ]
+    },
+    "l_mouths": {
+      "name": "Unseen Mouths",
+      "god": "label",
+      "kind": "attack",
+      "icon": "👄",
+      "color": "#a080d8",
+      "desc": "20% of your weapon hits drive the foe Mad: it attacks the nearest creature for 3 turns.",
+      "levels": [
+        "20% of your weapon hits drive the foe Mad: it attacks the nearest creature for 3 turns.",
+        "25% of hits.",
+        "30% of hits, for 4 turns."
+      ],
+      "vals": [
+        20,
+        25,
+        30
+      ]
+    },
+    "l_page": {
+      "name": "Whispering Page",
+      "god": "label",
+      "kind": "magic",
+      "icon": "📖",
+      "color": "#a080d8",
+      "desc": "A skill you lack the MP for may be paid in HP instead, at twice the cost.",
+      "levels": [
+        "A skill you lack the MP for may be paid in HP instead, at twice the cost.",
+        "…at 1.5× the cost.",
+        "…at the same cost."
+      ],
+      "vals": [
+        200,
+        150,
+        100
+      ]
+    },
+    "l_geometry": {
+      "name": "Wrong Geometry",
+      "god": "label",
+      "kind": "move",
+      "icon": "🌀",
+      "color": "#a080d8",
+      "desc": "Every 10th step, you slip 2 tiles further ahead — free.",
+      "levels": [
+        "Every 10th step, you slip 2 tiles further ahead — free.",
+        "Every 8th step.",
+        "Every 6th step."
+      ],
+      "vals": [
+        10,
+        8,
+        6
+      ]
+    },
+    "l_gaze": {
+      "name": "Gaze Back",
+      "god": "label",
+      "kind": "struck",
+      "icon": "👁",
+      "color": "#a080d8",
+      "desc": "A foe that hits you has a 30% chance to flee in terror for 3 turns.",
+      "levels": [
+        "A foe that hits you has a 30% chance to flee in terror for 3 turns.",
+        "40% chance.",
+        "50% chance, for 4 turns."
+      ],
+      "vals": [
+        30,
+        40,
+        50
+      ]
+    },
+    "l_door": {
+      "name": "The Door Opens",
+      "god": "label",
+      "kind": "door",
+      "icon": "🐙",
+      "color": "#a080d8",
+      "desc": "Once a floor, falling below 20% HP tears open a door: a tentacle fights beside you for 10 turns.",
+      "levels": [
+        "Once a floor, falling below 20% HP tears open a door: a tentacle fights beside you for 10 turns.",
+        "…for 14 turns.",
+        "…for 18 turns."
+      ],
+      "vals": [
+        10,
+        14,
+        18
+      ]
+    },
+    "l_madones": {
+      "name": "Mad Ones",
+      "god": "label",
+      "kind": "passive",
+      "icon": "🌒",
+      "color": "#a080d8",
+      "desc": "Mad and terrified foes take +25% damage from you.",
+      "levels": [
+        "Mad and terrified foes take +25% damage from you.",
+        "+35%.",
+        "+45%."
+      ],
+      "vals": [
+        25,
+        35,
+        45
+      ]
+    },
+    "l_sight": {
+      "name": "Eldritch Sight",
+      "god": "label",
+      "kind": "passive",
+      "icon": "🔮",
+      "color": "#a080d8",
+      "desc": "You sense monsters through walls within 3 tiles, and what you carry identifies twice as fast.",
+      "levels": [
+        "You sense monsters through walls within 3 tiles, and what you carry identifies twice as fast.",
+        "…within 4 tiles.",
+        "…within 5 tiles."
+      ],
+      "vals": [
+        3,
+        4,
+        5
+      ]
+    },
+    "l_hungry": {
+      "name": "Hungry Stars",
+      "god": "label",
+      "kind": "passive",
+      "icon": "✴",
+      "color": "#a080d8",
+      "desc": "Madness and terror you cause last 1 turn longer for each Label boon you hold.",
+      "levels": [
+        "Madness and terror you cause last 1 turn longer for each Label boon you hold.",
+        "…+1 more.",
+        "2 turns longer per Label boon."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "l_price": {
+      "name": "Price of Knowing",
+      "god": "label",
+      "kind": "passive",
+      "icon": "🗝",
+      "color": "#a080d8",
+      "desc": "+3 to every stat now. On each new floor, -1 to a random stat.",
+      "levels": [
+        "+3 to every stat now. On each new floor, -1 to a random stat.",
+        "+4 now, -1 a floor.",
+        "+5 now, -1 a floor."
+      ],
+      "vals": [
+        3,
+        4,
+        5
+      ]
+    },
+    "l_watches": {
+      "name": "It Watches Back",
+      "god": "label",
+      "kind": "capstone",
+      "icon": "👁‍🗨",
+      "color": "#a080d8",
+      "desc": "Every 25 turns, something from beyond strikes the nearest foe you can see for 20 + depth.",
+      "levels": [
+        "Every 25 turns, something from beyond strikes the nearest foe you can see for 20 + depth."
+      ],
+      "vals": [
+        25
+      ]
+    },
+    "g_honed": {
+      "name": "Honed Edge",
+      "god": "guild",
+      "kind": "attack",
+      "icon": "🔪",
+      "color": "#d0a060",
+      "desc": "Your weapon deals +1 damage for each Guild boon you hold.",
+      "levels": [
+        "Your weapon deals +1 damage for each Guild boon you hold.",
+        "…+1 per boon, +1 more.",
+        "+2 for each Guild boon you hold."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "g_focus": {
+      "name": "Enchanter's Focus",
+      "god": "guild",
+      "kind": "magic",
+      "icon": "✨",
+      "color": "#d0a060",
+      "desc": "For 3 turns after you cast a skill, your weapon's enchantments trigger 50% more often.",
+      "levels": [
+        "For 3 turns after you cast a skill, your weapon's enchantments trigger 50% more often.",
+        "…75% more often.",
+        "…twice as often."
+      ],
+      "vals": [
+        50,
+        75,
+        100
+      ]
+    },
+    "g_lightload": {
+      "name": "Light Load",
+      "god": "guild",
+      "kind": "move",
+      "icon": "🎒",
+      "color": "#d0a060",
+      "desc": "+15% walk haste while your pack holds 15 items or fewer.",
+      "levels": [
+        "+15% walk haste while your pack holds 15 items or fewer.",
+        "+20%.",
+        "+25%."
+      ],
+      "vals": [
+        15,
+        20,
+        25
+      ]
+    },
+    "g_reinforced": {
+      "name": "Reinforced",
+      "god": "guild",
+      "kind": "struck",
+      "icon": "🔩",
+      "color": "#d0a060",
+      "desc": "+2 armour block, and 10% of blows are reflected back at the attacker.",
+      "levels": [
+        "+2 armour block, and 10% of blows are reflected back at the attacker.",
+        "+3 block, 15% reflected.",
+        "+4 block, 20% reflected."
+      ],
+      "vals": [
+        2,
+        3,
+        4
+      ]
+    },
+    "g_kit": {
+      "name": "Emergency Kit",
+      "god": "guild",
+      "kind": "door",
+      "icon": "🧪",
+      "color": "#d0a060",
+      "desc": "Once a floor, falling below 20% HP, you drink a free Potion of Healing.",
+      "levels": [
+        "Once a floor, falling below 20% HP, you drink a free Potion of Healing.",
+        "…and it heals half again as much.",
+        "…and it heals twice as much."
+      ],
+      "vals": [
+        100,
+        150,
+        200
+      ]
+    },
+    "artificer": {
+      "name": "Artificer's Tools",
+      "god": "guild",
+      "kind": "passive",
+      "icon": "⚒",
+      "color": "#d0a060",
+      "desc": "The Guild presses 3–5 Scrolls of Upgrade into your hands at once.",
+      "levels": [
+        "The Guild presses 3–5 Scrolls of Upgrade into your hands at once.",
+        "3–5 more.",
+        "3–5 more."
+      ],
+      "vals": [
+        1,
+        1,
+        1
+      ]
+    },
+    "g_rings": {
+      "name": "Ring Mastery",
+      "god": "guild",
+      "kind": "passive",
+      "icon": "💍",
+      "color": "#d0a060",
+      "desc": "Your rings count as one level higher.",
+      "levels": [
+        "Your rings count as one level higher.",
+        "…one level higher, +1 more.",
+        "…two levels higher."
+      ],
+      "vals": [
+        1,
+        1,
+        2
+      ]
+    },
+    "g_salvager": {
+      "name": "Salvager",
+      "god": "guild",
+      "kind": "passive",
+      "icon": "📦",
+      "color": "#d0a060",
+      "desc": "Crates hold loot 60% of the time, and shop prices are 20% lower.",
+      "levels": [
+        "Crates hold loot 60% of the time, and shop prices are 20% lower.",
+        "70% of the time, 25% lower.",
+        "80% of the time, 30% lower."
+      ],
+      "vals": [
+        20,
+        25,
+        30
+      ]
+    },
+    "refinement": {
+      "name": "Guild's Refinement",
+      "god": "guild",
+      "kind": "passive",
+      "icon": "💎",
+      "color": "#d0a060",
+      "desc": "Doubles the maximum +X a dropped item can roll, and weights the roll toward the high end.",
+      "levels": [
+        "Doubles the maximum +X a dropped item can roll, and weights the roll toward the high end.",
+        "…and a little higher.",
+        "…and higher still."
+      ],
+      "vals": [
+        1,
+        1,
+        1
+      ]
+    },
+    "g_masterwork": {
+      "name": "Masterwork",
+      "god": "guild",
+      "kind": "capstone",
+      "icon": "🏅",
+      "color": "#d0a060",
+      "desc": "At each boss kill, every item you wear gains one more enchantment.",
+      "levels": [
+        "At each boss kill, every item you wear gains one more enchantment."
+      ],
+      "vals": [
+        1
+      ]
     }
   },
   "bosses": {
@@ -4330,27 +5266,36 @@ window.CANTORI_DATA = {
   "gods": {
     "kethara": {
       "name": "Kethara",
-      "domain": "Order & Domination",
+      "domain": "Control & Order",
       "unlock": "start",
       "boons": [
-        "wall",
-        "pull",
-        "gift",
-        "eye",
-        "anger"
+        "k_judgement",
+        "k_edict",
+        "k_procession",
+        "k_rebuke",
+        "k_sanctuary",
+        "k_ironlaw",
+        "k_chains",
+        "k_tithe",
+        "k_discipline",
+        "k_absolute"
       ]
     },
     "maelon": {
       "name": "Maelon",
-      "domain": "Death & Decomposition",
+      "domain": "Death & Renewal",
       "unlock": "town",
       "boons": [
-        "compost",
-        "second_chance",
-        "leper",
-        "merciful",
+        "m_rot",
+        "m_harvest",
+        "m_gravewind",
+        "m_contagion",
+        "m_breath",
+        "m_fester",
+        "m_plague",
         "grace",
-        "dread"
+        "merciful",
+        "second_chance"
       ]
     },
     "ourn": {
@@ -4358,38 +5303,68 @@ window.CANTORI_DATA = {
       "domain": "Time",
       "unlock": "town",
       "boons": [
-        "foresight",
+        "o_measured",
         "rhythm",
-        "timed_blow",
-        "dilating",
-        "pride",
-        "speed_of_light"
+        "o_stride",
+        "o_borrowed",
+        "o_stopwatch",
+        "o_entropy",
+        "o_clockwork",
+        "o_foresight",
+        "o_momentum",
+        "o_eternal"
       ]
     },
     "label": {
       "name": "The Label",
-      "domain": "Conjuration & Tempo",
+      "domain": "Cosmic Horror",
       "unlock": "town",
-      "boons": []
+      "boons": [
+        "l_mouths",
+        "l_page",
+        "l_geometry",
+        "l_gaze",
+        "l_door",
+        "l_madones",
+        "l_sight",
+        "l_hungry",
+        "l_price",
+        "l_watches"
+      ]
     },
     "guild": {
       "name": "The Guild",
-      "domain": "Itemization & Customization",
+      "domain": "Gear",
       "unlock": "town",
       "boons": [
+        "g_honed",
+        "g_focus",
+        "g_lightload",
+        "g_reinforced",
+        "g_kit",
         "artificer",
-        "scribe",
-        "blacksmith",
-        "blessing",
-        "refinement"
+        "g_rings",
+        "g_salvager",
+        "refinement",
+        "g_masterwork"
       ]
     },
     "auvris": {
       "name": "Auvris",
-      "domain": "Nature & Inspiration",
-      "unlock": "sealed",
-      "boons": [],
-      "note": "Sealed — unlocks after beating the game once."
+      "domain": "Chaos & Nature",
+      "unlock": "town",
+      "boons": [
+        "a_thornlash",
+        "a_surge",
+        "a_overgrowth",
+        "a_bramble",
+        "a_lastbloom",
+        "a_greenthumb",
+        "a_fey",
+        "a_chaos",
+        "a_forager",
+        "a_storm"
+      ]
     }
   }
 };

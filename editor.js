@@ -164,13 +164,19 @@
       { f: "toHit", label: "to-hit", type: "num" }, { f: "ac", label: "AC", type: "num" },
       // Which hand-laid floor this boss is fought on. Boss floors are not rolled
       // like ordinary ones — see the "Boss arenas" note in the formula reference.
-      { f: "arena", type: "select", opts: ["", "hall", "ring"] },
+      { f: "arena", type: "select", opts: ["", "hall", "ring", "furnace"] },
     ],
     boons: [
       { f: "__key", label: "key", type: "key" },
       { f: "name", type: "text", cls: "name" },
+      { f: "god", type: "select", opts: ["kethara", "auvris", "maelon", "ourn", "label", "guild"] },
+      { f: "kind", label: "slot / kind", type: "select", opts: ["attack", "magic", "move", "struck", "door", "passive", "capstone"] },
       { f: "icon", type: "text" }, { f: "color", type: "color" },
-      { f: "desc", label: "description", type: "text", cls: "name" },
+      { f: "desc", label: "description (level I)", type: "text", cls: "name" },
+      // One number per level — the value the code reads for that boon at I / II / III.
+      { f: "vals", label: "values I,II,III", type: "csv" },
+      // The card text for each level, separated by " | ".
+      { f: "levels", label: "level texts (I | II | III)", type: "plist", cls: "name" },
     ],
   };
   // Blank templates when adding a row.
@@ -345,6 +351,9 @@
     if (type === "bool") { if (checked) obj[f] = true; else delete obj[f]; return; }
     if (type === "num") { if (raw === "") delete obj[f]; else obj[f] = Number(raw); return; }
     if (type === "select") { if (raw === "") delete obj[f]; else obj[f] = raw; return; }
+    // Lists in one cell: numbers comma-separated, texts " | "-separated.
+    if (type === "csv") { if (raw.trim() === "") delete obj[f]; else obj[f] = raw.split(",").map((t) => Number(t.trim())); return; }
+    if (type === "plist") { if (raw.trim() === "") delete obj[f]; else obj[f] = raw.split("|").map((t) => t.trim()); return; }
     obj[f] = raw;   // text / color
   }
 
@@ -543,6 +552,13 @@
     if (col.type === "bool") {
       const inp = document.createElement("input"); inp.type = "checkbox"; inp.checked = !!row.obj[col.f];
       inp.onchange = () => setField(row.obj, col.f, "bool", "", inp.checked);
+      return inp;
+    }
+    if (col.type === "csv" || col.type === "plist") {
+      const v = getField(row.obj, col.f);
+      const inp = document.createElement("input"); inp.type = "text"; if (col.cls) inp.className = col.cls;
+      inp.value = Array.isArray(v) ? v.join(col.type === "csv" ? ", " : " | ") : (v || "");
+      inp.oninput = () => setField(row.obj, col.f, col.type, inp.value);
       return inp;
     }
     if (col.type === "select") {

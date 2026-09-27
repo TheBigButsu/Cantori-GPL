@@ -4068,3 +4068,14 @@ a climb of ~145 rows — the slack is what you spend on fights and closets. More
 monsters (16–22 to start, reinforcements every 30 turns up to 26) make it the
 damage-or-survive check it is meant to be. The Djinn's furnace keeps its
 west-to-east fire; the blaze now runs along either axis.
+
+## Boons rebuilt, Hades-style — DONE
+
+Sixty boons, ten per god: Kethara (control, **Bound**), Auvris (chaos/nature,
+**Wild**), Maelon (death/renewal, **Rot**), Ourn (time, **Haste/Chill**), the
+Label (cosmic horror, **Madness**), the Guild (gear). Offers show three gods;
+a god you take a boon from is sworn and appears in every later offer. Five slot
+boons (Attack, Magic, Move, Struck, Death's Door below 20%) — one per slot,
+replaced by the next; passives once you hold one of a god's boons, a capstone
+at three; three levels each. The old stat drips and loot tweaks are cut;
+Kethara's four activated boons move to Chadwick's tree. Canon: `docs/BOONS.md`.
