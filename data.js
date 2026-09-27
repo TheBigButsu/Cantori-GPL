@@ -3651,183 +3651,18 @@ window.CANTORI_DATA = {
       "blurb": "Human knight of the church. Will Smite in the name of Kethara.",
       "skillTree": [
         {
-          "id": "rush",
-          "x": 0,
-          "y": 0,
-          "name": "Rush",
-          "icon": "➤",
-          "kind": "rush",
-          "desc": "Move directly until collision. Deals damage to whatever you hit — the enemy, or yourself against a wall.",
-          "levels": [
-            "+0 damage, 100 turn cooldown",
-            "+3 damage",
-            "+5 damage, 50 turn cooldown",
-            "can stun enemies 50% of the time"
-          ],
-          "ranks": [
-            {
-              "dmg": 0,
-              "cd": 100
-            },
-            {
-              "dmg": 3,
-              "cd": 100
-            },
-            {
-              "dmg": 5,
-              "cd": 50
-            },
-            {
-              "dmg": 5,
-              "cd": 50,
-              "stun": 0.5
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "spin",
-          "x": 1,
-          "y": 0,
-          "name": "Spin",
-          "icon": "↻",
-          "kind": "spin",
-          "desc": "Become a blender — strike every monster around you.",
-          "levels": [
-            "hit all adjacent foes, 80 turn cooldown",
-            "+1 damage",
-            "+1 damage, range 2 (hits within 2 tiles)",
-            "free action — doesn't advance the turn clock"
-          ],
-          "ranks": [
-            {
-              "dmg": 0,
-              "cd": 80,
-              "range": 1
-            },
-            {
-              "dmg": 1,
-              "cd": 80,
-              "range": 1
-            },
-            {
-              "dmg": 1,
-              "cd": 80,
-              "range": 2
-            },
-            {
-              "dmg": 1,
-              "cd": 80,
-              "range": 2,
-              "freeAction": true
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "retribution",
-          "x": 3,
-          "y": 0,
-          "name": "Retribution",
-          "icon": "✵",
-          "kind": "retribution",
-          "when": null,
-          "desc": "Brace, at the cost of 5 health, and let them break themselves on you. Every blow that lands is reflected back at whatever threw it, for 50 turns. Cooldown 100 turns.",
-          "levels": [
-            "Reflects half of every blow that lands on you, for 50 turns.",
-            "Reflects the full blow.",
-            "Reflects twice the blow, and runs your regeneration at double for the same 50 turns.",
-            "Reflects three times the blow, and regeneration at five times. (requires character level 10)"
-          ],
-          "ranks": [
-            {
-              "cd": 100,
-              "hp": 5,
-              "turns": 50,
-              "thorns": 0.5,
-              "regenMult": 1
-            },
-            {
-              "cd": 100,
-              "hp": 5,
-              "turns": 50,
-              "thorns": 1,
-              "regenMult": 1
-            },
-            {
-              "cd": 100,
-              "hp": 5,
-              "turns": 50,
-              "thorns": 2,
-              "regenMult": 2
-            },
-            {
-              "cd": 100,
-              "hp": 5,
-              "turns": 50,
-              "thorns": 3,
-              "regenMult": 5,
-              "minLevel": 10
-            }
-          ],
-          "req": []
-        },
-        {
-          "id": "sword_master",
-          "x": 2,
-          "y": 0,
-          "name": "Melee Master",
-          "icon": "⚔",
-          "kind": "passive",
-          "when": "dagger,sword,axe",
-          "desc": "Every blade and every haft, not one of them. Applies while you are holding a dagger, a sword or an axe — so picking up the better weapon is never punished for being the wrong shape.",
-          "levels": [
-            "+1 to hit with a dagger, sword or axe",
-            "+2 to hit",
-            "+2 to hit and +1 max damage",
-            "+3 to hit, +1 min and max damage — and a blue sword of your own"
-          ],
-          "ranks": [
-            {
-              "acc": 1
-            },
-            {
-              "acc": 2
-            },
-            {
-              "acc": 2,
-              "dmgMax": 1,
-              "minLevel": 7
-            },
-            {
-              "acc": 3,
-              "dmgMin": 1,
-              "dmgMax": 1,
-              "minLevel": 10,
-              "grantGear": {
-                "cat": "weapon",
-                "sub": "sword",
-                "rarity": "blue",
-                "tierMin": 2,
-                "tierMax": 5
-              }
-            }
-          ],
-          "req": []
-        },
-        {
           "id": "smite",
           "x": 0,
-          "y": 1,
+          "y": 0,
           "name": "Smite",
           "icon": "💥",
           "kind": "smite",
-          "when": null,
-          "desc": "A single devastating blow, empowered by your Strength. Tap a foe within range. Cooldown 100 turns, 5 MP.",
+          "branch": "core",
+          "bt": 0,
+          "desc": "A single devastating blow, empowered by your Strength. Tap a foe within range. 5 MP, 100-turn cooldown.",
           "levels": [
             "Weapon damage + STR damage.",
             "Weapon damage + STR×1.5 damage.",
-            "Weapon damage + STR×2 damage.",
             "Weapon damage + STR×2 damage, +1 range."
           ],
           "ranks": [
@@ -3838,9 +3673,6 @@ window.CANTORI_DATA = {
               "strMult": 1.5
             },
             {
-              "strMult": 2
-            },
-            {
               "strMult": 2,
               "range": 2
             }
@@ -3848,162 +3680,131 @@ window.CANTORI_DATA = {
           "req": []
         },
         {
-          "id": "raging_smite",
-          "x": 0,
-          "y": 2,
-          "name": "Raging Smite",
-          "icon": "🔥",
-          "desc": "A Smite that drives the target into a berserk rage. 100 turn cooldown, 5 MP.",
+          "id": "sword_master",
+          "x": 1,
+          "y": 0,
+          "name": "Melee Master",
+          "icon": "⚔",
+          "kind": "passive",
+          "branch": "core",
+          "bt": 0,
+          "desc": "Every blade and every haft: while you hold a dagger, a sword or an axe.",
           "levels": [
-            "Deals Smite damage plus half your character level, and sends the target berserk.",
-            "Cooldown 90.",
-            "Also grants temporary STR and VIT equal to your character level, decaying by 1 every (character level) turns until the bonus is spent.",
-            "A kill during the rage delays that decay by (character level) turns."
+            "+1 to hit.",
+            "+2 to hit and +1 max damage.",
+            "+3 to hit, +1 min and max damage — and a blue sword of your own."
           ],
-          "req": [
-            [
-              "smite",
-              1
-            ]
-          ],
-          "kind": "ragesmite",
           "ranks": [
             {
-              "cd": 100
+              "acc": 1
             },
             {
-              "cd": 90
+              "acc": 2,
+              "dmgMax": 1
             },
             {
-              "cd": 90,
-              "rageStats": true
-            },
-            {
-              "cd": 90,
-              "rageStats": true,
-              "killDelay": true
+              "acc": 3,
+              "dmgMin": 1,
+              "dmgMax": 1,
+              "grantGear": {
+                "cat": "weapon",
+                "sub": "sword",
+                "rarity": "blue",
+                "tierMin": 2,
+                "tierMax": 5
+              }
             }
-          ]
+          ],
+          "req": [],
+          "when": "dagger,sword,axe"
         },
         {
-          "id": "healing_smite",
-          "x": 1,
-          "y": 2,
-          "name": "Healing Smite",
-          "icon": "✚",
-          "desc": "A Smite that returns what it deals. 100 turn cooldown, 5 MP.",
+          "id": "raise_shield",
+          "x": 0,
+          "y": 1,
+          "name": "Raise Shield",
+          "icon": "🛡",
+          "kind": "retribution",
+          "branch": "bulwark",
+          "bt": 1,
+          "desc": "Set your shield and let them break on it: for a few turns every blow that reaches you is halved, and part of it goes back at whoever threw it.",
           "levels": [
-            "Deals Smite damage and heals you for the same amount.",
-            "Cooldown 90.",
-            "Cooldown 80.",
-            "Cooldown 70, and healing beyond your maximum becomes a shield."
+            "4 turns: blows halved, 30% reflected. 80-turn cooldown.",
+            "5 turns: halved, 40% reflected. 70-turn cooldown.",
+            "6 turns: halved, 50% reflected. 60-turn cooldown."
           ],
-          "req": [
-            [
-              "smite",
-              1
-            ]
-          ],
-          "kind": "healsmite",
           "ranks": [
             {
-              "cd": 100
-            },
-            {
-              "cd": 90
-            },
-            {
-              "cd": 80
+              "cd": 80,
+              "hp": 0,
+              "turns": 4,
+              "thorns": 0.3,
+              "halve": true
             },
             {
               "cd": 70,
-              "shield": true
+              "hp": 0,
+              "turns": 5,
+              "thorns": 0.4,
+              "halve": true
+            },
+            {
+              "cd": 60,
+              "hp": 0,
+              "turns": 6,
+              "thorns": 0.5,
+              "halve": true
             }
-          ]
+          ],
+          "req": []
         },
         {
-          "id": "spinning_smite",
-          "x": 2,
+          "id": "stalwart",
+          "x": 0,
           "y": 2,
-          "name": "Spinning Smite",
-          "icon": "🌀",
-          "desc": "Spin and Smite as one blow. 100 turn cooldown, 5 MP.",
+          "name": "Stalwart",
+          "icon": "🏰",
+          "kind": "passive",
+          "branch": "bulwark",
+          "bt": 2,
+          "desc": "Planted. Your armour blocks more the heavier it is, and nothing drags you off your feet — no chain, no shove.",
           "levels": [
-            "Strikes everything within 2 tiles for Smite damage.",
-            "Reaches 3 tiles.",
-            "Reaches 3 tiles, cooldown 90.",
-            "Reaches 4 tiles, cooldown 90, and every kill takes a further 10 turns off the cooldown."
+            "+1 armour block per tier of your armour; you cannot be pulled or knocked back.",
+            "+2 block per armour tier.",
+            "+3 block per armour tier."
           ],
-          "req": [
-            [
-              "smite",
-              "max"
-            ],
-            [
-              "spin",
-              "max"
-            ]
-          ],
-          "kind": "spinsmite",
           "ranks": [
             {
-              "range": 2,
-              "cd": 100
+              "blockPerTier": 1,
+              "steadfast": 1
             },
             {
-              "range": 3,
-              "cd": 100
+              "blockPerTier": 2,
+              "steadfast": 1
             },
             {
-              "range": 3,
-              "cd": 90
-            },
-            {
-              "range": 4,
-              "cd": 90,
-              "killCd": 10
+              "blockPerTier": 3,
+              "steadfast": 1
             }
-          ]
-        },
-        {
-          "id": "ketharas_will",
-          "x": 0,
-          "y": 3,
-          "name": "Kethara's Will",
-          "icon": "🛡",
-          "kind": "passive",
-          "desc": "An aura of Kethara's protection, covering you and anything fighting alongside you.",
-          "levels": [
-            "Allies and summons within 1 tile take 5% less damage.",
-            "Within 2 tiles, 10% less.",
-            "Within 3 tiles, 15% less.",
-            "Within 4 tiles, 20% less."
           ],
-          "req": [],
-          "reqPoints": 12
+          "req": []
         },
         {
           "id": "lay_on_hands",
-          "x": 1,
+          "x": 0,
           "y": 3,
           "name": "Lay on Hands",
-          "icon": "🙌",
-          "desc": "Mend yourself. Overhealing is not wasted — it shortens the wait. 200 turn cooldown, 15 MP.",
-          "levels": [
-            "Heals you for your VIT. Every point of healing beyond your maximum cuts 1 turn off the cooldown.",
-            "Heals for VIT + STR.",
-            "Heals for VIT + STR + your character level.",
-            "Heals for (VIT + STR) + twice your character level."
-          ],
-          "req": [],
-          "minLevel": 15,
+          "icon": "✚",
           "kind": "selfheal",
+          "branch": "bulwark",
+          "bt": 3,
+          "desc": "Mend yourself. Healing beyond your maximum is not wasted — it shortens the wait.",
+          "levels": [
+            "Heals for VIT + STR. 15 MP, 200-turn cooldown.",
+            "Heals for VIT + STR + your level.",
+            "Heals for VIT + STR + twice your level."
+          ],
           "ranks": [
-            {
-              "cd": 200,
-              "mp": 15,
-              "vit": 1
-            },
             {
               "cd": 200,
               "mp": 15,
@@ -4024,7 +3825,325 @@ window.CANTORI_DATA = {
               "str": 1,
               "lvl": 2
             }
-          ]
+          ],
+          "req": []
+        },
+        {
+          "id": "unbreakable",
+          "x": 0,
+          "y": 4,
+          "name": "Unbreakable",
+          "icon": "🗿",
+          "kind": "passive",
+          "branch": "bulwark",
+          "bt": 4,
+          "desc": "Below 20% health, every blow that reaches you is halved again.",
+          "levels": [
+            "Below 20% HP, damage taken is halved."
+          ],
+          "ranks": [
+            {
+              "lowHpHalve": 1
+            }
+          ],
+          "req": [],
+          "cap": "bulwark_cap"
+        },
+        {
+          "id": "aegis",
+          "x": 1,
+          "y": 4,
+          "name": "Aegis",
+          "icon": "🔰",
+          "kind": "passive",
+          "branch": "bulwark",
+          "bt": 4,
+          "desc": "A quarter of the blows that reach you are turned wholly back on whoever threw them.",
+          "levels": [
+            "25% of blows: you take nothing and the attacker takes the hit."
+          ],
+          "ranks": [
+            {
+              "aegisPct": 25
+            }
+          ],
+          "req": [],
+          "cap": "bulwark_cap"
+        },
+        {
+          "id": "radiant_smite",
+          "x": 2,
+          "y": 1,
+          "name": "Radiant Smite",
+          "icon": "🌟",
+          "kind": "passive",
+          "branch": "zealot",
+          "bt": 1,
+          "desc": "Your Smite breaks like a sunrise: every foe beside the target takes a share of the blow.",
+          "levels": [
+            "Foes beside the target take 35% of the Smite.",
+            "50%.",
+            "75%."
+          ],
+          "ranks": [
+            {
+              "smiteSplash": 0.35
+            },
+            {
+              "smiteSplash": 0.5
+            },
+            {
+              "smiteSplash": 0.75
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "healing_smite",
+          "x": 2,
+          "y": 2,
+          "name": "Healing Smite",
+          "icon": "💖",
+          "kind": "healsmite",
+          "branch": "zealot",
+          "bt": 2,
+          "desc": "A Smite that returns what it deals.",
+          "levels": [
+            "Deals Smite damage and heals you as much. 90-turn cooldown.",
+            "80-turn cooldown.",
+            "70-turn cooldown, and healing past your maximum becomes a shield."
+          ],
+          "ranks": [
+            {
+              "cd": 90
+            },
+            {
+              "cd": 80
+            },
+            {
+              "cd": 70,
+              "shield": true
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "zeal",
+          "x": 2,
+          "y": 3,
+          "name": "Zeal",
+          "icon": "🔥",
+          "kind": "passive",
+          "branch": "zealot",
+          "bt": 3,
+          "desc": "Every blow you land brings the next Smite closer.",
+          "levels": [
+            "Each weapon hit takes 3 turns off Smite's cooldown.",
+            "5 turns.",
+            "8 turns."
+          ],
+          "ranks": [
+            {
+              "zeal": 3
+            },
+            {
+              "zeal": 5
+            },
+            {
+              "zeal": 8
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "divine_wrath",
+          "x": 2,
+          "y": 4,
+          "name": "Divine Wrath",
+          "icon": "⚡",
+          "kind": "passive",
+          "branch": "zealot",
+          "bt": 4,
+          "desc": "Every sixth blow you land is a Smite, free.",
+          "levels": [
+            "Every 6th weapon hit also Smites the target, at no cost."
+          ],
+          "ranks": [
+            {
+              "wrathEvery": 6
+            }
+          ],
+          "req": [],
+          "cap": "zealot_cap"
+        },
+        {
+          "id": "crusader",
+          "x": 3,
+          "y": 4,
+          "name": "Crusader",
+          "icon": "✝",
+          "kind": "passive",
+          "branch": "zealot",
+          "bt": 4,
+          "desc": "A Smite that kills is ready again at once.",
+          "levels": [
+            "A killing Smite resets its cooldown."
+          ],
+          "ranks": [
+            {
+              "crusader": 1
+            }
+          ],
+          "req": [],
+          "cap": "zealot_cap"
+        },
+        {
+          "id": "rush",
+          "x": 4,
+          "y": 1,
+          "name": "Rush",
+          "icon": "🐂",
+          "kind": "rush",
+          "branch": "oath",
+          "bt": 1,
+          "desc": "Charge in a line until you hit something. The foe you hit is Bound — stunned — for a turn.",
+          "levels": [
+            "Charge; the foe you hit is Bound. 80-turn cooldown.",
+            "+3 damage, 70-turn cooldown.",
+            "+5 damage, 50-turn cooldown."
+          ],
+          "ranks": [
+            {
+              "dmg": 0,
+              "cd": 80,
+              "stun": 1
+            },
+            {
+              "dmg": 3,
+              "cd": 70,
+              "stun": 1
+            },
+            {
+              "dmg": 5,
+              "cd": 50,
+              "stun": 1
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "eye_of_kethara",
+          "x": 4,
+          "y": 2,
+          "name": "Eye of Kethara",
+          "icon": "👁",
+          "kind": "eyecast",
+          "branch": "oath",
+          "bt": 2,
+          "desc": "Tap a foe: Kethara's eye fixes it in place. Cooldown falls with RES.",
+          "levels": [
+            "Held for 10 turns.",
+            "Held for 15 turns.",
+            "Held for 25 turns."
+          ],
+          "ranks": [
+            {
+              "turns": 10
+            },
+            {
+              "turns": 15
+            },
+            {
+              "turns": 25
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "wall_of_faith",
+          "x": 4,
+          "y": 3,
+          "name": "Wall of Faith",
+          "icon": "🧱",
+          "kind": "wallcast",
+          "branch": "oath",
+          "bt": 3,
+          "desc": "Tap a tile: a wall of stone rises across it, shoving any foe in the way back a step. 150-turn cooldown.",
+          "levels": [
+            "A 3-tile wall.",
+            "A 5-tile wall.",
+            "A 7-tile wall."
+          ],
+          "ranks": [
+            {
+              "len": 3
+            },
+            {
+              "len": 5
+            },
+            {
+              "len": 7
+            }
+          ],
+          "req": []
+        },
+        {
+          "id": "chains_of_faith",
+          "x": 4,
+          "y": 4,
+          "name": "Chains of Faith",
+          "icon": "⛓",
+          "kind": "passive",
+          "branch": "oath",
+          "bt": 4,
+          "desc": "Your Smite binds what it does not kill.",
+          "levels": [
+            "A Smite Binds its target for 2 turns."
+          ],
+          "ranks": [
+            {
+              "smiteBind": 2
+            }
+          ],
+          "req": [],
+          "cap": "oath_cap"
+        },
+        {
+          "id": "anger_of_kethara",
+          "x": 5,
+          "y": 4,
+          "name": "Anger of Kethara",
+          "icon": "😡",
+          "kind": "angercast",
+          "branch": "oath",
+          "bt": 4,
+          "desc": "Tap a foe: Kethara's anger turns it on everything around it for 10 turns.",
+          "levels": [
+            "Send a foe berserk for 10 turns. Cooldown falls with RES."
+          ],
+          "ranks": [
+            {}
+          ],
+          "req": [],
+          "cap": "oath_cap"
+        }
+      ],
+      "branches": [
+        {
+          "id": "bulwark",
+          "name": "Bulwark",
+          "icon": "🛡"
+        },
+        {
+          "id": "zealot",
+          "name": "Zealot",
+          "icon": "💥"
+        },
+        {
+          "id": "oath",
+          "name": "Oath of Kethara",
+          "icon": "⚖",
+          "god": "kethara"
         }
       ]
     },

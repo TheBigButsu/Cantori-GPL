@@ -823,3 +823,19 @@ body{
 .spd-lv b{display:inline-block;width:26px;color:#d0b070}
 .spd-lv.cur{color:var(--ink)}
 .spd-lv.next{color:#f0e0b0}
+/* Branch trees: core on top, three columns of branches, capstone pairs side by side */
+.skcore{margin-bottom:10px}
+.skbranches{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.skbranch{border:1px solid var(--line);border-radius:8px;padding:6px 4px;background:rgba(255,255,255,.02);min-width:0}
+.skbranch.god{border-color:#6a5626;background:rgba(240,193,75,.04)}
+.skbr-h{display:flex;flex-direction:column;align-items:center;margin-bottom:4px;font-size:11px;text-align:center}
+.skbr-h span{color:var(--ink-dim);font-size:10px}
+.skbranch .skcell{width:100%}
+.skgate{font-size:9px;color:var(--ink-dim);text-align:center;margin:3px 0 1px;letter-spacing:.05em}
+.skcaps{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.skcaps .skcell .sknm{font-size:9px}
+.skcell.st-barred{opacity:.3;filter:grayscale(1)}
+.skbranch .skcell{padding:5px 2px;min-height:0}
+.skbranch .skico{font-size:20px}
+.skbranch .sknm{font-size:10.5px;line-height:1.2}
+.skcore .skcell{min-height:0}

@@ -1058,14 +1058,16 @@
   const lvlMitMax = () => Math.max(0, player.lvlMitMax || 0);
   const armorDef = () => (player.armor ? gDef(player.armor) : 0) + armorFlat() + stoneSkinHi() + lvlMitMax();          // top-end block (display/peek)
   const armorDefMin = () => (player.armor ? gDefMin(player.armor) : 0) + armorFlat() + stoneSkinLo();
-  const armorDefMax = () => (player.armor ? gDefMax(player.armor) : 0) + armorFlat() + stoneSkinHi() + lvlMitMax();
+  // Stalwart: extra block for every tier of the armour you are wearing.
+  const stalwartBlock = () => (player.armor ? passiveMod("blockPerTier") * ((GEAR[player.armor.key] && GEAR[player.armor.key].tier) || 1) : 0);
+  const armorDefMax = () => (player.armor ? gDefMax(player.armor) : 0) + armorFlat() + stoneSkinHi() + lvlMitMax() + stalwartBlock();
   // The actual mitigation applied on a hit: roll a fresh block within the range.
   // One roll across the widened range, not armour plus a separate d(level) — two
   // rolls would centre the result instead of reaching the new ceiling.
   const armorBlock = () => {
     const lo = player.armor ? Math.min(gDefMin(player.armor), gDefMax(player.armor)) : 0;
     const hi = (player.armor ? Math.max(gDefMin(player.armor), gDefMax(player.armor)) : 0) + lvlMitMax();
-    return randInt(lo, hi) + armorFlat() + stoneSkinRoll();
+    return randInt(lo, hi) + armorFlat() + stoneSkinRoll() + stalwartBlock();
   };
   // Weapon combat numbers (unarmed falls back to the base 2–3 fists, boosted by
   // Brynn's Unarmed Master passive when no weapon is equipped).
@@ -5334,6 +5336,7 @@
         target.hp = 0; floatText(target.x, target.y, "EXECUTED", "#e0685a");
       }
       if (target.hp > 0) boonOnWeaponHit(target);
+      treeOnWeaponHit(target);
       if (target.hp <= 0) {
         killMonster(target, "dies");
       } else {
@@ -5357,6 +5360,7 @@
       // against any real armour, which made its signature move read as a whiff.
       dmg += bonus;
       dmg = boonBeforeStruck(attacker, dmg);
+      if (dmg > 0) dmg = treeBeforeStruck(attacker, dmg);
       if (dmg <= 0) return;
       // Healing Smite's overflow becomes a shield: it eats damage before your HP
       // does, and is spent doing it.
@@ -6963,6 +6967,7 @@
   // where you land. Refused over a chasm lip or with nowhere to put you.
   function chainPull(m) {
     if (!lineOfSight(m.x, m.y, player.x, player.y)) return false;
+    if (passiveMod("steadfast") > 0) { m.chainsUsed = true; floatText(player.x, player.y, "steadfast", "#e8c060"); log("The " + monName(m) + "'s chain finds you planted — you do not move.", "hit"); return true; }
     const path = lineCells(m.x, m.y, player.x, player.y);
     if (!path.length || (inBounds(path[0][0], path[0][1]) && map[path[0][1]][path[0][0]] === CHASM)) return false;
     let at = null;
@@ -10186,9 +10191,10 @@
         kind: n.kind || "passive", when: n.when || null,
         max: n.ranks.length, ranks: n.ranks, levels: n.levels || [],
         req: n.req || [], reqAny: n.reqAny || [], reqPoints: n.reqPoints || 0, innate: !!n.innate,
-        // The tier gate always applies; an authored minLevel can only ask for MORE,
-        // never less — a node cannot buy its way out of the row it sits in.
-        minLevel: Math.max(n.minLevel || 0, tierLevel(n.y || 0)),
+        // A branch tree (n.branch set) is gated by points spent in the branch, not
+        // by character level; the old tier gate stays for any tree without branches.
+        branch: n.branch || null, bt: n.bt || 0, cap: n.cap || null,
+        minLevel: n.branch ? (n.minLevel || 0) : Math.max(n.minLevel || 0, tierLevel(n.y || 0)),
         tier: (n.y || 0) + 1, pos: { x: n.x, y: n.y },
       };
     }
@@ -10348,7 +10354,29 @@
     return sk[id] ? sk[id].max : 1;
   }
   const refMet = ([id, minRank]) => { const st = player.skills[id]; return !!(st && st.rank >= reqRank(id, minRank)); };
-  function prereqsMet(d) {
+  // ---- Branch trees ----
+  // Each hero's tree is a core plus three branches. A branch node opens once you
+  // have put enough points into that branch — 2 for its second node, 5 for the
+  // third, 9 for the capstone — so a run's forty-odd points fill about two
+  // branches, and which two is the build. A capstone comes as a pair (`cap`):
+  // take one and its partner is shut for the run.
+  const BRANCH_GATE = [0, 0, 2, 5, 9];
+  function branchPoints(b) {
+    let n = 0; const sk = classSkills();
+    for (const k in sk) if (sk[k].branch === b && player.skills[k]) n += player.skills[k].rank || 0;
+    return n;
+  }
+  function capTaken(d, selfKey) {
+    if (!d.cap) return null;
+    const sk = classSkills();
+    for (const k in sk) if (k !== selfKey && sk[k].cap === d.cap && player.skills[k] && player.skills[k].rank > 0) return k;
+    return null;
+  }
+  function prereqsMet(d, key) {
+    if (d.branch && d.branch !== "core") {
+      if (branchPoints(d.branch) < (BRANCH_GATE[d.bt] || 0)) return false;
+      if (capTaken(d, key || keyOfSkill(d))) return false;
+    }
     if (d.reqPoints && skillPointsSpent() < d.reqPoints) return false;   // a deep-tree gate, not a named prerequisite
     if (d.minLevel && player.level < d.minLevel) return false;           // a node the character grows into, not one they earn
     const req = d.req || [];
@@ -10357,6 +10385,7 @@
     if (reqAny.length) return reqAny.some(refMet);
     return true;
   }
+  const keyOfSkill = (d) => { const sk = classSkills(); for (const k in sk) if (sk[k] === d) return k; return null; };
   function prereqNames(d) {
     const sk = classSkills();
     // A lock has to say what would open it — "Spin" and "Spin, maxed" are very
@@ -10421,7 +10450,11 @@
     const d = skillDef(key), st = player.skills[key];
     if (!d || !st || st.rank >= d.max || player.statPoints <= 0) return;
     if (!ownSkill(key)) { log(d.name + " is not yours to train — it comes from what you are wearing.", ""); return; }
-    if (!prereqsMet(d)) { log("Requires " + (prereqNames(d).join(", ") || "a prerequisite") + " first.", ""); return; }
+    if (!prereqsMet(d, key)) {
+      if (d.branch && capTaken(d, key)) { log("You already chose " + classSkills()[capTaken(d, key)].name + " — a capstone pair allows one.", ""); return; }
+      if (d.branch && branchPoints(d.branch) < (BRANCH_GATE[d.bt] || 0)) { log("Put " + BRANCH_GATE[d.bt] + " points into this branch first (" + branchPoints(d.branch) + " so far).", ""); return; }
+      log("Requires " + (prereqNames(d).join(", ") || "a prerequisite") + " first.", ""); return;
+    }
     const nextDef = d.ranks[st.rank];
     if (nextDef && nextDef.minLevel && player.level < nextDef.minLevel) { log("Requires character level " + nextDef.minLevel + " first.", ""); return; }
     player.statPoints--; st.rank++;
@@ -10501,6 +10534,59 @@
     return target;
   }
 
+  // Weapon-hit riders from the trees: Zeal shortens Smite's wait; Divine Wrath
+  // turns every Nth hit into a free Smite (guarded, since that Smite is a hit too).
+  let wrathBusy = false;
+  // Chadwick's defences, applied to a blow before it reaches your HP: the raised
+  // shield halves it, Unbreakable halves it again below 20%, and Aegis may turn
+  // the whole of it back on the attacker.
+  function treeBeforeStruck(attacker, dmg) {
+    if (player.retribution && player.retribution.turns > 0 && player.retribution.halve) dmg = Math.ceil(dmg / 2);
+    if (passiveMod("lowHpHalve") && player.hp < player.maxHp * 0.2) dmg = Math.ceil(dmg / 2);
+    const aegis = passiveMod("aegisPct");
+    if (aegis > 0 && attacker && attacker.hp > 0 && Math.random() * 100 < aegis) {
+      attacker.hp -= dmg; flash(attacker); floatText(attacker.x, attacker.y, "🔰-" + dmg, "#e8c060");
+      floatText(player.x, player.y, "AEGIS", "#e8c060");
+      if (attacker.hp <= 0) killMonster(attacker, "is broken on your shield");
+      return 0;
+    }
+    return dmg;
+  }
+  function treeOnWeaponHit(target) {
+    const zeal = passiveMod("zeal");
+    if (zeal > 0 && player.skills.smite && player.skills.smite.cd > 0) player.skills.smite.cd = Math.max(0, player.skills.smite.cd - zeal);
+    const every = passiveMod("wrathEvery");
+    if (every > 0 && !wrathBusy && target.hp > 0 && skillRank("smite") > 0) {
+      player.wrathCount = (player.wrathCount || 0) + 1;
+      if (player.wrathCount % every === 0) {
+        wrathBusy = true;
+        floatText(target.x, target.y, "WRATH", "#f0d060");
+        log("Divine Wrath — Kethara smites through your blade!", "hit");
+        const b = smiteBonus();
+        attack(player, target, b);
+        if (target.hp > 0 || monsters.includes(target)) smiteRiders(null, target, b);
+        wrathBusy = false;
+      }
+    }
+  }
+  // What Chadwick's tree adds to every Smite: Radiant Smite's splash on the foes
+  // beside the target, Chains of Faith's Bind on a survivor, and Crusader's reset
+  // on a kill (the plain Smite's own cooldown only).
+  function smiteRiders(key, target, bonus) {
+    const splash = passiveMod("smiteSplash");
+    if (splash > 0) {
+      const d = Math.max(1, Math.round((weaponDmgMin() + weaponDmgMax()) / 2 * splash + bonus * splash));
+      for (const m of monsters.slice()) {
+        if (m === target || m.hp <= 0 || m.dominated || cheb(m.x, m.y, target.x, target.y) !== 1) continue;
+        m.hp -= d; flash(m); floatText(m.x, m.y, "✺-" + d, "#f0d060");
+        if (m.hp <= 0) killMonster(m, "is burned away by the light");
+      }
+    }
+    const bind = passiveMod("smiteBind");
+    if (bind > 0 && target.hp > 0) bindMon(target, bind);
+    if (key && passiveMod("crusader") && target.hp <= 0 && player.skills[key]) { player.skills[key].cd = 0; floatText(player.x, player.y, "✝", "#f0d060"); log("Crusader — the Smite is ready again.", "hit"); }
+  }
+
   // Raging Smite: Smite's blow plus half your level, and the target goes berserk —
   // it turns on whatever is nearest, which on a crowded floor is not you.
   function executeRagingSmite(key, tx, ty) {
@@ -10538,6 +10624,7 @@
     log("You call down a Healing Smite!", "hit");
     const before = target.hp;
     attack(player, target, smiteBonus());
+    smiteRiders(null, target, smiteBonus());
     const dealt = Math.max(0, before - target.hp);
     if (dealt > 0) {
       const room = Math.max(0, player.maxHp - player.hp);
@@ -10664,7 +10751,8 @@
     const dx = tx - player.x, dy = ty - player.y;
     const horiz = Math.abs(dx) >= Math.abs(dy);
     let built = 0;
-    for (let i = -2; i <= 2; i++) {
+    const half = Math.floor((((skillCur(key) && skillCur(key).len) || 5) - 1) / 2);
+    for (let i = -half; i <= half; i++) {
       const x = horiz ? tx + i : tx, y = horiz ? ty : ty + i;
       if (!inBounds(x, y) || map[y][x] !== FLOOR) continue;
       const m = monsterAt(x, y);
@@ -10702,7 +10790,7 @@
     pendingSkill = null;
     const m = monsterAt(tx, ty);
     if (!m || m.hp <= 0) { log("No target there."); updateHotbar(); return; }
-    m.stun = Math.max(m.stun || 0, 25);
+    m.stun = Math.max(m.stun || 0, (skillCur(key) && skillCur(key).turns) || 25);
     floatText(m.x, m.y, "◉", "#b491d6");
     log("Kethara's Eye fixes upon the " + monName(m) + " — it cannot move.", "hit");
     player.skills[key].cd = Math.max(0, 100 - mod("RES") * 10);
@@ -11069,6 +11157,7 @@
       turns: (cur.turns || 50) + 1,          // +1: this cast's own worldTurn ticks it once
       thorns: cur.thorns || 0,
       regenMult: cur.regenMult || 1,
+      halve: !!cur.halve,                    // Raise Shield: blows are halved while it is up
     };
     player.skills[key].cd = cur.cd || 0;
     flash(player); floatText(player.x, player.y, "✵", "#e0a848");
@@ -11510,6 +11599,7 @@
     log("You call down a Smite!", "hit");
     attack(player, target, bonus);
     player.skills[key].cd = 100;
+    smiteRiders(key, target, bonus);
     updateHotbar(); updateHUD();
     if (dead) return;
     worldTurn();
@@ -11783,7 +11873,7 @@
     const d = sk[key], st = player.skills[key];
     const nextDef = st.rank < d.max ? d.ranks[st.rank] : null;
     const rankGate = (nextDef && nextDef.minLevel && player.level < nextDef.minLevel) ? nextDef.minLevel : 0;
-    const prereqLocked = st.rank === 0 && !prereqsMet(d);
+    const prereqLocked = st.rank === 0 && !prereqsMet(d, key);
     const locked = prereqLocked || !!rankGate;
     const curTxt = st.rank > 0 ? (d.levels[st.rank - 1] || skillFmt(d.ranks[st.rank - 1])) : null;
     const nextTxt = st.rank < d.max ? (d.levels[st.rank] || skillFmt(d.ranks[st.rank])) : "Maxed.";
@@ -11791,8 +11881,15 @@
     const canUp = st.rank < d.max && player.statPoints > 0 && !locked && !borrowed;
     const label = borrowed ? "Worn, not trained" : locked ? "🔒 Locked" : st.rank === 0 ? "Learn (1 pt)" : st.rank < d.max ? "Upgrade (1 pt)" : "Maxed";
     const kindTag = d.kind === "passive" ? " · passive" : "";
-    const tierTag = d.tier ? ` · tier ${d.tier}` : "";
+    const tierTag = d.branch ? (d.cap ? " · capstone" : "") : d.tier ? ` · tier ${d.tier}` : "";
     const reqParts = prereqNames(d);
+    if (d.branch && d.branch !== "core" && st.rank === 0) {
+      const need = BRANCH_GATE[d.bt] || 0, have = branchPoints(d.branch);
+      if (have < need) reqParts.push(need + " points in this branch (you have " + have + ")");
+      const other = capTaken(d, key);
+      if (other) reqParts.push("not " + sk[other].name + " — you chose it instead");
+      else if (d.cap) reqParts.push("choose one of the pair — the other closes for the run");
+    }
     if (rankGate) reqParts.push("character level " + rankGate + " for the next rank (you are " + player.level + ")");
     const reqTxt = reqParts.length
       ? `<div class="sdesc sreq${locked ? " shut" : ""}">Requires: ${reqParts.join(" · ")}</div>` : "";
@@ -11807,6 +11904,8 @@
     const keys = Object.keys(sk);
     if (!keys.length) return `<div class="cline">This class has no skills yet.</div>`;
     if (charSelSkill && !sk[charSelSkill]) charSelSkill = null;
+    const cls = DATA.classes[player.cls] || {};
+    if (Array.isArray(cls.branches) && cls.branches.length) return charBranchesHTML(sk, cls);
     // Grouped by TIER, which is the only thing the grid's rows ever meant: a
     // tier is a level gate. The columns meant nothing but reading order, so they
     // are reading order here too, and nothing has to be laid out in pixels.
@@ -11862,6 +11961,40 @@
     // still belongs at the bottom, where it reads as a hint rather than a card.
     return `<div class="cline"><span class="cpts">${player.statPoints}</span> points to spend · a tier opens every ${TIER_LEVELS} character levels</div>` +
       `<div class="sktiers">${html}${placed ? "" : detail}</div>`;
+  }
+  // Core on top, then one column per branch: its name, the points in it, its
+  // nodes in order, and the capstone pair side by side ("choose one").
+  function charBranchesHTML(sk, cls) {
+    const stateOf = (key) => {
+      const d = sk[key], st = player.skills[key];
+      if (st && st.rank >= 1) return "invested";
+      if (d.cap && capTaken(d, key)) return "barred";
+      return prereqsMet(d, key) ? "available" : "locked";
+    };
+    const cell = (key) => {
+      const d = sk[key], st = player.skills[key] || { rank: 0 };
+      const icon = d.iconSprite ? `<img class="skico-img" src="${d.iconSprite}" alt="">` : `<span class="skico">${d.icon}</span>`;
+      let pips = "";
+      for (let i = 0; i < d.max; i++) pips += `<i${i < st.rank ? ' class="on"' : ""}></i>`;
+      return `<button type="button" class="skcell st-${stateOf(key)}${key === charSelSkill ? " sel" : ""}" data-key="${key}">` +
+        icon + `<span class="sknm">${d.name}</span><span class="skpips">${pips}</span></button>`;
+    };
+    const inBranch = (b) => Object.keys(sk).filter((k) => sk[k].branch === b).sort((a, c) => (sk[a].bt - sk[c].bt) || ((sk[a].pos && sk[a].pos.x) || 0) - ((sk[c].pos && sk[c].pos.x) || 0));
+    const core = inBranch("core");
+    let html = `<div class="skcore"><div class="sktr-h"><b>Core</b><span>open from the start</span></div><div class="sktr-row">${core.map(cell).join("")}</div></div>`;
+    html += `<div class="skbranches">`;
+    for (const br of cls.branches) {
+      const nodes = inBranch(br.id), pts = branchPoints(br.id);
+      const plain = nodes.filter((k) => !sk[k].cap), caps = nodes.filter((k) => sk[k].cap);
+      html += `<div class="skbranch${br.god ? " god" : ""}"><div class="skbr-h"><b>${br.icon || ""} ${br.name}</b><span>${pts} pts</span></div>` +
+        plain.map((k) => `<div class="skgate">${BRANCH_GATE[sk[k].bt] ? BRANCH_GATE[sk[k].bt] + "+" : ""}</div>` + cell(k)).join("") +
+        (caps.length ? `<div class="skgate">${BRANCH_GATE[4]}+ · choose one</div><div class="skcaps">${caps.map(cell).join("")}</div>` : "") +
+        `</div>`;
+    }
+    html += `</div>`;
+    const detail = charSkillDetailHTML(sk, charSelSkill);
+    return `<div class="cline"><span class="cpts">${player.statPoints}</span> points to spend · nodes open as you invest in their branch</div>` +
+      `<div class="sktiers">${html}<div class="skdet">${detail}</div></div>`;
   }
   function charBoonsHTML() {
     const owned = player.boons ? [...player.boons].filter((k) => BOONS[k]) : [];
@@ -12343,6 +12476,10 @@
     chargeArtifact: () => { const a = artOf(); if (a) { const d = ART[artKind(a)]; a.charge = d && d.cap ? d.cap(a) : 0; updateHotbar(); } },
     grant: (n) => { player.statPoints += (n || 1); renderChar(); updateHotbar(); },
     learn: (k) => learnSkill(k),
+    skillState: () => { const o2 = {}; for (const k in player.skills) o2[k] = { rank: player.skills[k].rank || 0, cd: player.skills[k].cd || 0 }; return o2; },
+    resetCds: () => { for (const k in player.skills) player.skills[k].cd = 0; player.mp = player.maxMp; updateHotbar(); },
+    pendingSkill: () => pendingSkill,
+    branchPoints: (b) => branchPoints(b),
     doSkill: (k) => useSkill(k),
     rush: (dx, dy) => executeRush([dx, dy]),
     spin: () => executeSpin(),

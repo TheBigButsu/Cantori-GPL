@@ -692,6 +692,49 @@ async function main() {
   });
   check(boons.problems.length === 0, "boons: " + boons.problems.join("; "));
 
+  // Branch skill trees: a node opens by points spent in its branch, a capstone
+  // pair allows one, and every node of each class can be learned and every
+  // active fired on a crowd without an error.
+  const trees = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, problems = [];
+    for (const cls of Object.keys(D.classes)) {
+      const C = D.classes[cls];
+      if (!Array.isArray(C.branches) || !C.branches.length) continue;
+      c.setClass(cls); c.regenerate(); c.hurt(-999);
+      const nodes = C.skillTree, br = C.branches[C.branches.length - 1].id;
+      const inB = nodes.filter((n) => n.branch === br).sort((a, b) => a.bt - b.bt);
+      const t3 = inB.find((n) => n.bt === 3), caps = inB.filter((n) => n.cap);
+      c.grant(60);
+      c.learn(t3.id);
+      if (c.skillState()[t3.id].rank) problems.push(cls + ": " + t3.id + " was learned with no points in its branch");
+      for (const n of inB.filter((x) => !x.cap)) for (let r = 0; r < n.ranks.length; r++) c.learn(n.id);
+      if (c.branchPoints(br) < 9) problems.push(cls + ": only " + c.branchPoints(br) + " points fit in " + br + " before its capstone");
+      c.learn(caps[0].id); c.learn(caps[1].id);
+      const ss = c.skillState();
+      if (!ss[caps[0].id].rank) problems.push(cls + ": capstone " + caps[0].id + " could not be learned at 9 points");
+      if (ss[caps[1].id].rank) problems.push(cls + ": both capstones of a pair were learned");
+      // everything else, then fire every active on a crowd
+      c.grant(200);
+      for (let pass = 0; pass < 4; pass++) for (const n of nodes) c.learn(n.id);
+      const q = c.peek();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 1], [-2, -1]]) if (c.passableAt(q.x + dx, q.y + dy)) c.spawnMonsterAt("rat", q.x + dx, q.y + dy);
+      for (const n of nodes) {
+        if (n.kind === "passive") continue;
+        c.resetCds(); c.hurt(-999);
+        c.doSkill(n.id);
+        if (c.pendingSkill()) {
+          const m = c.peek().mlist.find((mm) => Math.max(Math.abs(mm.x - c.peek().x), Math.abs(mm.y - c.peek().y)) <= 2) || c.peek().mlist[0];
+          if (m) c.tapAt(m.x, m.y); else c.tapAt(c.peek().x + 2, c.peek().y);
+        }
+        for (let i = 0; i < 3; i++) { c.hurt(-999); c.tick(1); }
+      }
+      for (let t = 0; t < 30; t++) { c.hurt(-999); c.tick(1); }
+    }
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(trees.problems.length === 0, "trees: " + trees.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {
