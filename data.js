@@ -2076,13 +2076,15 @@ window.CANTORI_DATA = {
       "ac": 16,
       "toHit": 8
     },
-    "mummy": {
-      "name": "The Mummy",
+    "djinn": {
+      "name": "The Djinn",
       "hp": 900,
-      "atkMin": 7,
-      "atkMax": 10,
-      "ac": 15,
-      "toHit": 7
+      "atkMin": 8,
+      "atkMax": 14,
+      "ac": 17,
+      "toHit": 10,
+      "flying": true,
+      "arena": "furnace"
     },
     "demigod": {
       "name": "The Demi-God",
@@ -2517,7 +2519,7 @@ window.CANTORI_DATA = {
           0
         ]
       },
-      "boss": "mummy",
+      "boss": "djinn",
       "door": "door",
       "spawnEvery": 50,
       "spawnCap": 11,

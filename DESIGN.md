@@ -4029,3 +4029,22 @@ turns, west to east. Burning ground hurts 6–12 (+depth/4) a turn, burns crates
 doors and grass, and destroys items left in it; monsters shun it. Regeneration
 is not cut on these floors — the fire is the clock. On the Djinn's floor the
 front only moves when the Djinn fans it.
+
+## Biome 4's boss: the Djinn — DONE (replaces the Mummy)
+
+The Djinn fights in the furnace (`arena: "furnace"`): a long east-west hall
+entered from the west, with the gauntlet's fire waiting at the west edge — on
+this floor the front moves only when the Djinn fans it. Between moves it floats
+after you and strikes (900 HP, 8–14).
+
+- **Meteor Swarm** — 10-turn cooldown, 1-turn telegraph (red pluses). 3–5
+  meteors on tiles you can see, each a plus of five tiles, 15–40 apiece; the
+  pluses may overlap, the centres never repeat, and one always lands within two
+  tiles of you. Skips the attack roll and dodge (you had a turn's warning) but
+  RES and armour still count.
+- **Fan the Flames** — 15-turn cooldown, 2-turn telegraph (the next columns
+  pulse orange), then the fire jumps 1–4 columns east.
+
+The sprite is original art in the silhouette of a classic RPG elemental — a
+cone of fire with a man above it. Ultima Online's own art is copyrighted and
+not GPL-compatible, so it is not copied.

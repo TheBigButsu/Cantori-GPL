@@ -23,7 +23,7 @@ row onto the spawned monster (the same way `makeMonster` copies a `VERMIN` templ
 else you put on the row survives to the live instance and is readable from a playbook: `speed`,
 `acc`, `eva`, `ranged`, `range`, `flying`, or any ad-hoc field a playbook wants (e.g. a phase
 threshold, an add's type). Assign the row to a biome's `"boss"` key (and optionally `"bossCount"`
-for more than one) the same way `piper` / `golem` / `mummy` already are.
+for more than one) the same way `piper` / `golem` / `cultist` / `djinn` already are.
 
 ## The playbook registry
 
@@ -33,7 +33,7 @@ In `bosses.js`, `PLAYBOOKS` is a plain object keyed by the boss's `data.js` key:
 const PLAYBOOKS = {
   piper: { act: piperAct },
   golem: { act: golemAct, onKill: golemNodeDeath, damageIn: golemDamageIn, tick: tickNodeBlasts },
-  mummy: { act: mummyAct },   // placeholder — see below
+  djinn: { act: djinnAct },   // Meteor Swarm + Fan the Flames (biome 4)
 };
 ```
 
@@ -58,20 +58,20 @@ shouldn't normally need this directly; the four wired call sites (`act` via `mon
 `damageIn` via `attack`, `onKill` via `killMonster`, `tick` via `worldTurn`, `onSpawn` via
 `spawnBoss`) cover everything.
 
-### The placeholder pattern
+### A boss with no playbook
 
-`mummy: { act: mummyAct }` where `mummyAct` is one line:
+The Cultist has no entry at all, and gets `game.js`'s `defaultAct` — the same chase-and-hit AI
+every regular monster runs — for free. That is the minimum viable boss: a data row. A playbook
+that only wants the default on some turns calls `normalAct(m)` (the dependency `bosses.js` gets for
+`defaultAct`), as `djinnAct` does between its two moves.
 
-```js
-function mummyAct(m) { normalAct(m); }
-```
+### Telegraphs
 
-`normalAct` is `game.js`'s `defaultAct` — the same chase-and-hit path every non-boss monster
-runs — passed into `bosses.js` as a dependency. This is the minimum viable playbook: a boss with
-no special mechanics yet still needs *an* entry only if you want to prove the wiring, or a hook
-into which to grow real behaviour later. A boss can also have **no** entry at all and get the
-same default AI for free — `mummyAct` exists here purely to demonstrate the registry dispatches
-correctly, not because it's required.
+A move announced a turn (or two) ahead sets `m.windup = { kind, turns, tiles, color }`. `game.js`
+draws every `windup.tiles` tile pulsing in `color` (an `"r,g,b"` string, amber by default) until
+the playbook resolves it; paralysis breaks a windup. `djinnBeginMeteors` / `djinnBeginFan` are the
+worked examples. The Djinn also reaches biome 4's fire through `getBlaze()` / `igniteColumns(k)` and
+picks on-screen tiles with `visibleFloor()`.
 
 ## Tools already available to a playbook
 

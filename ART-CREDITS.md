@@ -24,6 +24,8 @@ sprites were drawn for Cantori rather than borrowed:
 
 - Crypt monsters: `red_slime.png`, `black_slime.png`, `hollow_acolyte.png`,
   `brute.png`, `hollow_bard.png`
+- Biome 4's boss: `djinn.png` — a whirling cone of fire with a man above it, in the
+  silhouette of a classic RPG elemental; drawn for Cantori (by `PIL`, in the repo's history)
 - Weapons: `Axe.png`, `big axe.png`, `spear.png`, `bow.png`, `Shitty_sword.png`
 - Light armour: `grass_armor.png`, `cloth_armor.png`, `refined_robe.png`,
   `mages_robe.png`, `threads_of_fate.png`

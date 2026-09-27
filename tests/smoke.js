@@ -599,6 +599,49 @@ async function main() {
   });
   check(gaunt.problems.length === 0, "gauntlet: " + gaunt.problems.join("; "));
 
+  // Biome 4's boss, the Djinn: the furnace keeps a fire only it moves; Meteor
+  // Swarm telegraphs 3–5 unique plus-shaped strikes; Fan the Flames pushes the
+  // front 1–4 columns after a 2-turn warning.
+  const djinn = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    const back = c.peek().depth;
+    c.goDepth(20);
+    const dj = c.peek().mlist.find((m) => m.type === "djinn");
+    if (!dj) return { problems: ["no djinn on depth 20"] };
+    const b0 = c.blazeInfo();
+    if (!b0 || !b0.manual) problems.push("the djinn's floor has no fanned fire");
+    c.blazeHold(false);
+    // stand beside it so it can see you, and make it cast
+    const spot = [[2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [dj.x + dx, dj.y + dy]).find(([x, y]) => c.passableAt(x, y));
+    if (spot) c.place(spot[0], spot[1]);
+    c.setMonsterAt(dj.x, dj.y, { state: "hunting", aware: true, meteorCd: 0, fanCd: 99 });
+    let w = null;
+    for (let i = 0; i < 4 && !(w && w.kind === "meteor"); i++) { c.hurt(-999); c.tick(1); w = c.bossWindup(); }
+    if (!w || w.kind !== "meteor") problems.push("the djinn never began a Meteor Swarm");
+    else {
+      const keys = new Set(w.centers.map((q) => q.join(",")));
+      if (w.centers.length < 3 || w.centers.length > 5) problems.push("Meteor Swarm called " + w.centers.length + " meteors");
+      if (keys.size !== w.centers.length) problems.push("two meteors shared a centre");
+      c.hurt(-999); c.tick(1);
+      if (c.bossWindup() && c.bossWindup().kind === "meteor") problems.push("the Meteor Swarm never landed");
+    }
+    const dj2 = c.peek().mlist.find((m) => m.type === "djinn");
+    const col0 = c.blazeInfo().col;
+    c.setMonsterAt(dj2.x, dj2.y, { meteorCd: 99, fanCd: 0, windup: null });
+    let fan = null;
+    for (let i = 0; i < 3 && !fan; i++) { c.hurt(-999); c.tick(1); const ww = c.bossWindup(); if (ww && ww.kind === "fan") fan = ww; }
+    if (!fan) problems.push("the djinn never fanned the flames");
+    else {
+      for (let i = 0; i < 3; i++) { c.hurt(-999); c.tick(1); }
+      const d = c.blazeInfo().col - col0;
+      if (d !== fan.k || d < 1 || d > 4) problems.push("Fan the Flames moved the fire " + d + " column(s), expected " + fan.k);
+    }
+    c.blazeHold(true);
+    c.goDepth(back); c.hurt(-999);
+    return { problems };
+  });
+  check(djinn.problems.length === 0, "djinn: " + djinn.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {
@@ -751,7 +794,7 @@ async function main() {
           }
         }
         for (const p of window.cantori.tickPaths()) {
-          if (p.charge || p.boss) continue;           // both move in ways that set their own animation
+          if (p.charge || p.boss || p.teleported) continue;   // these move in ways that set their own animation (a Fadeleaf teleports)
           if (p.legs.length > p.acts) {
             bad.push(`${p.type} moved ${p.legs.length} tiles in ${p.acts} action(s)`);
             continue;

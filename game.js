@@ -2412,9 +2412,29 @@
     rooms.push(ante); rooms.push(hall);      // hall is last → bossRoom, per generateLevel
   }
 
+  // The Djinn's furnace: a long east-west hall entered from the west, the
+  // gauntlet's fire waiting at the west edge. A few lone pillars, but nothing
+  // that makes a corner to hide in — meteors come from above.
+  function buildFurnaceArena(rooms) {
+    const hw = 34, hh = 15;
+    const hx = MAP_W - hw - 3, hy = Math.floor((MAP_H - hh) / 2);
+    const hall = { x: hx, y: hy, w: hw, h: hh };
+    const ante = { x: 2, y: hy + Math.floor(hh / 2) - 2, w: 5, h: 5 };
+    carveRoom(ante); carveRoom(hall);
+    carveCorridor(roomCenter(ante), roomCenter(hall));
+    const mid = roomCenter(hall);
+    for (let i = 0; i < 7; i++) {
+      const px = randInt(hx + 3, hx + hw - 4), py = randInt(hy + 2, hy + hh - 3);
+      if (Math.abs(px - mid.x) <= 2 && Math.abs(py - mid.y) <= 2) continue;
+      if (map[py][px - 1] === WALL || map[py][px + 1] === WALL || map[py - 1][px] === WALL || map[py + 1][px] === WALL) continue;
+      map[py][px] = WALL;
+    }
+    rooms.push(ante); rooms.push(hall);
+  }
   function buildArena(rooms) {
     const b = DATA.bosses[biome.boss] || {};
-    if ((b.arena || ARENA_DEFAULT) === "ring") buildRingArena(rooms);
+    if (b.arena === "furnace") buildFurnaceArena(rooms);
+    else if ((b.arena || ARENA_DEFAULT) === "ring") buildRingArena(rooms);
     else buildHallArena(rooms);
   }
 
@@ -2782,6 +2802,10 @@
         const tx = randInt(1, MAP_W - 2), ty = randInt(1, MAP_H - 2);
         if (!passable(tx, ty) || monsterAt(tx, ty) || !reach.has(ty * MAP_W + tx) || cheb(tx, ty, player.x, player.y) < 8) continue;
         w.x = tx; w.y = ty; w.rx = tx; w.ry = ty;
+        // A teleport is not a walk: drop the steps recorded so far this turn and
+        // snap the sprite there, or the renderer glides it across the floor.
+        if (legLog && legLog.m === w) legLog.legs.length = 0;
+        w.teleported = turns; snapEntity(w);
         setState(w, WANDERING); w.target = null;
         break;
       }
@@ -3278,6 +3302,8 @@
     }
     // A boss floor is a hand-laid arena instead: connectivity comes from the shape.
     if (bossFloor) buildArena(rooms);
+    // The gauntlet biome's boss floor keeps the fire, but only the boss moves it.
+    if (bossFloor && biome.gauntlet) blaze = { col: 0, warn: 0, manual: true };
     else {
       connectRooms(rooms, attachEdges);
       thinCorridors(rooms);   // narrow any hallway blob left by overlapping/converging paths
@@ -8397,6 +8423,10 @@
     incomingDamage, DMG: { TOHIT: DMG_TOHIT, EVADE: DMG_EVADE, REDUCE: DMG_REDUCE },
     // Gases, for attack patterns (see docs/BOSSES.md): kinds are the keys of GAS.
     spawnGas, gasBurst, gasLine, gasRing, gasAt, clearGases,
+    // Biome 4's blaze, for the Djinn.
+    getBlaze: () => blaze,
+    igniteColumns: (k) => { if (blaze) igniteColumns(k); },
+    visibleFloor: () => { const out = []; for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (visible[y][x] && passable(x, y) && !inBlaze(x, y)) out.push([x, y]); return out; },
   });
 
   // ---- Draw: dungeon view --------------------------------------------------
@@ -8587,7 +8617,7 @@
       for (const [x, y] of tiles) {
         if (!inBounds(x, y) || !visible[y][x]) continue;
         const px = SX(x), py = SY(y);
-        ctx.fillStyle = "rgba(224,152,40," + pulse.toFixed(3) + ")";
+        ctx.fillStyle = "rgba(" + (m.windup.color || "224,152,40") + "," + pulse.toFixed(3) + ")";
         ctx.fillRect(px, py, tile, tile);
         ctx.strokeStyle = "rgba(255,200,120,0.9)"; ctx.lineWidth = 2;
         ctx.strokeRect(px + 1, py + 1, tile - 2, tile - 2);
@@ -12069,6 +12099,7 @@
     hexMe: (k) => applyHex(k),
     blazeInfo: () => (blaze ? { col: blaze.col, warn: blaze.warn, manual: blaze.manual } : null),
     blazeHold: (on) => { blazeHold = !!on; },
+    bossWindup: () => { const b = monsters.find((m) => m.boss && m.windup); return b ? { kind: b.windup.kind, turns: b.windup.turns, centers: (b.windup.centers || []).map((c) => c.slice()), k: b.windup.k || 0, tiles: (b.windup.tiles || []).length } : null; },
     // Straight to a depth, skipping the merchant — for tests of a biome's floors.
     goDepth: (d) => { inShop = false; depth = d; generateLevel(); return depth; },
     crateCount: () => { let n = 0; for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (map[y][x] === CRATE) n++; return n; },
@@ -12112,7 +12143,7 @@
       const before = monsters.filter((m) => m.hp > 0).map((m) => ({ m, x: m.x, y: m.y }));
       worldTurn(cost);
       return before.filter((b) => b.m.hp > 0).map((b) => ({
-        type: b.m.type, boss: !!b.m.boss, charge: !!b.m.charge, acts: b.m.acts | 0,
+        type: b.m.type, boss: !!b.m.boss, charge: !!b.m.charge, acts: b.m.acts | 0, teleported: b.m.teleported === turns,
         from: [b.x, b.y], to: [b.m.x, b.m.y],
         legs: (b.m.wp || []).map((t) => t.slice()),
       }));

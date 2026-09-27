@@ -43,7 +43,9 @@ window.CantoriBosses = function (deps) {
     incomingDamage = deps.incomingDamage, DMG = deps.DMG,
     // Gases (SPD's Blobs) for attack patterns — see docs/BOSSES.md, "Gases".
     spawnGas = deps.spawnGas, gasBurst = deps.gasBurst, gasLine = deps.gasLine, gasRing = deps.gasRing,
-    gasAt = deps.gasAt, clearGases = deps.clearGases;
+    gasAt = deps.gasAt, clearGases = deps.clearGases,
+    // Biome 4's blaze, for the Djinn: the front, pushing it, and what is on screen.
+    getBlaze = deps.getBlaze, igniteColumns = deps.igniteColumns, visibleFloor = deps.visibleFloor;
 
   // A boss's telegraphed move is still a blow: it enters the incoming-damage
   // ladder at the top (attack roll, evasion, RES, armour) exactly like a wolf's
@@ -365,9 +367,91 @@ window.CantoriBosses = function (deps) {
     }
   }
 
-  // ---- Placeholder bosses: no bespoke behaviour yet, just proving the wiring —
-  // a data.js row + this one line is all a new boss needs. See docs/BOSSES.md.
-  function mummyAct(m) { normalAct(m); }
+  // ---- The Djinn (biome 4 boss) ----------------------------------------------
+  // It fights in the furnace: a long hall with the gauntlet's fire at the west
+  // end, which here moves only when the Djinn fans it. Between its two moves it
+  // floats after you and strikes like anything else.
+  //
+  //  Meteor Swarm — 10-turn cooldown, 1-turn telegraph. 3–5 meteors land on
+  //   tiles you can see, each a plus of five (its centre and the four beside
+  //   it), 15–40 apiece. The pluses may overlap; the centres never repeat. One
+  //   always falls within two tiles of you, so standing still is never safe.
+  //  Fan the Flames — 15-turn cooldown, 2-turn telegraph. The next 1–4 columns
+  //   of the fire are marked, then go up: the room gets shorter.
+  const DJINN_METEOR_CD = 10, DJINN_FAN_CD = 15;
+  const plus = (x, y) => [[x, y], [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+  function djinnAct(m) {
+    if (m.meteorCd == null) { m.meteorCd = 4; m.fanCd = 8; }
+    if (m.windup) { djinnResolve(m); return; }
+    m.meteorCd--; m.fanCd--;
+    const see = canSee(m);
+    if (see && m.fanCd <= 0 && getBlaze && getBlaze()) { djinnBeginFan(m); return; }
+    if (see && m.meteorCd <= 0) { djinnBeginMeteors(m); return; }
+    normalAct(m);
+  }
+  function djinnResolve(m) {
+    const w = m.windup;
+    w.turns--;
+    if (w.turns > 0) return;                 // still telegraphing: it does nothing else
+    m.windup = null;
+    if (w.kind === "meteor") djinnMeteors(m, w); else djinnFan(m, w);
+  }
+  function djinnBeginMeteors(m) {
+    const cand = visibleFloor();
+    if (!cand.length) { m.meteorCd = 2; return; }
+    const n = randInt(3, 5), used = new Set(), centers = [];
+    const take = (list) => {
+      const free = list.filter(([x, y]) => !used.has(x + "," + y));
+      if (!free.length) return false;
+      const c = free[randInt(0, free.length - 1)];
+      used.add(c[0] + "," + c[1]); centers.push(c); return true;
+    };
+    take(cand.filter(([x, y]) => cheb(x, y, player.x, player.y) <= 2));
+    while (centers.length < n && take(cand)) { /* unique centres, anywhere on screen */ }
+    const tiles = [];
+    for (const [x, y] of centers) for (const t of plus(x, y)) if (inBounds(t[0], t[1])) tiles.push(t);
+    m.windup = { kind: "meteor", turns: 1, centers, tiles, color: "230,70,40" };
+    m.meteorCd = DJINN_METEOR_CD;
+    sayMonster(m, "Burn!", "#ff8f4a");
+    log("The Djinn raises its arms — the air above you catches fire!", "hurt");
+  }
+  function djinnMeteors(m, w) {
+    flashScreen("#5a1e0e", 240);
+    let total = 0;
+    for (const [cx, cy] of w.centers) {
+      spawnBurst(cx, cy, "#ff8f4a");
+      for (const [x, y] of plus(cx, cy)) {
+        if (!inBounds(x, y)) continue;
+        floatText(x, y, "✸", "#ff8f4a");
+        if (x === player.x && y === player.y) {
+          // From the sky, telegraphed a full turn: position is the defence, so it
+          // skips the attack roll and dodge (DMG.REDUCE) — RES and armour still count.
+          const dmg = incomingDamage(randInt(15, 40), DMG.REDUCE, {});
+          if (dmg > 0) { player.hp -= dmg; total += dmg; flash(player); floatText(player.x, player.y, "-" + dmg, "#ff5a3a"); }
+        }
+        const o = monsterAt(x, y);
+        if (o && !o.boss && o.hp > 0) { o.hp -= randInt(15, 40); flash(o); }
+      }
+    }
+    if (total > 0) log("Meteors crash down on you! (-" + total + ")", "hurt");
+    else log("Meteors crater the floor around you.");
+    if (player.hp <= 0) { updateHUD(); die(); return; }
+    updateHUD();
+  }
+  function djinnBeginFan(m) {
+    const b = getBlaze();
+    const k = randInt(1, 4), map = getMap(), tiles = [];
+    for (let x = b.col + 1; x <= b.col + k; x++) for (let y = 0; y < map.length; y++) if (inBounds(x, y) && map[y][x] !== WALL) tiles.push([x, y]);
+    m.windup = { kind: "fan", turns: 2, k, tiles, color: "255,120,30" };
+    m.fanCd = DJINN_FAN_CD;
+    sayMonster(m, "Feed, fire!", "#ff8f4a");
+    log("The Djinn draws a great breath — the flames behind you lean forward!", "hurt");
+  }
+  function djinnFan(m, w) {
+    igniteColumns(w.k);
+    flashScreen("#6a2a0e", 300);
+    log("The fire roars forward " + w.k + (w.k === 1 ? " stride!" : " strides!"), "hurt");
+  }
 
   // ---- The registry --------------------------------------------------------
   // Keyed by the data.js boss key. Every field is optional; game.js calls the
@@ -376,7 +460,7 @@ window.CantoriBosses = function (deps) {
   const PLAYBOOKS = {
     piper: { act: piperAct },
     golem: { act: golemAct, onKill: golemNodeDeath, damageIn: golemDamageIn, tick: tickNodeBlasts },
-    mummy: { act: mummyAct },
+    djinn: { act: djinnAct },
   };
   function playbookFor(type) { return PLAYBOOKS[type] || null; }
   // attack(): returns dmg unchanged when the target's boss (if any) has no shield.
