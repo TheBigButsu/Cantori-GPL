@@ -89,6 +89,8 @@
       { f: "hexes", label: "hexes", type: "text", cls: "name" },
       { f: "parry", label: "parry (Monk focus)", type: "bool" },
       { f: "summons", label: "summons (necromancer: monster key)", type: "text" },
+      { f: "chains", label: "chains (guard: pull once)", type: "bool" },
+      { f: "enrage", label: "enrage (brute: rises once)", type: "bool" },
     ],
     gear: [
       { f: "__key", label: "key", type: "key" },

@@ -289,6 +289,65 @@ window.CANTORI_DATA = {
       "glyph": "n",
       "color": "#6a6478"
     },
+    "gnoll_scout": {
+      "name": "Gnoll Scout",
+      "hp": 26,
+      "atkMin": 3,
+      "atkMax": 9,
+      "speed": 1,
+      "walkSpeed": 1.25,
+      "toHit": 11,
+      "ac": 16,
+      "minFloor": 16,
+      "maxLvl": 21,
+      "glyph": "g",
+      "color": "#c89040"
+    },
+    "prison_guard": {
+      "name": "Prison Guard",
+      "hp": 50,
+      "atkMin": 5,
+      "atkMax": 12,
+      "speed": 1,
+      "toHit": 12,
+      "ac": 21,
+      "minFloor": 16,
+      "maxLvl": 21,
+      "chains": true,
+      "glyph": "G",
+      "color": "#a8a8b8"
+    },
+    "gnoll_brute": {
+      "name": "Gnoll Brute",
+      "hp": 50,
+      "atkMin": 6,
+      "atkMax": 18,
+      "speed": 1,
+      "toHit": 12,
+      "ac": 18,
+      "minFloor": 17,
+      "maxLvl": 22,
+      "enrage": true,
+      "glyph": "B",
+      "color": "#b86040"
+    },
+    "gnoll_shaman": {
+      "name": "Gnoll Shaman",
+      "hp": 38,
+      "atkMin": 6,
+      "atkMax": 14,
+      "speed": 1,
+      "toHit": 13,
+      "ac": 18,
+      "minFloor": 18,
+      "maxLvl": 23,
+      "ranged": true,
+      "range": 5,
+      "hexChance": 50,
+      "hexes": "hex",
+      "glyph": "S",
+      "color": "#d05848"
+    },
     "keener": {
       "walkSpeed": 1.2,
       "speed": 1,
@@ -351,38 +410,6 @@ window.CANTORI_DATA = {
       "ranged": true,
       "minFloor": 8,
       "maxLvl": 13
-    },
-    "monk": {
-      "name": "Monk",
-      "hp": 45,
-      "atkMin": 5,
-      "atkMax": 9,
-      "speed": 1,
-      "attackSpeed": 2,
-      "toHit": 12,
-      "ac": 20,
-      "minFloor": 16,
-      "maxLvl": 21,
-      "parry": true,
-      "glyph": "m",
-      "color": "#d8b060"
-    },
-    "warlock": {
-      "name": "Warlock",
-      "hp": 40,
-      "atkMin": 6,
-      "atkMax": 10,
-      "speed": 1,
-      "toHit": 10,
-      "ac": 16,
-      "minFloor": 17,
-      "maxLvl": 22,
-      "ranged": true,
-      "range": 5,
-      "hexChance": 50,
-      "hexes": "hex",
-      "glyph": "w",
-      "color": "#9a70c8"
     },
     "animated_statue": {
       "name": "Animated Statue",
@@ -2440,9 +2467,11 @@ window.CANTORI_DATA = {
       "floor": "arcane_floor",
       "wall": "arcane_wall",
       "monsters": [
-        "imp",
-        "monk",
-        "warlock"
+        "gnoll_scout",
+        "prison_guard",
+        "gnoll_brute",
+        "gnoll_shaman",
+        "imp"
       ],
       "spawnInitial": [
         8,
@@ -2452,26 +2481,40 @@ window.CANTORI_DATA = {
         10
       ],
       "spawnMix": {
-        "imp": [
-          70,
-          40,
+        "gnoll_scout": [
+          50,
+          35,
           30,
-          30,
-          30
+          15,
+          0
         ],
-        "monk": [
-          30,
+        "prison_guard": [
           40,
           35,
-          35,
-          35
+          25,
+          25,
+          0
         ],
-        "warlock": [
-          0,
+        "gnoll_brute": [
+          null,
           20,
-          35,
-          35,
-          35
+          20,
+          30,
+          0
+        ],
+        "gnoll_shaman": [
+          null,
+          null,
+          15,
+          25,
+          0
+        ],
+        "imp": [
+          10,
+          10,
+          10,
+          5,
+          0
         ]
       },
       "boss": "mummy",

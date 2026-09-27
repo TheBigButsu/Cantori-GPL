@@ -83,8 +83,6 @@ else, stacked into a 12×105 strip. Each monster is its idle frame, doubled onto
 
 | `animated_statue.png` | `core/src/main/assets/sprites/statue.png` (idle frame, 2x) | Animated Statue | none |
 | `rose_ghost.png` | `core/src/main/assets/sprites/ghost.png` (idle frame, 2x) | Dried Rose ghost | none |
-| `monk.png` | `core/src/main/assets/sprites/monk.png` (idle frame 1, 15×14, 2x) | Monk (Town) | none |
-| `warlock.png` | `core/src/main/assets/sprites/warlock.png` (idle frame, 12×15, 2x) | Warlock (Town) | none |
 | `skeleton.png`, `necromancer.png` | `core/src/main/assets/sprites/skeleton.png` (12×15), `necromancer.png` (16×16), idle frame, 2x | biome 3's Skeleton and Necromancer | none |
 | `gnoll_scout.png`, `prison_guard.png`, `gnoll_brute.png`, `gnoll_shaman.png` | `core/src/main/assets/sprites/gnoll.png` (12×15), `guard.png` (12×16), `brute.png` (12×16), `shaman.png` (12×15), idle frame, 2x | biome 4's gnolls and guard | none |
 | `prison_*.png` (9) | `core/src/main/assets/environment/tiles_prison.png`, cells 0–3 (floor, deco, grass, embers), 48 (flat wall), 56/57 (door), 122/125 (high grass), 2x | biome 3, the Prison | none |

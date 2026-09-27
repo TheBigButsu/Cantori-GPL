@@ -79,8 +79,6 @@ def cut(sheet, blue):
 MONSTERS = {
     "animated_statue": ("statue", 0, 12, 15),   # SPD Statue (sprites/statue.png)
     "rose_ghost": ("ghost", 0, 14, 15),         # SPD GhostSprite — the Dried Rose's ghost
-    "monk": ("monk", 1, 15, 14),                # SPD MonkSprite (idle starts on frame 1)
-    "warlock": ("warlock", 0, 12, 15),          # SPD WarlockSprite
     "skeleton": ("skeleton", 0, 12, 15),        # SPD SkeletonSprite (biome 3)
     "necromancer": ("necromancer", 0, 16, 16),  # SPD NecromancerSprite (biome 3)
     "gnoll_scout": ("gnoll", 0, 12, 15),        # SPD GnollSprite — the sewer "scout" (biome 4)

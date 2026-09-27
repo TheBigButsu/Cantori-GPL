@@ -320,32 +320,10 @@ async function main() {
     if (c.monsterFx(s.x, s.y).maxLvl !== D.monsters.rat.maxLvl) problems.push("rat maxLvl does not come from data.js");
     const xp2 = c.killAt(s.x, s.y);
     if (xp2 !== 0) problems.push("a rat still paid " + xp2 + " XP at level 12 (maxLvl " + D.monsters.rat.maxLvl + ")");
-    // The Monk: a focused Monk parries the first blow, and can be hit once it's spent.
-    s = open();
-    c.spawnMonsterAt("monk", s.x, s.y);
-    c.setMonsterAt(s.x, s.y, { state: "hunting", aware: true, focus: true, focusCd: 0 });
-    const hp0 = c.monsterFx(s.x, s.y).hp;
-    c.hurt(-999); c.step(s.dx, s.dy);
-    const f1 = c.monsterFx(s.x, s.y);
-    if (!f1) problems.push("the monk vanished after one blow");
-    else {
-      if (f1.hp !== hp0) problems.push("a focused monk took damage instead of parrying");
-      if (f1.focus) problems.push("the monk's parry did not spend its focus");
-      let hit = false;
-      for (let i = 0; i < 40 && !hit; i++) {
-        const m = c.monsterFx(s.x, s.y);
-        if (!m) { hit = true; break; }
-        if (m.hp < hp0) { hit = true; break; }
-        c.setMonsterAt(s.x, s.y, { focus: false, focusCd: 9 });
-        c.hurt(-999); c.step(s.dx, s.dy);
-      }
-      if (!hit) problems.push("an unfocused monk could not be hit in 40 swings");
-    }
-    const mk = c.monsterFx(s.x, s.y); if (mk) c.killAt(s.x, s.y);
     // Town: every monster it names exists.
     const town = D.biomes.find((b) => b.key === "town");
     for (const k of town.monsters) if (!D.monsters[k]) problems.push("Town names a missing monster: " + k);
-    for (const k of ["monk", "warlock"]) if (town.monsters.indexOf(k) < 0) problems.push("Town has no " + k);
+    for (const k of ["gnoll_scout", "prison_guard", "gnoll_brute", "gnoll_shaman"]) if (town.monsters.indexOf(k) < 0) problems.push("Town has no " + k);
     // Gear: tier 4 and 5 actually drop in the Lake.
     const h = c.tierHist(22, 2000);
     if (!(h[4] > 0 && h[5] > 0)) problems.push("no tier 4/5 gear in 2000 drops at depth 22: " + JSON.stringify(h));
@@ -548,10 +526,37 @@ async function main() {
     const nm = c.peek().mlist.find((m) => m.type === "necromancer");
     if (nm) c.killAt(nm.x, nm.y);
     if (c.peek().mlist.some((m) => m.type === "skeleton")) problems.push("the skeleton outlived its necromancer");
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    // Biome 4's Brute rises once on a rage shield, then falls when it drains.
+    c.place(q.x, q.y);
+    c.spawnMonsterAt("gnoll_brute", q.x + dx, q.y + dy);
+    c.killAt(q.x + dx, q.y + dy);
+    const br = c.peek().mlist.find((m) => m.type === "gnoll_brute");
+    if (!br) problems.push("the brute died at the first killing blow instead of raging");
+    else {
+      c.setMonsterAt(br.x, br.y, { stun: 99 });              // hold it still while the rage drains
+      for (let i = 0; i < 40 && c.peek().mlist.some((m) => m.type === "gnoll_brute"); i++) { c.hurt(-999); c.tick(1); }
+      if (c.peek().mlist.some((m) => m.type === "gnoll_brute")) problems.push("the brute's rage never drained");
+    }
+    // The Guard's chain hauls you to it once, and cripples you.
+    c.spawnMonsterAt("prison_guard", nx, ny); c.huntNow(nx, ny);
+    let pulled = false;
+    for (let i = 0; i < 30 && !pulled; i++) {
+      c.hurt(-999); c.place(q.x, q.y);
+      const gi = c.peek().mlist.findIndex((m) => m.type === "prison_guard");
+      if (gi >= 0) c.placeMonster(gi, nx, ny);              // keep it three tiles off: chain range, not sword range
+      c.tick(1);
+      const g = c.peek().mlist.find((m) => m.type === "prison_guard");
+      if (!g) break;
+      const p2 = c.peek();
+      if (Math.max(Math.abs(p2.x - g.x), Math.abs(p2.y - g.y)) === 1 && (p2.x !== q.x || p2.y !== q.y)) pulled = true;
+    }
+    if (!pulled) problems.push("the prison guard never chained the player in");
+    else if (!c.statusIcons().some((st) => st.key === "cripple")) problems.push("the guard's chain did not cripple");
     c.regenerate(); c.hurt(-999);
     return { problems };
   });
-  check(necro.problems.length === 0, "necromancer: " + necro.problems.join("; "));
+  check(necro.problems.length === 0, "necromancer/brute/guard: " + necro.problems.join("; "));
 
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.

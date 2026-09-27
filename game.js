@@ -1185,7 +1185,8 @@
   // multiplies it. They meet here rather than anywhere else so that every readout
   // of "what does a step cost me" — the character sheet included — already has the
   // slime in it.
-  const walkCost = () => (1 / (1 + walkHaste() + (metroMode() === "walk" ? 1 : 0))) * auraMult("auraWalk") / Math.pow(1.1, ringL("haste"));
+  const walkCost = () => (1 / (1 + walkHaste() + (metroMode() === "walk" ? 1 : 0))) * auraMult("auraWalk") / Math.pow(1.1, ringL("haste"))
+    * (player.cripple > 0 ? 2 : 1);   // SPD's Cripple (a guard's chains): every step takes twice as long
   const attackCost = () => (1 / (playerActSpeed() + (metroMode() === "attack" ? 1 : 0))) * auraMult("auraAttack") / Math.pow(1.08, ringL("furor"));
   // The "power" an item's enchant procs at: weapon top-end damage, armor defense,
   // or (for jewelry) its tier + plus.
@@ -4205,6 +4206,7 @@
     add("poison", "☠", "#9ad06a", player.poison, "Poisoned");
     add("toxin", "☠", "#7ec98a", player.toxin, "Poisoned");
     add("para", "🧊", "#cfd6e6", player.para, "Paralysed");
+    add("cripple", "⛓", "#a8a8b8", player.cripple, "Crippled");
     const renewing = {};
     for (const g in GAS_STATUS) if (gasAt(g, player.x, player.y) > 0) renewing[GAS_STATUS[g]] = true;
     for (const st of out) {
@@ -4315,6 +4317,18 @@
   // Remove a slain monster and award XP (with over-level scaling and boss handling).
   function killMonster(target, verb) {
     if (target.hp > 0 || !monsters.includes(target)) return;
+    // SPD's Brute: the first killing blow does not take. It gets back up with a
+    // rage shield of half its health + 4 that drains 4 a turn, hitting harder
+    // (×1.6) while it lasts, and falls for good when the shield is gone. The
+    // shield IS its health bar while it rages, so every damage source drains it.
+    if (target.enrage && !target.hasRaged && !target.horror) {
+      target.hasRaged = true; target.raging = true;
+      target.hp = Math.floor(target.maxHp / 2) + 4;
+      target.atkMin = Math.round((target.atkMin || 0) * 1.6); target.atkMax = Math.round((target.atkMax || 0) * 1.6);
+      floatText(target.x, target.y, "RAGE", "#e0685a", 1.4);
+      log("The " + monName(target) + " roars and will not fall!", "hurt");
+      return;
+    }
     monsters = monsters.filter((m) => m !== target);
     propDoorOpenAt(target.x, target.y);   // died on a door/bush? it's propped open now
     log("The " + monName(target) + " " + (verb || "dies") + ".", "hit");
@@ -4621,6 +4635,7 @@
   const hexList = (m) => String(m && m.hexes || "").split(",").map((t) => t.trim()).filter((t) => HEXES[t]);
   function clearHexes() {
     for (const k of HEX_KEYS) player[k] = 0;
+    player.cripple = 0;
     player.charmSrc = null;
     auraSig = "";
   }
@@ -6272,6 +6287,9 @@
     const d = cheb(m.x, m.y, player.x, player.y);
     if (d === 1) { attack(m, player); return; }
     if (m.ranged && d <= (m.range || 4) && lineOfSight(m.x, m.y, player.x, player.y)) { spawnProjectile(m.x, m.y, player.x, player.y, m.color || "#e0d0a0"); attack(m, player); return; }
+    // SPD's Guard: once, from up to four tiles off, a 1-in-3 chance a turn to
+    // throw its chain and haul you to its feet — crippled for 4 turns.
+    if (m.chains && !m.chainsUsed && d >= 2 && d < 5 && canSee(m) && Math.random() < 1 / 3 && chainPull(m)) return;
     if (m.charge && d >= 2 && d <= CHARGE_MAX) {
       const cdir = straightDir(m);
       // Sight and movement are different questions — the same split CLAUDE.md rule 5
@@ -6318,6 +6336,41 @@
     const stalled = m.x === wasX && m.y === wasY;
     if (arrived || stalled) { if (++m.huntBlind > HUNT_PATIENCE) { stopHunting(m); return; } }
     else m.huntBlind = 0;
+  }
+  // The cells of a straight line from (x0, y0) to (x1, y1), start excluded.
+  function lineCells(x0, y0, x1, y1) {
+    const out = [];
+    const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy, x = x0, y = y0;
+    for (let g = 0; g < 200 && !(x === x1 && y === y1); g++) {
+      const e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; x += sx; }
+      if (e2 < dx) { err += dx; y += sy; }
+      out.push([x, y]);
+    }
+    return out;
+  }
+  // Guard.chain(): the first open tile along the chain, nearest the guard, is
+  // where you land. Refused over a chasm lip or with nowhere to put you.
+  function chainPull(m) {
+    if (!lineOfSight(m.x, m.y, player.x, player.y)) return false;
+    const path = lineCells(m.x, m.y, player.x, player.y);
+    if (!path.length || (inBounds(path[0][0], path[0][1]) && map[path[0][1]][path[0][0]] === CHASM)) return false;
+    let at = null;
+    for (const [x, y] of path) {
+      if (x === player.x && y === player.y) break;
+      if (passable(x, y) && map[y][x] !== CHASM && !monsterAt(x, y)) { at = { x, y }; break; }
+    }
+    if (!at) return false;
+    m.chainsUsed = true;
+    spawnStreak(m.x, m.y, player.x, player.y, "#a8a8b8", 260);
+    player.x = at.x; player.y = at.y;
+    player.cripple = Math.max(player.cripple || 0, 4);
+    walkPath = [];
+    floatText(player.x, player.y, "⛓", "#a8a8b8", 1.6);
+    log("The " + monName(m) + " hurls its chain — \"Get over here!\" — and drags you in. (crippled)", "hurt");
+    computeFOV(); snapPlayer();
+    return true;
   }
   // Kept for the boss playbooks (bosses.js), which describe their turns in these
   // terms: "chase the trail" and "mill about". Both are the shared states.
@@ -6775,6 +6828,10 @@
 
   function monsterAct(m) {
     if (m.hp <= 0) return;
+    if (m.raging) {                                          // a brute's rage burns down
+      m.hp -= 4;
+      if (m.hp <= 0) { killMonster(m, "collapses, its rage spent"); return; }
+    }
     if (m.dots && m.dots.length) {              // burn/poison ticks at the start of its action
       for (const dot of m.dots.slice()) {
         m.hp -= dot.dmg; flash(m); floatText(m.x, m.y, dot.icon + "-" + dot.dmg, dot.color);
@@ -7059,6 +7116,7 @@
     dragonEncoreTick();
     rageTick();
     tickHexes();
+    if (player.cripple > 0 && --player.cripple === 0) log("Your legs are your own again.");
     hintSecrets();                       // walked up to a hidden door? say so, once
     playerDotTick(); if (dead) return;   // what is burning or poisoning YOU, before the monsters move
     if (pullZone) { pullZone.turns--; if (pullZone.turns <= 0) pullZone = null; }      // Faith's Pull: expires after 5 turns
