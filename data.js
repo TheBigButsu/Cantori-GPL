@@ -2563,7 +2563,8 @@ window.CANTORI_DATA = {
           "MagicWell",
           "Runestone"
         ]
-      }
+      },
+      "gauntlet": true
     },
     {
       "key": "lake",

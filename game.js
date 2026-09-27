@@ -55,6 +55,7 @@
   const PEDESTAL = 15;         // floor that a room's prize sits on
   const WELL = 16;             // a magic well: bump it to drink, once
   const LOCKED = 17;           // a locked door: bump it holding this floor's iron key
+  const CRATE = 18;            // biome 4: a crate — blocks feet and arrows, not eyes; one blow breaks it
 
   // What a tile IS, rather than which constant it equals. Every predicate below reads
   // this table, so a new tile is a row here plus a draw case — not a hunt through the file.
@@ -71,6 +72,11 @@
     // generator never routes the way onward through one (spdlevel.js's special
     // rooms have exactly one door), so floodReach treating it as a wall is right.
     [LOCKED]:    { solid: true, opaque: true, locked: true },
+    // A crate stands in for tall grass on biome 4's gauntlet floors. Solid like a
+    // statue (feet and arrows stop, eyes don't), but one blow breaks it and fire
+    // burns it — so it is never a wall that can cut the way on for good. The
+    // generator still refuses any crate that would (see placeCrates).
+    [CRATE]:     { solid: true, crate: true },
     [WALL]:   { solid: true, opaque: true },
     [FLOOR]:  {},
     [STAIRS]: {},
@@ -430,7 +436,7 @@
   const isWall = (x, y) => !inBounds(x, y) || !!tileProp(x, y, "solid");
   const isDoor = (x, y) => inBounds(x, y) && map[y][x] === DOOR;
   const isThorn = (x, y) => inBounds(x, y) && map[y][x] === THORN;
-  const shuns = (x, y) => !!tileProp(x, y, "shun") || (inBounds(x, y) && harmfulGasAt(x, y));     // monsters (and drops/teleports) avoid these tiles — and any harmful gas
+  const shuns = (x, y) => !!tileProp(x, y, "shun") || (inBounds(x, y) && harmfulGasAt(x, y)) || inBlaze(x, y);     // monsters (and drops/teleports) avoid these tiles — and any harmful gas
   // Walkable on foot. Deep water counts as blocked here, which is what makes every
   // spawn, drop, knockback and auto-travel route dodge it without a special case.
   // Anything that flies asks canStep/passableFor instead.
@@ -2524,7 +2530,7 @@
       if (w.hp <= 0) killMonster(w, "chokes and dies");
     }
   }
-  const FLAMMABLE = () => [GRASS, LAWN, DOOR, THORN, BOOKSHELF];
+  const FLAMMABLE = () => [GRASS, LAWN, DOOR, THORN, BOOKSHELF, CRATE];
   function evolveSpread(cur) {
     const off = new Int32Array(cur.length);
     let vol = 0;
@@ -2895,6 +2901,213 @@
     rooms.keysNeeded = lv.keys;
     return rooms;
   }
+  // ---- Gauntlet floors (biome 4) -----------------------------------------------
+  //
+  // Not rooms but a braid of hallways run left to right, with a fire coming along
+  // behind you (the blaze, below). Three or four lanes leave a start hall on the
+  // west edge, wander up and down their own band of the map, widen into chambers,
+  // cross to their neighbours through connectors, and ALL end in one collector
+  // hall on the east edge with the stairs in its wall. Nothing is ever carved
+  // that does not join two other carved things, so there is no dead end to run
+  // into with the fire at your back — every branch converges on the exit.
+  //
+  // Crates stand where another floor would grow tall grass: clusters in the wide
+  // stretches, each crate vetted so it never cuts the way on or strands a tile.
+  const GAUNTLET_X0 = 2, GAUNTLET_X1 = MAP_W - 4;
+  function buildGauntletFloor() {
+    const X0 = GAUNTLET_X0, X1 = GAUNTLET_X1;
+    const n = randInt(3, 4), top = 4, bot = MAP_H - 5;
+    const home = [];
+    for (let i = 0; i < n; i++) home.push(Math.round(top + i * (bot - top) / (n - 1)));
+    const band = Math.max(2, Math.floor((bot - top) / (n - 1) / 2) - 2);
+    const carve = (x, y) => { if (x >= 1 && x < MAP_W - 1 && y >= 1 && y < MAP_H - 1 && map[y][x] !== STAIRS) map[y][x] = FLOOR; };
+    const laneY = [];                       // laneY[i][x] = the lane's centre row at column x
+    const rooms = [];
+    for (let i = 0; i < n; i++) {
+      let y = home[i], w = randInt(1, 3);
+      const ly = [], lo = home[i] - band, hi = home[i] + band;
+      let minY = y, maxY = y;
+      for (let x = X0; x <= X1; x++) {
+        if (x > X0 + 2 && x < X1 - 2 && Math.random() < 0.2) {
+          const ny = Math.max(lo, Math.min(hi, y + (Math.random() < 0.5 ? -1 : 1) * randInt(1, 2)));
+          for (let yy = Math.min(y, ny); yy <= Math.max(y, ny); yy++) for (let k = 0; k < w; k++) carve(x - k, yy);
+          y = ny;
+        }
+        if (Math.random() < 0.12) w = randInt(1, 3);
+        for (let k = 0; k < w; k++) carve(x, y + k - Math.floor((w - 1) / 2));
+        ly[x] = y; minY = Math.min(minY, y - 1); maxY = Math.max(maxY, y + 1);
+      }
+      laneY.push(ly);
+      rooms.push({ x: X0, y: Math.max(1, minY), w: X1 - X0 + 1, h: Math.min(MAP_H - 2, maxY) - Math.max(1, minY) + 1, lane: i });
+    }
+    // start hall and collector hall, spanning wherever the lanes begin and end
+    const startLo = Math.min(...laneY.map((l) => l[X0])), startHi = Math.max(...laneY.map((l) => l[X0]));
+    const endLo = Math.min(...laneY.map((l) => l[X1])), endHi = Math.max(...laneY.map((l) => l[X1]));
+    for (let y = startLo; y <= startHi; y++) { carve(X0 - 1, y); carve(X0, y); }
+    for (let y = endLo; y <= endHi; y++) { carve(X1, y); carve(X1 + 1, y); }
+    // chambers, inline on a lane
+    for (let c = randInt(4, 7); c > 0; c--) {
+      const i = randInt(0, n - 1), x = randInt(X0 + 5, X1 - 6), cw = randInt(4, 6), ch = randInt(3, 5);
+      const cy = laneY[i][x], rx = x - Math.floor(cw / 2), ry = Math.max(2, Math.min(MAP_H - 3 - ch, cy - Math.floor(ch / 2)));
+      for (let yy = ry; yy < ry + ch; yy++) for (let xx = rx; xx < rx + cw; xx++) carve(xx, yy);
+      // the chamber must still meet its lane: carve the lane's own column through it
+      for (let yy = Math.min(cy, ry); yy <= Math.max(cy, ry + ch - 1); yy++) carve(x, yy);
+      rooms.push({ x: rx, y: ry, w: cw, h: ch });
+    }
+    // connectors between neighbouring lanes
+    for (let i = 0; i + 1 < n; i++) {
+      for (let c = randInt(2, 4); c > 0; c--) {
+        const x = randInt(X0 + 3, X1 - 3), w = randInt(1, 2);
+        const a = laneY[i][x], b = laneY[i + 1][x];
+        for (let yy = Math.min(a, b); yy <= Math.max(a, b); yy++) for (let k = 0; k < w; k++) carve(x + k, yy);
+      }
+    }
+    // the way out: stairs set into the east wall, mid-collector
+    const sy = Math.round((endLo + endHi) / 2);
+    map[sy][X1 + 2] = STAIRS;
+    // start: the west hall, on the middle lane's row
+    const mid = laneY[Math.floor(n / 2)][X0];
+    player.x = X0; player.y = mid;
+    rooms.unshift({ x: X0 - 1, y: startLo, w: 2, h: startHi - startLo + 1 });   // rooms[0]: nothing spawns in it
+    return rooms;
+  }
+  // Where a lane changes width it can leave a one-tile nub — a dead end, however
+  // short, is exactly what this floor promises not to have. Filling one back in
+  // can never disconnect anything (it only had the one way in), so repeat until
+  // none is left.
+  function fillDeadEnds() {
+    let changed = true, guard = 0;
+    while (changed && guard++ < 50) {
+      changed = false;
+      for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+        if (map[y][x] !== FLOOR || (x === player.x && y === player.y)) continue;
+        let n = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (map[y + dy][x + dx] !== WALL) n++;
+        if (n <= 1) { map[y][x] = WALL; changed = true; }
+      }
+    }
+  }
+  // Crate clusters: a handful of blobs of 2–5, each crate kept only if the floor
+  // stays whole without it — same stairs reachable, same number of tiles.
+  function placeCrates() {
+    const st = findStairs();
+    const size = () => floodReach(player.x, player.y, false).size;
+    let whole = size();
+    for (let c = randInt(6, 10); c > 0; c--) {
+      let cx = 0, cy = 0, ok = false;
+      for (let t = 0; t < 30 && !ok; t++) {
+        cx = randInt(GAUNTLET_X0 + 4, GAUNTLET_X1 - 2); cy = randInt(2, MAP_H - 3);
+        ok = map[cy][cx] === FLOOR && Math.abs(cx - player.x) + Math.abs(cy - player.y) > 4;
+      }
+      if (!ok) continue;
+      for (let k = randInt(2, 5), guard = 0; k > 0 && guard < 12; guard++) {
+        const x = cx + randInt(-1, 1), y = cy + randInt(-1, 1);
+        if (!inBounds(x, y) || map[y][x] !== FLOOR || itemAt(x, y) || (x === player.x && y === player.y)) continue;
+        map[y][x] = CRATE;
+        const reach = floodReach(player.x, player.y, false);
+        if (!st || !reach.has(st.y * MAP_W + st.x) || reach.size !== whole - 1) { map[y][x] = FLOOR; continue; }
+        whole--; k--;
+      }
+    }
+  }
+  // One blow breaks a crate; about a third of them held something.
+  function breakCrate(x, y) {
+    map[y][x] = FLOOR;
+    bump(player, x, y);
+    floatText(x, y, "crack", "#c8a070");
+    const r = Math.random();
+    let it = null;
+    if (r < 0.12) it = Object.assign({}, rollGearDrop(depth));
+    else if (r < 0.28) it = { key: weightedConsumKey() };
+    else if (r < 0.36) it = { key: "gold", amount: randInt(4, 10) + depth };
+    if (it && it.key) { items.push(Object.assign(it, { x, y })); log("You smash the crate — something was inside.", "hit"); }
+    else log("You smash the crate. Empty.");
+    computeFOV();
+  }
+  function finishGauntletFloor(rooms) {
+    lastRooms = rooms; lastAttach = 0;
+    bossActive = false; bossRoom = null;
+    if (floorInBiome(depth) === 1 || !biomeScrollFloors) {
+      const floors = [1, 2, 3, 4, 5];
+      for (let i = floors.length - 1; i > 0; i--) { const j = randInt(0, i); const t = floors[i]; floors[i] = floors[j]; floors[j] = t; }
+      biomeScrollFloors = new Set(floors.slice(0, 2));
+    }
+    fillDeadEnds();
+    fixOpenCorners(rooms);
+    fillDeadEnds();
+    placeCrates();
+    spawnMonsters(rooms);
+    spawnItems(rooms);
+    placeTraps();
+    blaze = { col: -1, warn: 0, manual: false };
+    floorEpilogue(rooms);
+    log("Smoke on the wind behind you. Something is burning — and it is coming this way.", "hurt");
+  }
+
+  // ---- The blaze: biome 4's chasing fire ------------------------------------
+  //
+  // A wall of fire sweeps the floor from west to east, the way SPD's second boss
+  // fills its arena: a column is marked one turn (telegraphed, pulsing), then goes
+  // up the next, so the front advances one column every two turns. Everything
+  // west of the front is burning ground — standing in it hurts every turn, crates
+  // and doors burn, items there are lost. It replaces the Horror on these floors:
+  // the fire is the clock. BLAZE_GRACE turns pass before the first column goes.
+  // On the Djinn's floor it only moves when the Djinn fans it (`manual`).
+  const BLAZE_GRACE = 8, BLAZE_EVERY = 2;
+  let blaze = null;               // { col, warn, manual } — col: the easternmost burning column
+  let blazeHold = false;          // dev: freeze the front (tests)
+  const inBlaze = (x, y) => !!blaze && x <= blaze.col;
+  function blazeDamage() { return randInt(6, 12) + Math.floor(depth / 4); }
+  function igniteColumns(k) {
+    for (let i = 0; i < k && blaze.col < MAP_W - 1; i++) {
+      blaze.col++;
+      const x = blaze.col;
+      for (let y = 0; y < MAP_H; y++) {
+        if (map[y][x] === CRATE || map[y][x] === DOOR || map[y][x] === GRASS || map[y][x] === LAWN) map[y][x] = map[y][x] === GRASS || map[y][x] === LAWN ? EMBERS : FLOOR;
+      }
+      items = items.filter((it) => it.x !== x);
+      plants = plants.filter((p) => p.x !== x);
+    }
+    computeFOV();
+  }
+  function blazeTick() {
+    if (!blaze || blazeHold) return;
+    if (!blaze.manual && turns >= BLAZE_GRACE) {
+      if ((turns - BLAZE_GRACE) % BLAZE_EVERY === 0) blaze.warn = 1;       // mark the next column
+      else if (blaze.warn) { blaze.warn = 0; igniteColumns(1); }
+    }
+    if (blaze.col < 0) return;
+    if (inBlaze(player.x, player.y)) {
+      const d = blazeDamage();
+      player.hp -= d; flash(player); floatText(player.x, player.y, "🔥-" + d, "#ff8f4a");
+      log("The fire has you! (-" + d + ")", "hurt");
+      if (player.hp <= 0) { updateHUD(); die(); return; }
+    }
+    for (const m of monsters.slice()) {
+      if (m.hp <= 0 || m.boss || !inBlaze(m.x, m.y)) continue;
+      m.hp -= blazeDamage(); flash(m);
+      if (m.hp <= 0) killMonster(m, "burns");
+    }
+  }
+  // Charred ground behind the front, flames licking along it, and the marked
+  // column pulsing ahead of it.
+  function drawBlaze(SX, SY, now) {
+    if (!blaze) return;
+    ctx.save();
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x <= Math.min(MAP_W - 1, blaze.col + 1); x++) {
+      if (!explored[y][x] || map[y][x] === WALL) continue;
+      const px = SX(x), py = SY(y);
+      if (x <= blaze.col) {
+        ctx.fillStyle = "rgba(70,18,4,0.55)"; ctx.fillRect(px, py, tile, tile);
+        if (visible[y][x] && x >= blaze.col - 1 && Math.random() < 0.5) gasParts.push({ t: "flame", x: x + Math.random(), y: y + Math.random(), vy: 0, life: 0.6, left: 0.6 });
+      } else if (blaze.warn) {
+        ctx.fillStyle = "rgba(255,120,30," + (0.22 + 0.18 * Math.sin(now / 90)).toFixed(3) + ")";
+        ctx.fillRect(px, py, tile, tile);
+      }
+    }
+    ctx.restore();
+  }
+
   // What a room's painter asked to have lying there, as a Cantori item.
   function spdDrop(kind, x, y) {
     const gearOf = (cat, rarity) => {
@@ -3020,7 +3233,8 @@
     biomeIndex = biomeOf(depth);
     biome = DATA.biomes[biomeIndex];
 
-    ironKeys = 0; wells = []; spdInfo = null; plants = []; gases = {};
+    ironKeys = 0; wells = []; spdInfo = null; plants = []; gases = {}; blaze = null;
+    if (!isBossDepth(depth) && biome.gauntlet) { finishGauntletFloor(buildGauntletFloor()); return; }
     if (!isBossDepth(depth) && useSpdFloors()) {
       const spdRooms = buildSpdFloor();
       if (spdRooms) { finishSpdFloor(spdRooms); return; }
@@ -5664,6 +5878,7 @@
       const torchThere = torches.find((t) => t.x === nx && t.y === ny);
       if (torchThere) { takeTorch(torchThere); return true; }
       if (inBounds(nx, ny) && map[ny][nx] === LOCKED) return openLocked(nx, ny);
+      if (inBounds(nx, ny) && map[ny][nx] === CRATE) { breakCrate(nx, ny); worldTurn(attackCost()); return true; }
       if (inBounds(nx, ny) && map[ny][nx] === WELL) return drinkWell(nx, ny);
     }
 
@@ -6592,6 +6807,7 @@
   }
   function maybeHorror() {
     if (bossActive || inShop || dead) return;                 // a boss floor has its own pressure
+    if (blaze) return;                                        // the fire behind you IS this floor's clock
     for (const st of FLOOR_STAGES) {
       if (turns !== st.at) continue;
       horrorWarned = true;
@@ -7135,6 +7351,7 @@
     panX = 0; panY = 0; enemyFocusIdx = -1; pendingThrow = null;   // any action recenters the camera on you
     artifactTick(cost);
     gasTick(); if (dead) return;
+    blazeTick(); if (dead) return;
     if (player.bless && player.bless.turns > 0 && --player.bless.turns === 0) { player.bless = null; log("The starlight fades."); }
     // Timekeeper's Hourglass: while time is stopped, nothing else gets a turn.
     const frozen = player.timeFreeze > 0;
@@ -7751,6 +7968,15 @@
       ctx.fillStyle = shade("#6a6660", b); ctx.beginPath(); ctx.arc(px + T0 / 2, py + T0 / 2, T0 * 0.42, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = shade(w && !w.used ? (w.water === "health" ? "#4a9a5a" : "#4a7ab0") : "#1a1a1a", b);
       ctx.beginPath(); ctx.arc(px + T0 / 2, py + T0 / 2, T0 * 0.3, 0, Math.PI * 2); ctx.fill();
+    } else if (t === CRATE) {
+      // a wooden crate: planked box, darker frame, one diagonal brace
+      ctx.fillStyle = shade("#2a1e12", b); ctx.fillRect(px + T0 * 0.08, py + T0 * 0.12, T0 * 0.84, T0 * 0.82);
+      ctx.fillStyle = shade("#9a6a3a", b); ctx.fillRect(px + T0 * 0.12, py + T0 * 0.14, T0 * 0.76, T0 * 0.74);
+      ctx.fillStyle = shade("#6a4424", b);
+      ctx.fillRect(px + T0 * 0.12, py + T0 * 0.14, T0 * 0.76, T0 * 0.09); ctx.fillRect(px + T0 * 0.12, py + T0 * 0.79, T0 * 0.76, T0 * 0.09);
+      ctx.fillRect(px + T0 * 0.12, py + T0 * 0.14, T0 * 0.09, T0 * 0.74); ctx.fillRect(px + T0 * 0.79, py + T0 * 0.14, T0 * 0.09, T0 * 0.74);
+      ctx.strokeStyle = shade("#6a4424", b); ctx.lineWidth = Math.max(1.5, T0 * 0.08);
+      ctx.beginPath(); ctx.moveTo(px + T0 * 0.2, py + T0 * 0.8); ctx.lineTo(px + T0 * 0.8, py + T0 * 0.22); ctx.stroke();
     } else if (t === LOCKED) {
       drawDoor(px, py, true, b);
       ctx.fillStyle = shade("#e0c060", b);
@@ -8294,6 +8520,7 @@
       dim(SX(t.x), SY(t.y), (1 - litBright(t.x, t.y)) * 0.8);
     }
 
+    drawBlaze(SX, SY, now);
     drawGases(SX, SY, now);
     drawAttackReticle(SX, SY, now);
     for (const m of monsters) {                      // a necromancer's mark, a turn before it lands
@@ -11760,7 +11987,7 @@
     // and then measuring its own copy.
     canStepAt: (x, y, dx, dy, flying) => canStep(x, y, dx, dy, flying ? { flying: true } : null),                          // on foot — deep water says no
     passableFlying: (x, y) => passableFor({ flying: true }, x, y),
-    tileConstants: () => ({ WALL, FLOOR, STAIRS, DOOR, THORN, WATER, CHASM, RUBBLE, GRASS }),
+    tileConstants: () => ({ WALL, FLOOR, STAIRS, DOOR, THORN, WATER, CHASM, RUBBLE, GRASS, CRATE }),
     tileDeclared: (t) => Object.prototype.hasOwnProperty.call(TILE, t),
     pan: (dxPx, dyPx) => panBy(dxPx, dyPx),
     addXp: (n) => gainXP(n || 0),
@@ -11840,6 +12067,11 @@
     // Poke a monster's live fields (state, focus, hp …) for a test.
     setMonsterAt: (x, y, o) => { const m = monsterAt(x, y); if (!m) return false; if (o.state) setState(m, o.state); Object.assign(m, o); return true; },
     hexMe: (k) => applyHex(k),
+    blazeInfo: () => (blaze ? { col: blaze.col, warn: blaze.warn, manual: blaze.manual } : null),
+    blazeHold: (on) => { blazeHold = !!on; },
+    // Straight to a depth, skipping the merchant — for tests of a biome's floors.
+    goDepth: (d) => { inShop = false; depth = d; generateLevel(); return depth; },
+    crateCount: () => { let n = 0; for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (map[y][x] === CRATE) n++; return n; },
     statsText: () => { const d = document.createElement("div"); d.innerHTML = charStatsHTML(); return d.textContent; },
     attackTarget: () => { updateAttackBtn(); return attackTgt ? { type: attackTgt.type, x: attackTgt.x, y: attackTgt.y } : null; },
     attackNearest: () => attackNearest(),

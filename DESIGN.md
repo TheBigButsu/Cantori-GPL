@@ -4010,3 +4010,22 @@ fights the Mummy until the Djinn replaces it.
   mends a hurt one a fifth of its HP or drives a whole one on (adrenaline, ×1.5
   speed for 3 turns); keeps two tiles off you; its skeleton dies with it and
   pays no XP. Data: `summons: "skeleton"`.
+
+## Biome 4: the gauntlet and the fire — DONE
+
+Town floors (16–19, `gauntlet: true`) are not rooms but a braid of hallways run
+west to east: 3–4 lanes leave a start hall on the west edge, wander within their
+own band, widen into chambers, cross to their neighbours, and all end in one
+collector hall with the stairs set into the east wall. Nothing is carved that
+does not join two carved things, and a final pass fills any one-tile nub, so
+there is no dead end to be caught in. Crates stand where other floors grow tall
+grass — solid to feet and arrows, one blow breaks one (about a third hold gold,
+a consumable or gear), fire burns them — and each is vetted so it never cuts the
+way on or strands a tile.
+
+**The blaze** replaces the Horror here. After 8 turns a column is marked
+(pulsing) and goes up the next turn: the front advances one column every two
+turns, west to east. Burning ground hurts 6–12 (+depth/4) a turn, burns crates,
+doors and grass, and destroys items left in it; monsters shun it. Regeneration
+is not cut on these floors — the fire is the clock. On the Djinn's floor the
+front only moves when the Djinn fans it.
