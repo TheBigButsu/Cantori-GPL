@@ -178,7 +178,8 @@ async function main() {
   check(idGains.worn.length >= 5, `only ${idGains.worn.length} slots could be filled for the identification check`);
   check(idGains.stuck.length === 0, `worn slot(s) gained no identification XP: ${idGains.stuck.join(", ")}`);
 
-  // Rings (SPD's): a ring is a disguised gem until worn, wearing it names it for
+  // Rings (SPD's): a ring is a disguised gem until it identifies — wearing it
+  // alone names nothing, though it works at once — identifying names the type for
   // the run, and what it does is its effect at its level — not a stat affix. And
   // the flex slots: a trinket goes in the second ring slot or at the neck.
   const rings = await page.evaluate(() => {
@@ -194,10 +195,15 @@ async function main() {
     const worn = c.ringInfo();
     if (!worn.ring1 || worn.ring1.key !== "ring_haste") out.problems.push("the ring did not go in the ring slot");
     else {
-      if (!/Haste/.test(worn.ring1.name)) out.problems.push("wearing the ring did not name it (" + worn.ring1.name + ")");
+      if (/Haste/.test(worn.ring1.name)) out.problems.push("putting the ring on named it before it identified (" + worn.ring1.name + ")");
       if (!(worn.walkCost < before.walkCost)) out.problems.push(`Ring of Haste did not speed walking (${before.walkCost} -> ${worn.walkCost})`);
       if (worn.levels.haste < 1) out.problems.push("Ring of Haste has no level");
     }
+    c.idWorn(9999);
+    if (!/Haste/.test(c.ringInfo().ring1.name)) out.problems.push("identifying the ring did not name it (" + c.ringInfo().ring1.name + ")");
+    c.give("ring_haste"); inv = c.peek().invItems;
+    if (!/Haste/.test(c.nameOf(inv.length - 1))) out.problems.push("a second Ring of Haste was not known by name once the first identified");
+    c.trimInv(1);
     c.give("ring_accuracy"); inv = c.peek().invItems; c.equip(inv.length - 1);
     const two = c.ringInfo();
     if (!two.ring2 || two.ring2.key !== "ring_accuracy") out.problems.push("the second ring did not take the ring/trinket slot");

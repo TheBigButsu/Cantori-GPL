@@ -667,10 +667,10 @@
   // plus, which is SPD's upgrade level in Cantori's terms. No random affixes and no
   // enchants — loot.js rolls a ring bare.
   //
-  // A ring's type is hidden until worn, as in SPD: each run deals the twelve out
-  // to twelve gems, so a "garnet ring" is a different ring next run. Putting one on
-  // names it for the rest of the run (its level still comes out through XP, like
-  // any gear's plus).
+  // A ring's type is hidden, as in SPD: each run deals the twelve out to twelve
+  // gems, so a "garnet ring" is a different ring next run. Wearing one until it
+  // identifies names its type for the rest of the run — putting it on alone tells
+  // you nothing, though its effect applies from the start.
   const RING_GEMS = [["Garnet", "#b8323a"], ["Ruby", "#e0305a"], ["Topaz", "#e0b040"], ["Emerald", "#3ab06a"],
     ["Onyx", "#55556a"], ["Opal", "#d8e0f0"], ["Tourmaline", "#d060a0"], ["Sapphire", "#3060d0"],
     ["Amethyst", "#9050c0"], ["Quartz", "#e8e0d0"], ["Agate", "#b07040"], ["Diamond", "#c0f0ff"]];
@@ -1271,7 +1271,7 @@
       return "level " + (inst.lvl || 0) + "/" + ART_LVL_CAP + (cap ? ", charge " + (cap === 100 ? Math.floor(artCharge(inst)) + "%" : artCharge(inst) + "/" + cap) : "") + " — " + d.text(inst);
     }
     if (isRing(inst) && ringFx(inst)) {
-      if (!ringKnown.has(inst.key)) return "an unknown ring — put it on to learn what it does";
+      if (!ringKnown.has(inst.key)) return "an unknown ring — wear it until it identifies to learn what it does";
       const fx = ringFx(inst), stat = GEAR[inst.key].stat;
       if (!itemIdentified(inst)) return fx.name + " (level unknown)" + (stat ? ", +? " + stat : "");
       const L = ringLevel(inst);
@@ -7860,6 +7860,13 @@
     it.idXp = (it.idXp || 0) + (amount || 1);
     if (it.idXp >= (it.idNeed || 1)) {
       it.identified = true;
+      // SPD's rings: the type is learned when the ring identifies, and from then on
+      // every ring of that type is known by name this run.
+      if (isRing(it) && ringLook[it.key] && !ringKnown.has(it.key)) {
+        const gem = ringLook[it.key][0];
+        ringKnown.add(it.key);
+        log("The " + gem + " ring is a " + GEAR[it.key].name + "!", "hit");
+      }
       const aff = itemAffixText(it);
       log("You've learned your " + itemName(it) + (aff && aff !== "unidentified" ? " — " + aff : "") + ".", "hit");
     }
@@ -8411,19 +8418,21 @@
   // Doors are drawn procedurally (no sprite dependency). Forest biomes render a
   // leafy bush that thins once pushed through; other biomes get a plank/stone
   // panel with a seam that splits open.
-  function drawDoor(px, py, closed, b) {
+  function drawDoor(px, py, closed, b, plain) {
     const cx = px + tile / 2, cy = py + tile / 2;
     // A biome that names SPD door tiles (the prison's) draws those.
     const dtl = biome && biome.spd && biome.spd.tiles;
     if (dtl && dtl.door && drawImg(SPRITES[closed ? dtl.door : (dtl.door_open || dtl.door)], px, py)) return;
-    if (biome && biome.door === "bush") {
+    if (biome && biome.door === "bush" && !plain) {
       const blobs = closed
         ? [[0.30, 0.42, 0.30], [0.66, 0.40, 0.30], [0.48, 0.66, 0.34], [0.48, 0.30, 0.26]]
         : [[0.24, 0.30, 0.18], [0.78, 0.32, 0.17], [0.22, 0.76, 0.17], [0.80, 0.74, 0.18]];
       for (const [fx, fy, fr] of blobs) {
         ctx.beginPath();
         ctx.arc(px + fx * tile, py + fy * tile, tile * fr, 0, Math.PI * 2);
-        ctx.fillStyle = shade(fy < 0.5 ? "#3f7a3a" : "#2f5f30", b);
+        // A lighter, yellower green than the forest's trees, so a bush reads as a
+        // way through at a glance rather than as more of the wall.
+        ctx.fillStyle = shade(fy < 0.5 ? "#79b650" : "#5c9a40", b);
         ctx.fill();
       }
       // ripe berries dotted through the foliage (fewer once trampled open)
@@ -8589,7 +8598,9 @@
       ctx.strokeStyle = shade("#6a4424", b); ctx.lineWidth = Math.max(1.5, T0 * 0.08);
       ctx.beginPath(); ctx.moveTo(px + T0 * 0.2, py + T0 * 0.8); ctx.lineTo(px + T0 * 0.8, py + T0 * 0.22); ctx.stroke();
     } else if (t === LOCKED) {
-      drawDoor(px, py, true, b);
+      // Always a real door with a lock, even where ordinary doors are bushes: a key
+      // that opens a hedge reads as a bug.
+      drawDoor(px, py, true, b, true);
       ctx.fillStyle = shade("#e0c060", b);
       ctx.beginPath(); ctx.arc(px + T0 / 2, py + T0 * 0.45, T0 * 0.09, 0, Math.PI * 2); ctx.fill();
       ctx.fillRect(px + T0 * 0.46, py + T0 * 0.45, T0 * 0.08, T0 * 0.2);
@@ -9405,6 +9416,10 @@
     ctx.font = `700 ${Math.max(11, Math.floor(tile * 0.5))}px ${bodyFont()}`;
     const floatPx = Math.max(11, Math.floor(tile * 0.5));
     for (const f of floaters) {
+      // Only over tiles you can see: a sleeper's "z" behind a wall gave its
+      // position away, and so did every other floater raised out of sight.
+      const fxT = Math.round(f.x), fyT = Math.round(f.y);
+      if (!inBounds(fxT, fyT) || !visible[fyT][fxT]) continue;
       ctx.font = `700 ${Math.round(floatPx * (f.scale || 1))}px ${bodyFont()}`;
       const p = anim01(now, f.at, FLOAT_MS);
       const fx = SX(f.x) + tile / 2, fy = SY(f.y) + tile / 2 - p * tile * 0.9;
@@ -10055,10 +10070,8 @@
     player[slot] = it;
     selectedInvIdx = -1;
     const verb = cat === "weapon" ? "You wield the " : cat === "armor" ? "You don the " : "You equip the ";
-    const unknownRing = isRing(it) && ringLook[it.key] && !ringKnown.has(it.key);
-    const wasName = itemName(it);
-    if (unknownRing) ringKnown.add(it.key);
-    log(verb + wasName + "." + (unknownRing ? " It is a " + GEAR[it.key].name + "!" : ""), unknownRing ? "hit" : "");
+    // An unknown ring stays its gem until it identifies (gainIdentify names the type).
+    log(verb + itemName(it) + ".", "");
     player.maxHp = computeMaxHp();               // VIT affixes can change max HP
     player.hp = Math.min(player.hp, player.maxHp);
     player.maxMp = computeMaxMp();               // INT affixes/quality bonuses can change max MP
@@ -12922,6 +12935,7 @@
     wieldEnchanted: (gearKey, enchants) => { if (!GEAR[gearKey]) return false; player.weapon = Object.assign(mkBase(gearKey), { enchants: enchants.slice() }); updateHUD(); return true; },
     procAt: (x, y) => { const m = monsterAt(x, y), w = player.weapon; if (!m || !w) return false; forceProcs = true; try { procEnchants(w.enchants, m, itemPower(w), null, w); } finally { forceProcs = false; } return true; },
     critChance: () => critChance(),
+    idWorn: (n) => { idFromXP(n); },
     hasteBuff: () => player.hasteBuff || 0,
     enchantText: (gearKey, enchants) => itemAffixText(Object.assign(mkBase(gearKey), { enchants: enchants.slice() })),
     rollItem: (k, f, rarity) => rollItem(k, f != null ? f : depth, rarity),   // rarity: force one, for measuring a tier's table

@@ -144,7 +144,10 @@ window.CantoriLoot = function (deps) {
     // of a flat cost that decayed to nothing once floors started paying 60.
     const idTier = Math.max(1, base.tier || 1);
     const idNeed = Math.max(1, Math.round((LOOT.identifyXp != null ? LOOT.identifyXp : 20) * idTier));
-    const nothingHidden = plus === 0 && stats.length === 0 && enchants.length === 0 && !grant;
+    // An SPD ring always hides its TYPE (it shows as a gem until it identifies), so
+    // it is never born known even when it rolled nothing else.
+    const hidesType = base.cat === "ring" && !!base.effect;
+    const nothingHidden = plus === 0 && stats.length === 0 && enchants.length === 0 && !grant && !hidesType;
     const inst = { key, rarity, plus, stats, enchants, idNeed, idXp: 0, identified: nothingHidden };
     if (grant) inst.grant = grant;
     // A base with `variants` picks one at drop (e.g. the Metrognome's walk/attack mode).
