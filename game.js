@@ -3231,12 +3231,14 @@
   }
 
   // What a room's painter asked to have lying there, as a Cantori item.
+  // One piece of gear of a category, rolled the way the SPD rooms roll it.
+  function rollSpdGear(cat, rarity) {
+    const tier = _loot.pickTier(depth);
+    const key = _loot.pickTypeInTierCat(cat, tier) || _loot.pickAnyInCat(cat, tier);
+    return key ? _loot.rollItem(key, depth, rarity) : null;
+  }
   function spdDrop(kind, x, y) {
-    const gearOf = (cat, rarity) => {
-      const tier = _loot.pickTier(depth);
-      const key = _loot.pickTypeInTierCat(cat, tier) || _loot.pickAnyInCat(cat, tier);
-      return key ? _loot.rollItem(key, depth, rarity) : null;
-    };
+    const gearOf = rollSpdGear;
     let it = null;
     if (kind === "gold") it = { key: "gold", amount: randInt(5, 12) + depth };
     else if (kind === "goldBig") it = { key: "gold", amount: randInt(20, 40) + depth * 4 };
@@ -3266,11 +3268,23 @@
     if (!VERMIN.animated_statue) return;
     const m = makeMonster("animated_statue", x, y);
     m.passive = true;   // SPD's statue is PASSIVE: it guards its weapon and fights only once struck
+    // Dormant, not asleep: no "z", and never rolls to notice you — but still
+    // unaware, so the blow that wakes it is an ambush.
+    setState(m, WANDERING); m.aware = false; m.target = null;
     const k = 1 + (depth - 1) * 0.35;
     m.hp = m.maxHp = Math.round(m.hp * k);
-    m.atkMin = Math.round((m.atkMin || 0) * k); m.atkMax = Math.round((m.atkMax || 1) * k);
+    // SPD's statue HOLDS its weapon and fights with it: its blows are that weapon's
+    // damage (scaled with depth, like its body), its aim is that weapon's aim, and
+    // breaking the statue is how you get it. Examining it names both sides of the deal.
+    const w = rollSpdGear("weapon");
+    if (w && GEAR[w.key]) {
+      m.carry = w;
+      m.atkMin = Math.max(1, Math.round(gDmgMin(w) * k)); m.atkMax = Math.max(m.atkMin, Math.round(gDmgMax(w) * k));
+      m.toHit = (m.toHit != null ? m.toHit : MON_TOHIT) + (GEAR[w.key].toHit || 0);
+    } else {
+      m.atkMin = Math.round((m.atkMin || 0) * k); m.atkMax = Math.round((m.atkMax || 1) * k);
+    }
     monsters.push(m);
-    spdDrop("weapon", x, y);
   }
   // Keys go on open ground outside every locked room, reachable from the start
   // without passing a locked door — which is simply floodReach, since LOCKED is solid.
@@ -4676,6 +4690,8 @@
     }
     monsters = monsters.filter((m) => m !== target);
     propDoorOpenAt(target.x, target.y);   // died on a door/bush? it's propped open now
+    // What it was holding (a statue's weapon) falls where it stood.
+    if (target.carry) { items.push(Object.assign({}, target.carry, { x: target.x, y: target.y })); target.carry = null; }
     log("The " + monName(target) + " " + (verb || "dies") + ".", "hit");
     // Whatever it does when it dies happens before the XP: a burst can kill the
     // player, and a dead player should not be awarded the kill that killed them.
@@ -12319,7 +12335,15 @@
       if (m.passive) tags.push("dormant — strike it and it wakes");
       else if (!m.aware) tags.push("unaware");
       if (!m.boss && !m.horror && VERMIN[m.type] && player.level > monMaxLvl(m)) tags.push("too weak to teach you anything");
-      log(monName(m) + " — Lv " + (m.level || 1) + ", HP " + Math.max(0, m.hp) + "/" + m.maxHp + (tags.length ? " (" + tags.join(", ") + ")" : ""));
+      // A guardian names what it holds: the prize, and how hard it will hit you with it.
+      let holds = "";
+      if (m.carry && GEAR[m.carry.key]) {
+        const rar = itemIdentified(m.carry) && m.carry.rarity && m.carry.rarity !== "white" ? m.carry.rarity + " " : "";
+        holds = ". It holds " + (/^[aeiou]/i.test(rar || itemName(m.carry)) ? "an " : "a ") + rar + itemName(m.carry) +
+          ": it hits with it for " + m.atkMin + "–" + m.atkMax + ", and it is yours if you break it" +
+          (m.passive ? ". Your first blow lands unopposed." : ".");
+      }
+      log(monName(m) + " — Lv " + (m.level || 1) + ", HP " + Math.max(0, m.hp) + "/" + m.maxHp + (tags.length ? " (" + tags.join(", ") + ")" : "") + holds);
       return;
     }
     if (x === player.x && y === player.y) {
@@ -12980,6 +13004,7 @@
     decorList: () => { const o = []; for (const [k, v] of decor) o.push(Object.assign({ x: k % MAP_W, y: Math.floor(k / MAP_W), tile: map[Math.floor(k / MAP_W)][k % MAP_W] }, v)); return o; },
     spriteLoaded: (n) => !!(SPRITES[n] && SPRITES[n].complete && SPRITES[n].naturalWidth > 0),
     bindAt: (x, y, n) => { const m = monsterAt(x, y); if (m) bindMon(m, n); return m ? m.stun : null; },
+    carryAt: (x, y) => { const m = monsterAt(x, y); return m && m.carry ? { key: m.carry.key, atkMin: m.atkMin, atkMax: m.atkMax, state: m.state } : null; },
     spawnStatueAt: (x, y) => { if (!passable(x, y) || monsterAt(x, y)) return false; spawnStatue(x, y); return true; },
     hasteBuff: () => player.hasteBuff || 0,
     enchantText: (gearKey, enchants) => itemAffixText(Object.assign(mkBase(gearKey), { enchants: enchants.slice() })),
@@ -13068,7 +13093,8 @@
     rush: (dx, dy) => executeRush([dx, dy]),
     spin: () => executeSpin(),
     skills: () => JSON.parse(JSON.stringify(player.skills)),
-    examineAt: (x, y) => describeTile(x, y),
+    // Examines the tile and returns the line it logged, so a test can read it.
+    examineAt: (x, y) => { describeTile(x, y); const el = document.getElementById("log"); return el && el.lastElementChild ? el.lastElementChild.textContent : ""; },
     peek: () => {
       let ex = 0;
       for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (explored[y][x]) ex++;

@@ -1046,13 +1046,24 @@ async function main() {
     const st = c.peek().mlist.find((m) => m.type === "animated_statue");
     if (!st) problems.push("the statue did not spawn");
     else {
+      // it holds its weapon (none on the floor yet), fights with it, and is dormant rather than asleep
+      const cy = c.carryAt(sx, sy);
+      if (!cy) problems.push("the statue holds no weapon");
+      else {
+        if (c.itemCountAt(sx, sy) > 0) problems.push("the statue's weapon is already lying on the floor");
+        if (cy.state === "sleeping") problems.push("a dormant statue reads as asleep");
+        const txt = c.examineAt(sx, sy);
+        if (!/It holds/.test(txt) || !/hits with it for \d+–\d+/.test(txt)) problems.push("examining the statue does not name its weapon and damage: " + txt);
+      }
       if (st.x !== sx || st.y !== sy) problems.push("a statue left its post before it was struck");
       if (c.peek().hp < hp0) problems.push("a statue attacked before it was struck");
       c.setMonsterAt(st.x, st.y, { hp: st.maxHp - 1 });
       c.tick(1);
       const st2 = c.peek().mlist.find((m) => m.type === "animated_statue");
       if (!st2 || st2.state !== "hunting") problems.push("a struck statue did not wake (" + (st2 && st2.state) + ")");
-      c.killAt(st2 ? st2.x : sx, st2 ? st2.y : sy);
+      const kx = st2 ? st2.x : sx, ky = st2 ? st2.y : sy;
+      c.killAt(kx, ky);
+      if (cy && c.itemCountAt(kx, ky) < 1) problems.push("breaking the statue did not drop its weapon");
     }
     // the Bind floor: a rat and a boss both held 2
     c.spawnMonsterAt("rat", sx, sy);
