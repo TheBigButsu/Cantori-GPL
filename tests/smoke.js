@@ -992,7 +992,7 @@ async function main() {
       const msg = test(before, { a: at(ax, ay), b: at(bx, by), hp: c.peek().hp, haste: c.hasteBuff(), plants: c.plantList().length });
       if (msg) problems.push(key + ": " + msg);
     };
-    check1("binding", (b, a) => (a.a && a.a.stun >= 1 ? null : "the foe was not Bound"));
+    check1("binding", (b, a) => (a.a && a.a.stun >= 2 ? null : "the foe was not Bound for 2 turns"));
     check1("judging", (b, a) => (a.a && a.a.hp === 999 ? null : "hurt a foe that was not Bound"));
     fresh(); c.setMonsterAt(ax, ay, { stun: 3 }); c.wieldEnchanted(sword, ["judging"]); c.procAt(ax, ay);
     if (!(at(ax, ay) && at(ax, ay).hp < 999)) problems.push("judging: did not hurt a Bound foe");
@@ -1018,6 +1018,52 @@ async function main() {
     return { problems };
   });
   check(ench.problems.length === 0, "enchants: " + ench.problems.join("; "));
+
+  // A statue stands guard until it is struck; and every Bind lasts at least two
+  // turns, bosses included — Rush's too.
+  const guard = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);
+    c.boonClear();
+    const p = c.peek();
+    const line = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => [1, 2, 3].every((i) => c.passableAt(p.x + dx * i, p.y + dy * i)));
+    if (!line) return { problems: ["no open line from the start for the statue / bind checks"] };
+    const [dx, dy] = line, sx = p.x + dx * 2, sy = p.y + dy * 2;
+    // statue
+    c.spawnStatueAt(sx, sy);
+    const hp0 = c.peek().hp;
+    for (let t = 0; t < 10; t++) c.tick(1);
+    const st = c.peek().mlist.find((m) => m.type === "animated_statue");
+    if (!st) problems.push("the statue did not spawn");
+    else {
+      if (st.x !== sx || st.y !== sy) problems.push("a statue left its post before it was struck");
+      if (c.peek().hp < hp0) problems.push("a statue attacked before it was struck");
+      c.setMonsterAt(st.x, st.y, { hp: st.maxHp - 1 });
+      c.tick(1);
+      const st2 = c.peek().mlist.find((m) => m.type === "animated_statue");
+      if (!st2 || st2.state !== "hunting") problems.push("a struck statue did not wake (" + (st2 && st2.state) + ")");
+      c.killAt(st2 ? st2.x : sx, st2 ? st2.y : sy);
+    }
+    // the Bind floor: a rat and a boss both held 2
+    c.spawnMonsterAt("rat", sx, sy);
+    if ((c.bindAt(sx, sy, 1) || 0) < 2) problems.push("a 1-turn Bind held a foe for less than 2");
+    c.setMonsterAt(sx, sy, { boss: true, stun: 0 });
+    if ((c.bindAt(sx, sy, 1) || 0) < 2) problems.push("a Bind held a boss for less than 2");
+    c.setMonsterAt(sx, sy, { boss: false, stun: 0, hp: 999, maxHp: 999 });
+    // Rush: after its own turn the foe must still be held (2 applied, 1 spent)
+    c.killAt(sx, sy); c.spawnMonsterAt("rat", p.x + dx * 3, p.y + dy * 3);
+    c.setMonsterAt(p.x + dx * 3, p.y + dy * 3, { hp: 999, maxHp: 999, atkMin: 0, atkMax: 0 });
+    c.grant(5); c.learn("rush"); c.resetCds(); c.hurt(-999);
+    c.doSkill("rush"); c.tapAt(p.x + dx, p.y + dy);
+    const r = c.peek().mlist.find((m) => m.type === "rat");
+    if (!r || !(r.stun >= 1)) problems.push("Rush did not leave its target Bound past its own turn (stun " + (r && r.stun) + ")");
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(guard.problems.length === 0, "statue/bind: " + guard.problems.join("; "));
 
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.

@@ -6,6 +6,7 @@ Generated from `data.js` (the `boons` table is the source of truth; this file mi
 
 - An offer (run start, each boss, the altar) shows **three boons from three different gods**.
 - Take a god's boon and that god is **sworn**: every later offer includes one of a sworn god's boons.
+- **Bind always lasts at least 2 turns** (bosses included; Iron Law II holds a boss for 3).
 - **Slot boons** — Attack, Magic, Move, Struck, Death's Door (below 20% HP, once a floor). One per slot; a new one replaces the old.
 - **Passives** are offered once you hold one of that god's boons; a **capstone** once you hold three.
 - Every boon has up to three levels; an offer can be an upgrade (II, III) of one you hold.
@@ -18,9 +19,9 @@ Keyword: **Bound — stunned or paralysed**.
 | Slot | Boon | I | II | III |
 |---|---|---|---|---|
 | Attack | ⚖ **Judgement** (`k_judgement`) | Your weapon deals +40% to a Bound foe, and each hit holds it Bound a turn longer. | +55% to a Bound foe; each hit extends its Bound by a turn. | +70% to a Bound foe; each hit extends its Bound by a turn. |
-| Magic | 📜 **Edict** (`k_edict`) | Casting a skill Binds every foe beside you for 1 turn. | Casting a skill Binds every foe beside you for 1 turn, and the nearest foe within 3 as well. | Casting a skill Binds every foe beside you for 2 turns, and the nearest foe within 3 as well. |
+| Magic | 📜 **Edict** (`k_edict`) | Casting a skill Binds every foe beside you for 2 turns. | Casting a skill Binds every foe beside you for 2 turns, and the nearest foe within 3 as well. | Casting a skill Binds every foe beside you for 3 turns, and the nearest foe within 3 as well. |
 | Move | ✥ **Procession** (`k_procession`) | Every 4th step leaves a Sigil (up to 3). The next foe to step on one is Bound for 2 turns. | Every 3rd step leaves a Sigil (up to 3); Bound for 2 turns. | Every 3rd step leaves a Sigil (up to 4); Bound for 3 turns. |
-| Struck | ✋ **Rebuke** (`k_rebuke`) | A foe that hits you is Bound for 1 turn (once per foe every 5 turns). | A foe that hits you is Bound for 1 turn (once per foe every 3 turns). | A foe that hits you is Bound for 2 turns (once per foe every 3 turns). |
+| Struck | ✋ **Rebuke** (`k_rebuke`) | A foe that hits you is Bound for 2 turns (once per foe every 5 turns). | A foe that hits you is Bound for 2 turns (once per foe every 3 turns). | A foe that hits you is Bound for 3 turns (once per foe every 3 turns). |
 | Death's Door | ⛨ **Sanctuary** (`k_sanctuary`) | Once a floor, falling below 20% HP Binds every foe within 3 for 3 turns. +5 AC while below 20%. | …Binds every foe within 3 for 4 turns. +5 AC while below 20%. | …Binds every foe within 4 for 5 turns. +7 AC while below 20%. |
 | Passive | ⛓ **Iron Law** (`k_ironlaw`) | Every Bind you cause lasts 1 turn longer. | Every Bind you cause lasts 1 turn longer, bosses included. | Every Bind you cause lasts 2 turns longer. |
 | Passive | ⚜ **Chains of Office** (`k_chains`) | Bound foes take +15% damage from you. | Bound foes take +20% damage from you. | Bound foes take +25% damage from you. |
@@ -119,7 +120,7 @@ Weapons roll from these twelve (a gold weapon carries two different ones). In ea
 
 | God | Enchant | Proc | Does | Tier 1 → 5 |
 |---|---|---|---|---|
-| Kethara | ⛓ **Binding** | 20% | A hit may Bind the foe — stunned — for a turn or more. Kethara's Iron Law lengthens it; a boss shrugs it off after one. | 1, 1, 2, 2, 3 |
+| Kethara | ⛓ **Binding** | 20% | A hit may Bind the foe — stunned — for 2 turns or more. Kethara's Iron Law lengthens it. | 2, 2, 3, 3, 4 |
 | Kethara | ⚖ **Judging** | always | Every hit on a Bound foe lands harder, by a share of the weapon's power. | 20, 30, 40, 55, 75 |
 | Auvris | 🌿 **Wild** | 30% | A hit may call something up out of the ground: a flare of fire, a gust of frost, a spit of poison, or a plant beside the foe. Auvris's Chaos can call it twice. | 0.5, 0.75, 1, 1.5, 2.5 |
 | Auvris | ⛈ **Stormcalled** | 25% | A hit may throw lightning from the foe to others near it you can see — more of them on a better weapon. | 0.4, 0.6, 0.8, 1.1, 1.5 |

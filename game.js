@@ -3257,6 +3257,7 @@
   function spawnStatue(x, y) {
     if (!VERMIN.animated_statue) return;
     const m = makeMonster("animated_statue", x, y);
+    m.passive = true;   // SPD's statue is PASSIVE: it guards its weapon and fights only once struck
     const k = 1 + (depth - 1) * 0.35;
     m.hp = m.maxHp = Math.round(m.hp * k);
     m.atkMin = Math.round((m.atkMin || 0) * k); m.atkMax = Math.round((m.atkMax || 1) * k);
@@ -5699,8 +5700,11 @@
   // Bind a foe (Kethara): a stun, lengthened by Iron Law. Bosses shrug off all but a turn.
   function bindMon(m, turns) {
     if (!m || m.hp <= 0) return;
-    let n = turns + bv("k_ironlaw");
-    if (m.boss) n = Math.min(n, boonLv("k_ironlaw") >= 2 ? 2 : 1);
+    // Never less than 2: a one-turn Bind costs the foe the swing it was about to
+    // take and nothing more — two is what actually lets you step away. Bosses get
+    // the same floor, and only Iron Law II lets them be held any longer.
+    let n = Math.max(2, turns + bv("k_ironlaw"));
+    if (m.boss) n = Math.min(n, boonLv("k_ironlaw") >= 2 ? 3 : 2);
     m.stun = Math.max(m.stun || 0, n);
     floatText(m.x, m.y, "⛓", "#e8c060");
   }
@@ -7631,6 +7635,14 @@
 
   function monsterAct(m) {
     if (m.hp <= 0) return;
+    // A passive guardian (the statue) does nothing at all — no noticing, no moving —
+    // until something hurts it. Then it is an ordinary hunter for good.
+    if (m.passive) {
+      if (m.hp >= m.maxHp) return;
+      m.passive = false;
+      startHunting(m);
+      floatText(m.x, m.y, "!", "#ffd98a");
+    }
     if (boonLv("k_absolute") && !isBound(m) && !m.dominated && !(m.absCd > turns) && monsters.some((o) => o !== m && o.hp > 0 && isBound(o) && cheb(o.x, o.y, m.x, m.y) === 1)) {
       m.absCd = turns + 10; bindMon(m, 1);                  // Absolute Order: control spreads
     }
@@ -12055,7 +12067,9 @@
       if (mon) {
         bump(player, nx, ny); attack(player, mon, cur.dmg);
         // `stun` below 1 is a chance of one turn; 1 or more is that many turns, always.
-        if (cur.stun && mon.hp > 0 && Math.random() < cur.stun) { mon.stun = (mon.stun || 0) + Math.max(1, Math.floor(cur.stun)); floatText(mon.x, mon.y, "stun!", "#cfe6ff"); }
+        // Rush Binds (Kethara's keyword), so it goes through bindMon: the 2-turn floor
+        // and Iron Law both apply. A `stun` below 1 is still a chance.
+        if (cur.stun && mon.hp > 0 && Math.random() < cur.stun) bindMon(mon, Math.max(1, Math.floor(cur.stun)));
         break;
       }
       if (isWall(nx, ny)) {
@@ -12276,6 +12290,7 @@
       if ((m.toHit != null ? m.toHit : MON_TOHIT) >= 4) tags.push("accurate");
       if (m.parry) tags.push(m.focus ? "focused — will parry" : "parries");
       if (m.state === SLEEPING) tags.push("asleep");
+      if (m.passive) tags.push("dormant — strike it and it wakes");
       else if (!m.aware) tags.push("unaware");
       if (!m.boss && !m.horror && VERMIN[m.type] && player.level > monMaxLvl(m)) tags.push("too weak to teach you anything");
       log(monName(m) + " — Lv " + (m.level || 1) + ", HP " + Math.max(0, m.hp) + "/" + m.maxHp + (tags.length ? " (" + tags.join(", ") + ")" : ""));
@@ -12936,6 +12951,8 @@
     procAt: (x, y) => { const m = monsterAt(x, y), w = player.weapon; if (!m || !w) return false; forceProcs = true; try { procEnchants(w.enchants, m, itemPower(w), null, w); } finally { forceProcs = false; } return true; },
     critChance: () => critChance(),
     idWorn: (n) => { idFromXP(n); },
+    bindAt: (x, y, n) => { const m = monsterAt(x, y); if (m) bindMon(m, n); return m ? m.stun : null; },
+    spawnStatueAt: (x, y) => { if (!passable(x, y) || monsterAt(x, y)) return false; spawnStatue(x, y); return true; },
     hasteBuff: () => player.hasteBuff || 0,
     enchantText: (gearKey, enchants) => itemAffixText(Object.assign(mkBase(gearKey), { enchants: enchants.slice() })),
     rollItem: (k, f, rarity) => rollItem(k, f != null ? f : depth, rarity),   // rarity: force one, for measuring a tier's table

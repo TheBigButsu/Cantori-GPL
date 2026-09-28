@@ -1433,16 +1433,16 @@ window.CANTORI_DATA = {
         "slots": [
           "weapon"
         ],
-        "desc": "A hit may Bind the foe — stunned — for a turn or more. Kethara's Iron Law lengthens it; a boss shrugs it off after one.",
+        "desc": "A hit may Bind the foe — stunned — for 2 turns or more. Kethara's Iron Law lengthens it.",
         "effect": {
           "type": "bind"
         },
         "tierValues": [
-          1,
-          1,
           2,
           2,
-          3
+          3,
+          3,
+          4
         ]
       },
       "judging": {
@@ -2139,16 +2139,16 @@ window.CANTORI_DATA = {
       "kind": "magic",
       "icon": "📜",
       "color": "#e8c060",
-      "desc": "Casting a skill Binds every foe beside you for 1 turn.",
+      "desc": "Casting a skill Binds every foe beside you for 2 turns.",
       "levels": [
-        "Casting a skill Binds every foe beside you for 1 turn.",
-        "Casting a skill Binds every foe beside you for 1 turn, and the nearest foe within 3 as well.",
-        "Casting a skill Binds every foe beside you for 2 turns, and the nearest foe within 3 as well."
+        "Casting a skill Binds every foe beside you for 2 turns.",
+        "Casting a skill Binds every foe beside you for 2 turns, and the nearest foe within 3 as well.",
+        "Casting a skill Binds every foe beside you for 3 turns, and the nearest foe within 3 as well."
       ],
       "vals": [
-        1,
-        1,
-        2
+        2,
+        2,
+        3
       ]
     },
     "k_procession": {
@@ -2175,16 +2175,16 @@ window.CANTORI_DATA = {
       "kind": "struck",
       "icon": "✋",
       "color": "#e8c060",
-      "desc": "A foe that hits you is Bound for 1 turn (once per foe every 5 turns).",
+      "desc": "A foe that hits you is Bound for 2 turns (once per foe every 5 turns).",
       "levels": [
-        "A foe that hits you is Bound for 1 turn (once per foe every 5 turns).",
-        "A foe that hits you is Bound for 1 turn (once per foe every 3 turns).",
-        "A foe that hits you is Bound for 2 turns (once per foe every 3 turns)."
+        "A foe that hits you is Bound for 2 turns (once per foe every 5 turns).",
+        "A foe that hits you is Bound for 2 turns (once per foe every 3 turns).",
+        "A foe that hits you is Bound for 3 turns (once per foe every 3 turns)."
       ],
       "vals": [
-        1,
-        1,
-        2
+        2,
+        2,
+        3
       ]
     },
     "k_sanctuary": {
@@ -4259,39 +4259,39 @@ window.CANTORI_DATA = {
           "kind": "rush",
           "branch": "oath",
           "bt": 1,
-          "desc": "Charge in a line until you hit something. The foe you hit is Bound — stunned — for a turn.",
+          "desc": "Charge in a line until you hit something. The foe you hit is Bound — stunned — for 2 turns.",
           "levels": [
-            "Charge; the foe you hit is Bound. 90-turn cooldown.",
+            "Charge; the foe you hit is Bound for 2 turns. 90-turn cooldown.",
             "+2 damage, 80-turn cooldown.",
             "+3 damage, 70-turn cooldown.",
             "+5 damage, 60-turn cooldown.",
-            "+7 damage, 45-turn cooldown, Bound for 2."
+            "+7 damage, 45-turn cooldown, Bound for 3."
           ],
           "ranks": [
             {
               "dmg": 0,
               "cd": 90,
-              "stun": 1
+              "stun": 2
             },
             {
               "dmg": 2,
               "cd": 80,
-              "stun": 1
+              "stun": 2
             },
             {
               "dmg": 3,
               "cd": 70,
-              "stun": 1
+              "stun": 2
             },
             {
               "dmg": 5,
               "cd": 60,
-              "stun": 1
+              "stun": 2
             },
             {
               "dmg": 7,
               "cd": 45,
-              "stun": 2
+              "stun": 3
             }
           ],
           "req": []
@@ -4789,24 +4789,24 @@ window.CANTORI_DATA = {
           "bt": 3,
           "desc": "You know where the nerve is. Bare-handed blows can lock a foe up outright.",
           "levels": [
-            "8% to stun for 1 turn.",
-            "12% to stun for 1 turn.",
-            "16% to stun for 1 turn.",
+            "8% to stun for 2 turns.",
+            "12% to stun for 2 turns.",
+            "16% to stun for 2 turns.",
             "20% to stun for 2 turns.",
-            "28% to stun for 2 turns."
+            "28% to stun for 3 turns."
           ],
           "ranks": [
             {
               "stunPct": 8,
-              "stunTurns": 1
+              "stunTurns": 2
             },
             {
               "stunPct": 12,
-              "stunTurns": 1
+              "stunTurns": 2
             },
             {
               "stunPct": 16,
-              "stunTurns": 1
+              "stunTurns": 2
             },
             {
               "stunPct": 20,
@@ -4814,7 +4814,7 @@ window.CANTORI_DATA = {
             },
             {
               "stunPct": 28,
-              "stunTurns": 2
+              "stunTurns": 3
             }
           ],
           "req": [],

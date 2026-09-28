@@ -45,7 +45,7 @@ Generated from `data.js` by `tools/make_skills_doc.py` — the class `skillTree`
 
 | Opens at | Node | Kind | Ranks |
 |---|---|---|---|
-| 0 pts | 🐂 **Rush** — Charge in a line until you hit something. The foe you hit is Bound — stunned — for a turn. | active | 1. Charge; the foe you hit is Bound. 90-turn cooldown.<br>2. +2 damage, 80-turn cooldown.<br>3. +3 damage, 70-turn cooldown.<br>4. +5 damage, 60-turn cooldown.<br>5. +7 damage, 45-turn cooldown, Bound for 2. |
+| 0 pts | 🐂 **Rush** — Charge in a line until you hit something. The foe you hit is Bound — stunned — for 2 turns. | active | 1. Charge; the foe you hit is Bound for 2 turns. 90-turn cooldown.<br>2. +2 damage, 80-turn cooldown.<br>3. +3 damage, 70-turn cooldown.<br>4. +5 damage, 60-turn cooldown.<br>5. +7 damage, 45-turn cooldown, Bound for 3. |
 | 3 pts | 👁 **Eye of Kethara** — Tap a foe: Kethara's eye fixes it in place. Cooldown falls with RES. | active | 1. Held for 8 turns.<br>2. Held for 12 turns.<br>3. Held for 16 turns.<br>4. Held for 20 turns.<br>5. Held for 28 turns. |
 | 7 pts | 🧱 **Wall of Faith** — Tap a tile: a wall of stone rises across it, shoving any foe in the way back a step. | active | 1. A 3-tile wall. 150-turn cooldown.<br>2. A 5-tile wall.<br>3. A 5-tile wall, 120-turn cooldown.<br>4. A 7-tile wall.<br>5. A 9-tile wall, 90-turn cooldown. |
 | 15 pts · choose one | ⛓ **Chains of Faith** — Your Smite binds what it does not kill. | passive | 1. A Smite Binds its target for 2 turns. |
@@ -78,7 +78,7 @@ Generated from `data.js` by `tools/make_skills_doc.py` — the class `skillTree`
 |---|---|---|---|
 | 0 pts | ↩ **Throw** — Grab a foe beside you and hurl it until it hits something. | active | 1. Throw; the foe takes weapon + DEX damage. 100-turn cooldown.<br>2. …80-turn cooldown.<br>3. …and whatever it hits takes the same.<br>4. …60-turn cooldown.<br>5. …and the damage dealt comes off the cooldown. |
 | 3 pts | 📦 **Prop Master** — A crate is not in your way, it is in your hand: bump one and it flies at the nearest foe you can see. | passive | 1. Crates you smash fly for 1× your attack and stun.<br>2. 1.5× your attack.<br>3. 2× your attack.<br>4. 2.5× your attack.<br>5. 3.5× your attack. |
-| 7 pts | ☝ **Pressure Point** — You know where the nerve is. Bare-handed blows can lock a foe up outright. | passive | 1. 8% to stun for 1 turn.<br>2. 12% to stun for 1 turn.<br>3. 16% to stun for 1 turn.<br>4. 20% to stun for 2 turns.<br>5. 28% to stun for 2 turns. |
+| 7 pts | ☝ **Pressure Point** — You know where the nerve is. Bare-handed blows can lock a foe up outright. | passive | 1. 8% to stun for 2 turns.<br>2. 12% to stun for 2 turns.<br>3. 16% to stun for 2 turns.<br>4. 20% to stun for 2 turns.<br>5. 28% to stun for 3 turns. |
 | 15 pts · choose one | 🎬 **Stunt Double** — A thrown foe that hits another knocks them both senseless. | passive | 1. Throw collisions stun both for 2 turns. |
 | 15 pts · choose one | 🧱 **Environmental Master** — The wall does the work: a foe thrown into a wall takes triple. | passive | 1. Throwing a foe into a wall deals 3× damage. |
 
