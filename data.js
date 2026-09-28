@@ -3344,11 +3344,11 @@ window.CANTORI_DATA = {
           "Fissure": 1,
           "GrassyGrave": 2,
           "Striped": 1,
-          "Study": 1
+          "Cottage": 1
         },
         "specials": [
           "Garden",
-          "Library",
+          "Pantry",
           "Armory",
           "Treasury",
           "Storage",

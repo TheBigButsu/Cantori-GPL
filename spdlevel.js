@@ -199,7 +199,7 @@
 
   // ---- Level canvas: the flat terrain array the painters write into ---------
   function makeLevel(w, h) {
-    return { w, h, map: new Int8Array(w * h), drops: [], mobs: [], traps: [], plants: [], keys: 0, entrance: null, exit: null };
+    return { w, h, map: new Int8Array(w * h), drops: [], mobs: [], traps: [], plants: [], decor: [], keys: 0, entrance: null, exit: null };
   }
   const cell = (lv, x, y) => x + y * lv.w;
   function setT(lv, x, y, t) { if (x >= 0 && y >= 0 && x < lv.w && y < lv.h) lv.map[x + y * lv.w] = t; }
@@ -207,6 +207,16 @@
   // Painter.fill(level, x, y, w, h, value) — w/h are TILE counts here.
   function fill(lv, x, y, w, h, t) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) setT(lv, i, j, t); }
   // Painter.fill(level, room, m, value): a Room's width() is its tile count.
+  // Decor: which sprite a tile shows, without changing what the tile IS. A room
+  // tags its cells with a `floor` and/or a `prop` sprite name; game.js draws those
+  // over the ordinary terrain. Movement, sight and connectivity never read it.
+  function deco(lv, x, y, o) { lv.decor.push(Object.assign({ x, y }, o)); }
+  function decoRoom(lv, r, floor, wall) {
+    for (let y = r.top; y <= r.bottom; y++) for (let x = r.left; x <= r.right; x++) {
+      const edge = x === r.left || x === r.right || y === r.top || y === r.bottom;
+      deco(lv, x, y, edge ? { wall } : { floor });
+    }
+  }
   function fillRoom(lv, r, m, t) { fill(lv, r.left + m, r.top + m, r.width() - 2 * m, r.height() - 2 * m, t); }
   // Painter.fill(level, Rect, value) on a plain Rect uses the Rect's own width(),
   // which is one short of its tile count — SPD relies on that in mergeRooms.
@@ -1317,6 +1327,58 @@
       this.drop(lv, T.GRASS, "seed");
     }
   }
+  // The forest's woodcutter's cottage, in place of SPD's Study: log walls, a plank
+  // floor, a hearth on the far wall, a bed, barrels and crates in the corners, and
+  // the Study's loot on a table in the middle. Furniture is a solid BOOKSHELF tile
+  // with a prop sprite, and it only ever goes in a corner or the middle of a wall
+  // that has no door: every other cell on the inner ring touches the open middle
+  // orthogonally, so nothing it places can wall off a tile, a door or the table.
+  class CottageRoom extends StandardRoom {
+    minWidth() { return Math.max(super.minWidth(), 7); } minHeight() { return Math.max(super.minHeight(), 7); }
+    sizeCatProbs() { return [1, 0, 0]; }
+    paint(lv) {
+      fillRoom(lv, this, 0, T.WALL);
+      fillRoom(lv, this, 1, T.EMPTY_SP);
+      decoRoom(lv, this, "cottage_floor", "cottage_wall");
+      for (const d of this.doors()) { drawInside(lv, this, d, 1, T.EMPTY_SP); d.set(DOOR.REGULAR); }
+      const L = this.left + 1, Tp = this.top + 1, Rt = this.right - 1, B = this.bottom - 1;
+      const doorSide = (() => { const d = this.doors()[0]; if (!d) return "top";
+        return d.x === this.left ? "left" : d.x === this.right ? "right" : d.y === this.top ? "top" : "bottom"; })();
+      const midX = Math.floor((L + Rt) / 2), midY = Math.floor((Tp + B) / 2);
+      const far = { left: { x: Rt, y: midY }, right: { x: L, y: midY }, top: { x: midX, y: B }, bottom: { x: midX, y: Tp } }[doorSide];
+      const place = (x, y, prop) => {
+        if (getT(lv, x, y) !== T.EMPTY_SP) return;
+        // the cell just inside a door (and any beside one) stays clear, so no
+        // doorway opens onto a barrel
+        for (const d of this.doors()) if (Math.abs(d.x - x) + Math.abs(d.y - y) <= 1) return;
+        setT(lv, x, y, T.BOOKSHELF); deco(lv, x, y, { prop, floor: "cottage_floor" });
+      };
+      place(far.x, far.y, "cottage_hearth");
+      const corners = [[L, Tp], [Rt, Tp], [L, B], [Rt, B]];
+      const props = ["cottage_bed", "cottage_barrel", "cottage_crates", "cottage_sacks"];
+      for (let i = corners.length - 1; i > 0; i--) { const j = R.Int(i + 1); const t = corners[i]; corners[i] = corners[j]; corners[j] = t; }
+      corners.forEach(([x, y], i) => place(x, y, props[i]));
+      const c = this.center();
+      setT(lv, c.x, c.y, T.PEDESTAL); deco(lv, c.x, c.y, { prop: "cottage_table", floor: "cottage_floor" });
+      lv.drops.push({ x: c.x, y: c.y, kind: R.Int(2) === 0 ? "prize" : "potionOrScroll" });
+    }
+  }
+  // The forest's locked storeroom, in place of the Library: the same shape and the
+  // same hoard, but the shelf along the far wall holds jars rather than books.
+  class PantryRoom extends SpecialRoom {
+    paint(lv) {
+      fillRoom(lv, this, 0, T.WALL); fillRoom(lv, this, 1, T.EMPTY_SP);
+      decoRoom(lv, this, "cottage_floor", "cottage_wall");
+      fill(lv, this.left + 1, this.top + 1, this.width() - 2, 1, T.BOOKSHELF);
+      drawInside(lv, this, this.entranceDoor(), 1, T.EMPTY_SP);
+      // shelves only where a shelf still stands — the doorway may have cut the row
+      for (let x = this.left + 1; x < this.right; x++)
+        if (getT(lv, x, this.top + 1) === T.BOOKSHELF) deco(lv, x, this.top + 1, { prop: "pantry_shelf", floor: "cottage_floor" });
+      const n = R.NormalIntRange(1, 3);
+      for (let i = 0; i < n; i++) this.drop(lv, T.EMPTY_SP, i === 0 ? "scrollIdentify" : "potionOrScroll");
+      this.lock(lv);
+    }
+  }
   class LibraryRoom extends SpecialRoom {                                   // SPD LibraryRoom
     paint(lv) {
       fillRoom(lv, this, 0, T.WALL); fillRoom(lv, this, 1, T.EMPTY_SP);
@@ -1403,7 +1465,8 @@
       this.lock(lv);
     }
   }
-  const SPECIAL = { Garden: GardenRoom, Library: LibraryRoom, Armory: ArmoryRoom, Treasury: TreasuryRoom, Storage: StorageRoom,
+  STANDARD.Cottage = CottageRoom;   // declared after STANDARD, beside its special twin (PantryRoom)
+  const SPECIAL = { Garden: GardenRoom, Library: LibraryRoom, Pantry: PantryRoom, Armory: ArmoryRoom, Treasury: TreasuryRoom, Storage: StorageRoom,
     Crypt: CryptRoom, Statue: StatueRoom, MagicWell: MagicWellRoom, Runestone: RunestoneRoom };
 
   // ---- Painter (SPD RegularPainter.paint) ---------------------------------------

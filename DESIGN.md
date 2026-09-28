@@ -4110,3 +4110,15 @@ Label's Maddening / Dreadful (berserk and terror — bosses immune) and the Guil
 Tempered / Keen (flat damage, crit chance). Each applies or pays off on its god's
 boon keyword, so a weapon can join the same build as the boons and the god branch.
 The card names the god. Armour enchants are unchanged. Table: `docs/BOONS.md`.
+
+## The woodcutter's cottage — DONE
+
+The forest no longer rolls SPD's Study or Library (books in a forest). In their
+place: a **Cottage** (log walls, plank floor, wooden doors, a hearth on the far
+wall, a bed, barrels, crates and sacks in the corners, the Study's loot on a table
+in the middle) and a locked **Pantry** (the Library's shape, jars on the shelves).
+Furniture is the ordinary solid shelf tile dressed by a per-tile **decor** layer
+(`lv.decor` in spdlevel.js → `decor` in game.js), so no new terrain touches the
+map predicates; it only ever stands in corners or mid-wall away from doors, so it
+cannot wall anything off. Every other biome's bookshelf is now a real sprite.
+The art is a NON-FREE placeholder — see the warning at the top of ART-CREDITS.md.

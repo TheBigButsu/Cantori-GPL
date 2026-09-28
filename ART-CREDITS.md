@@ -1,5 +1,20 @@
 # Art Credits
 
+> ## ⚠ NON-FREE PLACEHOLDER ART — REMOVE BEFORE ANY RELEASE
+>
+> The tiles below were cut from two tilesets the project owner supplied that are
+> **not** CC0 or GPL-compatible. They are placeholders, used with the owner's
+> say-so while nothing is being released, and **every one must be replaced (or
+> deleted) before Cantori is published anywhere**:
+>
+> `bookshelf`, `pantry_shelf`, `cottage_floor`, `cottage_wall`, `cottage_bed`,
+> `cottage_table`, `cottage_barrel`, `cottage_crates`, `cottage_sacks`,
+> `cottage_hearth` — all in `assets/tiles/`, cut by `tools/cut_cottage_tiles.py`
+> from the source sheets in `assets/source/nonfree/` (delete that folder too).
+>
+> The engine falls back to drawn shapes for all of them, so removing the files
+> breaks nothing — it only brings back the old look.
+
 The pixel-art sprites in `assets/tiles/` are from **Dungeon Crawl Stone Soup**
 (https://github.com/crawl/crawl), whose tiles and artwork are released under the
 **CC0 1.0 (public domain)** license

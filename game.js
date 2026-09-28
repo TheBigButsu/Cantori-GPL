@@ -438,6 +438,10 @@
   // back where they left), the Sanctum's no-entry square and the Portal pair.
   // All three are per-floor and are cleared with the decoys.
   let banished = [], sanctum = null, portal = null;
+  // Decor (spdlevel.js): which sprite a tile shows without changing what it is —
+  // the cottage's log walls, plank floor and furniture. Keyed y * MAP_W + x.
+  let decor = new Map();
+  const decorAt = (x, y) => decor.get(y * MAP_W + x) || null;
   const inSanctum = (x, y) => !!sanctum && Math.abs(x - sanctum.x) <= 1 && Math.abs(y - sanctum.y) <= 1;
   // Sera's notes. A fourth kind of thing on the board, built on exactly the shape
   // decoys established — its own list, its own tick, its own draw pass, cleared
@@ -2950,6 +2954,10 @@
     }
     player.x = lv.entrance.x + ox; player.y = lv.entrance.y + oy;
     wells = (lv.wells || []).map((w) => ({ x: w.x + ox, y: w.y + oy, water: w.water, used: false }));
+    for (const d of lv.decor || []) {
+      const k = (d.y + oy) * MAP_W + (d.x + ox);
+      decor.set(k, Object.assign(decor.get(k) || {}, d.wall ? { wall: d.wall } : {}, d.floor ? { floor: d.floor } : {}, d.prop ? { prop: d.prop } : {}));
+    }
     for (const d of lv.drops) spdDrop(d.kind, d.x + ox, d.y + oy);
     for (const m of lv.mobs) if (m.kind === "statue") spawnStatue(m.x + ox, m.y + oy);
     for (const p of lv.plants || []) {
@@ -3333,7 +3341,7 @@
     traps = [];
     decoys = [];
     notes = [];
-    banished = []; sanctum = null; portal = null;
+    banished = []; sanctum = null; portal = null; decor = new Map();
     // Bank what was left of the last floor's welcome, then add this floor's grant.
     // Read BEFORE turns is zeroed, which is the whole point of doing it here.
     floorPatience = Math.min(FLOOR_BANK_MAX, FLOOR_GRANT + Math.max(0, floorPatience - turns));
@@ -3550,7 +3558,7 @@
     traps = [];
     decoys = [];
     notes = [];
-    banished = []; sanctum = null; portal = null;
+    banished = []; sanctum = null; portal = null; decor = new Map();
     // Bank what was left of the last floor's welcome, then add this floor's grant.
     // Read BEFORE turns is zeroed, which is the whole point of doing it here.
     floorPatience = Math.min(FLOOR_BANK_MAX, FLOOR_GRANT + Math.max(0, floorPatience - turns));
@@ -8397,6 +8405,10 @@
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].cat === "seed" || DATA.consumables[k].cat === "bag"),
     "bag_backpack",                                     // the backpack tab's icon
     "fx_steam",                                         // SPD's gas puff (effects/specks.png)
+    // The woodcutter's cottage and the shared bookcase (NON-FREE placeholders —
+    // tools/cut_cottage_tiles.py, ART-CREDITS.md).
+    "bookshelf", "pantry_shelf", "cottage_floor", "cottage_wall", "cottage_bed", "cottage_table",
+    "cottage_barrel", "cottage_crates", "cottage_sacks", "cottage_hearth",
     ...Object.keys(DATA.traps || {}).map((k) => "trap_" + k),
     ...Object.keys(DATA.consumables).filter((k) => DATA.consumables[k].plant).map((k) => "plant_" + DATA.consumables[k].plant),
   ]));
@@ -8565,9 +8577,19 @@
     [STATUE]: ["#b8b4a8", "#5c5a54"], [BOOKSHELF]: ["#7a5a3a", "#3e2e1e"], [EMBERS]: ["#8a5a3a", "#45301e"],
     [PEDESTAL]: ["#d8c890", "#6c6448"], [WELL]: ["#6ab0e0", "#35587a"], [LOCKED]: ["#e0c060", "#705f30"] };
   function drawSpdTerrain(t, mx, my, px, py, b, now) {
+    // Decor first: a cottage's furniture, or its planks where SPD would draw its
+    // special floor.
+    const dc = decorAt(mx, my);
+    // A prop only ever dresses furniture (solid shelf, or the table): if a later
+    // pass opened the cell up, it is floor, and must look like floor.
+    if (dc && dc.prop && (t === BOOKSHELF || t === PEDESTAL) && drawImg(SPRITES[dc.prop], px, py)) return;
+    if (dc && dc.floor && t === SPFLOOR) return;
     const tiles = biome && biome.spd && biome.spd.tiles;
     const name = tiles && tiles[SPD_TILE_NAME[t]];
     if (name && drawImg(SPRITES[name], px, py)) return;
+    // Every biome's bookcase is the same real sprite now; the drawn one below is
+    // only what shows if it failed to load.
+    if (t === BOOKSHELF && drawImg(SPRITES.bookshelf, px, py)) return;
     const T0 = tile;
     if (t === SHALLOW) {
       ctx.fillStyle = shade("#3f6f94", b * 0.55); ctx.fillRect(px, py, T0, T0);
@@ -9065,19 +9087,23 @@
         const px = SX(mx), py = SY(my);
         const t = map[my][mx];
         if (t === WALL) {
+          const dw = decorAt(mx, my);
           if (sarcophagi.has(my * MAP_W + mx)) drawSarcophagus(px, py, b);
+          else if (dw && dw.wall && drawImg(SPRITES[dw.wall], px, py)) { /* a cottage's log wall */ }
           else if (!drawImg(SPRITES[biome.wall], px, py)) { ctx.fillStyle = shade(COL.wallFace, b); ctx.fillRect(px, py, tile, tile); }
           if (hintedSecretAt(mx, my)) drawSecretHint(px, py, now);
         } else {
           // SPD scatters a decorated floor tile through the plain ones; a biome
           // that names a `floorDeco` sprite gets about one in eight, fixed per tile.
           const deco = biome.floorDeco && t === FLOOR && (((mx * 73856093) ^ (my * 19349663)) & 7) === 0;
-          if (!drawImg(SPRITES[deco ? biome.floorDeco : biome.floor], px, py) && !(deco && drawImg(SPRITES[biome.floor], px, py))) {
+          const df = decorAt(mx, my);
+          if (df && df.floor && drawImg(SPRITES[df.floor], px, py)) { /* a cottage's planks */ }
+          else if (!drawImg(SPRITES[deco ? biome.floorDeco : biome.floor], px, py) && !(deco && drawImg(SPRITES[biome.floor], px, py))) {
             ctx.fillStyle = shade((mx + my) % 2 === 0 ? COL.floorA : COL.floorB, b);
             ctx.fillRect(px, py, tile, tile);
           }
           if (t === STAIRS) drawImg(SPRITES[biome.exitSprite || "stairs"], px, py);
-          else if (t === DOOR) drawDoor(px, py, !doorOpen(mx, my), b);
+          else if (t === DOOR) drawDoor(px, py, !doorOpen(mx, my), b, !!(df && df.wall));   // a cottage's doorway is a door, not a bush
           else if (t === THORN) drawThorn(px, py, b);
           else if (t === WATER) drawWater(px, py, b);
           else if (t === CHASM) drawChasm(px, py, b);
@@ -12951,6 +12977,8 @@
     procAt: (x, y) => { const m = monsterAt(x, y), w = player.weapon; if (!m || !w) return false; forceProcs = true; try { procEnchants(w.enchants, m, itemPower(w), null, w); } finally { forceProcs = false; } return true; },
     critChance: () => critChance(),
     idWorn: (n) => { idFromXP(n); },
+    decorList: () => { const o = []; for (const [k, v] of decor) o.push(Object.assign({ x: k % MAP_W, y: Math.floor(k / MAP_W), tile: map[Math.floor(k / MAP_W)][k % MAP_W] }, v)); return o; },
+    spriteLoaded: (n) => !!(SPRITES[n] && SPRITES[n].complete && SPRITES[n].naturalWidth > 0),
     bindAt: (x, y, n) => { const m = monsterAt(x, y); if (m) bindMon(m, n); return m ? m.stun : null; },
     spawnStatueAt: (x, y) => { if (!passable(x, y) || monsterAt(x, y)) return false; spawnStatue(x, y); return true; },
     hasteBuff: () => player.hasteBuff || 0,

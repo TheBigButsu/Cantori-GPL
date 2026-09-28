@@ -773,15 +773,23 @@ async function main() {
       c.boonClear();
       c.grant(80);
     };
-    const free = (dist) => {
+    const free1 = (dist) => {
       const p = c.peek();
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
         const x = p.x + dx * dist, y = p.y + dy * dist;
         let ok = true;
-        for (let i = 1; i <= dist; i++) if (!c.passableAt(p.x + dx * i, p.y + dy * i)) ok = false;
+        // walkable AND in sight: a bush or tall grass in the line blocks the cast
+        for (let i = 1; i <= dist; i++) if (!c.passableAt(p.x + dx * i, p.y + dy * i) || !c.visibleAt(p.x + dx * i, p.y + dy * i)) ok = false;
         if (ok) return { x, y, dx, dy };
       }
       return null;
+    };
+    // A cramped start (a corridor, a corner) can have no open line at all; reroll
+    // the floor rather than fail — skills and cooldown state survive a regenerate.
+    const free = (dist) => {
+      let r = free1(dist);
+      for (let i = 0; i < 8 && !r; i++) { c.regenerate(); c.hurt(-999); for (const m of c.peek().mlist) c.killAt(m.x, m.y); r = free1(dist); }
+      return r;
     };
     const learnN = (id, n) => { for (let i = 0; i < n; i++) c.learn(id); };
     fresh();
@@ -884,7 +892,7 @@ async function main() {
       const p = c.peek(), out = [];
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
         let ok = true;
-        for (let i = 1; i <= dist; i++) if (!c.passableAt(p.x + dx * i, p.y + dy * i)) ok = false;
+        for (let i = 1; i <= dist; i++) if (!c.passableAt(p.x + dx * i, p.y + dy * i) || !c.visibleAt(p.x + dx * i, p.y + dy * i)) ok = false;
         if (ok) out.push({ x: p.x + dx * dist, y: p.y + dy * dist, dx, dy });
       }
       return out;
@@ -1028,7 +1036,7 @@ async function main() {
     for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);
     c.boonClear();
     const p = c.peek();
-    const line = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => [1, 2, 3].every((i) => c.passableAt(p.x + dx * i, p.y + dy * i)));
+    const line = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => [1, 2, 3].every((i) => c.passableAt(p.x + dx * i, p.y + dy * i) && c.visibleAt(p.x + dx * i, p.y + dy * i)));
     if (!line) return { problems: ["no open line from the start for the statue / bind checks"] };
     const [dx, dy] = line, sx = p.x + dx * 2, sy = p.y + dy * 2;
     // statue
@@ -1064,6 +1072,39 @@ async function main() {
     return { problems };
   });
   check(guard.problems.length === 0, "statue/bind: " + guard.problems.join("; "));
+
+  // The forest's woodcutter's cottage (in place of the Study) and pantry (in place
+  // of the Library): no bookshelves in the forest, the table's loot is reachable,
+  // and every decor sprite actually loads.
+  const cottage = await page.evaluate(() => {
+    const c = window.cantori, problems = [];
+    let sawCottage = false, sawPantry = false, forestBooks = 0;
+    for (let t = 0; t < 80 && !(sawCottage && sawPantry); t++) {
+      c.goDepth(1 + (t % 4)); c.hurt(-999);
+      const f = c.spdFloor(); if (!f) continue;
+      const names = f.rooms.map((r) => r.name);
+      if (names.includes("Study") || names.includes("Library")) forestBooks++;
+      const dl = c.decorList();
+      for (const d of dl) for (const n of [d.wall, d.floor, d.prop]) if (n && !c.spriteLoaded(n)) problems.push("decor sprite " + n + " did not load");
+      for (const d of dl) if (d.prop && d.tile !== 13 && d.tile !== 15) problems.push("a " + d.prop + " prop sits on walkable ground (tile " + d.tile + ")");
+      if (names.includes("Cottage")) {
+        sawCottage = true;
+        const tables = dl.filter((d) => d.prop === "cottage_table");
+        if (!tables.length) problems.push("a cottage has no table");
+        for (const tb of tables) if (!c.reach(tb.x, tb.y)) problems.push("a cottage table at " + tb.x + "," + tb.y + " cannot be reached");
+      }
+      if (names.includes("Pantry")) {
+        sawPantry = true;
+        if (!dl.some((d) => d.prop === "pantry_shelf")) problems.push("a pantry has no shelves");
+      }
+    }
+    if (forestBooks) problems.push(forestBooks + " forest floor(s) still rolled a Study or Library");
+    if (!sawCottage) problems.push("no cottage appeared in 80 forest floors");
+    if (!c.spriteLoaded("bookshelf")) problems.push("the shared bookshelf sprite did not load");
+    c.goDepth(1); c.hurt(-999);
+    return { problems: Array.from(new Set(problems)), sawPantry };
+  });
+  check(cottage.problems.length === 0, "cottage: " + cottage.problems.join("; "));
 
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
