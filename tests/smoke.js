@@ -951,6 +951,68 @@ async function main() {
   });
   check(sera.problems.length === 0, "sera: " + sera.problems.join("; "));
 
+  // The gods' weapon enchants: each one, fired with its proc forced, leaves the
+  // mark it promises; bosses are never maddened or terrified; and a gold weapon
+  // rolls its two from the weapon pool.
+  const ench = await page.evaluate(() => {
+    const c = window.cantori, D = window.CANTORI_DATA, problems = [];
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    for (let i = 0; i < 5 && c.boonChoices().length; i++) c.pickBoonAt(0);
+    c.boonClear();
+    const E = D.loot.enchants;
+    const weaponEnch = Object.keys(E).filter((k) => (E[k].slots || []).indexOf("weapon") >= 0);
+    if (weaponEnch.length !== 12) problems.push("expected 12 weapon enchants, found " + weaponEnch.length);
+    for (const g of ["kethara", "auvris", "maelon", "ourn", "label", "guild"])
+      if (weaponEnch.filter((k) => E[k].god === g).length !== 2) problems.push(g + " does not have exactly two weapon enchants");
+    const sword = Object.keys(D.gear).find((k) => D.gear[k].cat === "weapon" && (D.gear[k].tier || 1) === 3) || Object.keys(D.gear).find((k) => D.gear[k].cat === "weapon");
+    const p = c.peek();
+    const spots = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => [p.x + dx, p.y + dy]).filter(([x, y]) => c.passableAt(x, y));
+    if (spots.length < 2) return { problems: problems.concat(["no room beside the start for the enchant checks"]) };
+    const [ax, ay] = spots[0], [bx, by] = spots[1];
+    const fresh = () => {
+      for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+      c.spawnMonsterAt("rat", ax, ay); c.spawnMonsterAt("rat", bx, by);
+      c.setMonsterAt(ax, ay, { hp: 999, maxHp: 999, atkMin: 0, atkMax: 0, stun: 0, chill: 0, berserk: 0, fleeing: 0, dots: [] });
+      c.setMonsterAt(bx, by, { hp: 999, maxHp: 999, atkMin: 0, atkMax: 0 });
+    };
+    const at = (x, y) => c.peek().mlist.find((m) => m.x === x && m.y === y);
+    const check1 = (key, test) => {
+      fresh(); c.hurt(-999); c.hurt(c.peek().hp - 5);
+      const before = { a: at(ax, ay), b: at(bx, by), hp: c.peek().hp, haste: c.hasteBuff(), crit: c.critChance(), plants: c.plantList().length };
+      c.wieldEnchanted(sword, [key]);
+      if (key === "keen") { if (!(c.critChance() > before.crit)) problems.push("Keen did not raise crit chance"); return; }
+      c.procAt(ax, ay);
+      const msg = test(before, { a: at(ax, ay), b: at(bx, by), hp: c.peek().hp, haste: c.hasteBuff(), plants: c.plantList().length });
+      if (msg) problems.push(key + ": " + msg);
+    };
+    check1("binding", (b, a) => (a.a && a.a.stun >= 1 ? null : "the foe was not Bound"));
+    check1("judging", (b, a) => (a.a && a.a.hp === 999 ? null : "hurt a foe that was not Bound"));
+    fresh(); c.setMonsterAt(ax, ay, { stun: 3 }); c.wieldEnchanted(sword, ["judging"]); c.procAt(ax, ay);
+    if (!(at(ax, ay) && at(ax, ay).hp < 999)) problems.push("judging: did not hurt a Bound foe");
+    check1("wild", (b, a) => (a.a && (a.a.hp < 999 || a.a.chill > 0 || a.a.dots.length) || a.plants > b.plants ? null : "nothing happened"));
+    check1("stormcalled", (b, a) => (a.b && a.b.hp < 999 ? null : "lightning did not reach the second foe"));
+    check1("rotting", (b, a) => (a.a && a.a.dots.some((d) => d.tag === "poison") ? null : "no poison"));
+    check1("vampiric", (b, a) => (a.hp > b.hp ? null : "no healing"));
+    check1("chilling", (b, a) => (a.a && a.a.chill > 0 ? null : "no chill"));
+    check1("hastening", (b, a) => (a.haste > 0 ? null : "no haste"));
+    check1("maddening", (b, a) => (a.a && a.a.berserk > 0 ? null : "not berserk"));
+    check1("dreadful", (b, a) => (a.a && a.a.fleeing > 0 ? null : "not fleeing"));
+    check1("tempered", (b, a) => (a.a && a.a.hp < 999 ? null : "no extra damage"));
+    check1("keen", () => null);
+    // bosses shrug off the Label
+    fresh(); c.setMonsterAt(ax, ay, { boss: true }); c.wieldEnchanted(sword, ["maddening", "dreadful"]); c.procAt(ax, ay);
+    const bs = at(ax, ay);
+    if (bs && (bs.berserk > 0 || bs.fleeing > 0)) problems.push("a boss was maddened or terrified");
+    fresh(); c.setMonsterAt(ax, ay, { boss: false });
+    // the card names the god
+    if (!/Kethara/.test(c.enchantText(sword, ["binding"]))) problems.push("the card does not name the enchant's god: " + c.enchantText(sword, ["binding"]));
+    for (const m of c.peek().mlist) c.killAt(m.x, m.y);
+    c.setClass("warrior"); c.regenerate(); c.hurt(-999);
+    return { problems };
+  });
+  check(ench.problems.length === 0, "enchants: " + ench.problems.join("; "));
+
   // SPD's bags: seeds go to the Velvet Pouch you start with; a bag bought later
   // takes its category out of the backpack, and new ones go straight into it.
   const bags = await page.evaluate(() => {

@@ -292,7 +292,16 @@
   // longer quietly multiply your damage), and a crit is now a good roll rather
   // than a different attack.
   const BASE_CRIT = 5, BASE_CRIT_DMG = 125;
-  const critChance = () => (BASE_CRIT + mod("DEX") + mod("LCK") * CRIT_PER_LCK_MOD) / 100;
+  const critChance = () => (BASE_CRIT + mod("DEX") + mod("LCK") * CRIT_PER_LCK_MOD + weaponEnchantValue("keen")) / 100;
+  // The summed tier value of every enchant of one effect type on the wielded weapon
+  // — for the enchants that are a standing bonus rather than a proc (Keen).
+  function weaponEnchantValue(type) {
+    const w = player && player.weapon;
+    if (!w || !w.enchants) return 0;
+    let v = 0;
+    for (const e of w.enchants) { const d = LOOT.enchants[e]; if (d && d.effect && d.effect.type === type) v += enchantTierValue(d, w, 0); }
+    return v;
+  }
   const critMult = () => (BASE_CRIT_DMG + mod("LCK") * CRITDMG_PER_LCK_MOD) / 100;
   // To-hit is difference-based and still easy to read: 50% at even acc/eva, and
   // every point of lead pushes it toward — but never all the way to — certainty.
@@ -1294,12 +1303,22 @@
       const d = LOOT.enchants[e];
       if (!d) { parts.push(e); continue; }
       const v = enchantTierValue(d, inst, null);
-      const flat = d.effect && d.effect.type === "defense";
-      parts.push(d.icon + " " + d.name + (v == null ? "" : (flat ? " +" + v : " ×" + v)));
+      parts.push(d.icon + " " + d.name + (v == null ? "" : " " + enchantValueText(d, v)) + (d.god ? " (" + godName(d.god) + ")" : ""));
     }
     return parts.join(", ");
   }
 
+  // How an enchant's number reads on the card: a flat add, a percentage, a count of
+  // turns, or a multiplier — whichever the effect actually does with it.
+  const ENCH_UNIT = { defense: "+", tempered: "+", judge: "+%", leech: "%", hasten: "+%", keen: "+%", bind: "t", chill: "t", madden: "t", terror: "t" };
+  function enchantValueText(d, v) {
+    const u = ENCH_UNIT[d.effect && d.effect.type];
+    if (u === "+") return "+" + v;
+    if (u === "+%") return "+" + v + "%";
+    if (u === "%") return v + "%";
+    if (u === "t") return v + (v === 1 ? " turn" : " turns");
+    return "×" + v;
+  }
   // ---- Loot: potions & scrolls, identified by use (defined in data.js) ----
   const CONSUM = DATA.consumables;
   const CONSUM_KEYS = Object.keys(CONSUM);
@@ -5201,6 +5220,7 @@
   // instance bearing the enchant, used to look up its tier for tierValues.
   // Each enchant is driven by its `effect` block in the data (type + params),
   // so new enchants can be authored in the editor without touching this code.
+  let forceProcs = false;   // dev hook only: every enchant fires, so a test can read its effect
   function procEnchants(enchants, target, power, incoming, item) {
     if (!enchants || !enchants.length || target.hp <= 0) return;
     for (const e of enchants) {
@@ -5208,7 +5228,7 @@
       const def = LOOT.enchants[e] || {};
       const proc = ((def.proc != null ? def.proc : 1) + Math.max(0, mod("LCK")) * 3 / 100) * (1 + 0.15 * ringL("arcana"))
         * (player.focusTurns > 0 && boonLv("g_focus") ? 1 + bv("g_focus") / 100 : 1);   // Enchanter's Focus   // LCK: +3% per modifier point to all procs; Ring of Arcana multiplies
-      if (Math.random() >= proc) continue;
+      if (!forceProcs && Math.random() >= proc) continue;
       const fx = def.effect || {};
       const icon = def.icon || "✦", color = def.color || "#cfe6ff";
       switch (fx.type) {
@@ -5225,20 +5245,93 @@
           floatText(target.x, target.y, "☠+" + dose, "#9ad06a");
           break;
         }
-        case "shock": {                                 // burst + a scaling stun chance
-          const burst = Math.max(1, Math.round(power * enchantTierValue(def, item, fx.burstMult != null ? fx.burstMult : 1)));
-          target.hp -= burst; flash(target); floatText(target.x, target.y, "⚡-" + burst, "#9ad0ff");
-          const chance = (burst * (fx.stunPer != null ? fx.stunPer : 0.10)) / Math.max(1, target.level || 1);
-          if (Math.random() < chance) { target.stun = (target.stun || 0) + 1; floatText(target.x, target.y, "stun!", "#cfe6ff"); }
-          break;
-        }
         case "thorns": {                                // reflect a share of the damage you just took
           const base = incoming != null ? incoming : power;
           const dmg = Math.max(1, Math.round(base * enchantTierValue(def, item, fx.mult != null ? fx.mult : 0.5)));
           target.hp -= dmg; flash(target); floatText(target.x, target.y, icon + "-" + dmg, color);
           break;
         }
-        default: break;                                 // "haste" and unknown types do nothing on-hit
+        // ---- the gods' weapon enchants: each applies its god's keyword, or pays off on it
+        case "bind": {                                  // Kethara: Bound for a turn or more
+          if (target.dominated) break;
+          bindMon(target, Math.max(1, Math.round(enchantTierValue(def, item, 1))));
+          break;
+        }
+        case "judge": {                                 // Kethara: a Bound foe takes a share more
+          if (!isBound(target)) break;
+          const extra = Math.max(1, Math.round(power * enchantTierValue(def, item, 20) / 100));
+          target.hp -= extra; flash(target); floatText(target.x, target.y, "⚖-" + extra, color);
+          break;
+        }
+        case "wild": {                                  // Auvris: fire, frost, poison or a plant — Chaos may call it twice
+          const mult = enchantTierValue(def, item, 0.5);
+          wild(() => {
+            if (target.hp <= 0) return;
+            const roll = randInt(0, 3);
+            if (roll === 0) {
+              const burst = Math.max(1, Math.ceil(power * mult));
+              target.hp -= burst; flash(target); floatText(target.x, target.y, "🔥-" + burst, "#ff8f4a");
+              addDot(target, { tag: "burn", dmg: Math.max(1, Math.ceil(burst / 2)), rounds: 3, icon: "🔥", color: "#ff8f4a" });
+            } else if (roll === 1) {
+              target.chill = Math.max(target.chill || 0, 2); floatText(target.x, target.y, "❄", "#9fd8ff");
+            } else if (roll === 2) {
+              const dose = Math.max(1, Math.round(power * mult / 2));
+              addPoison(target, dose); floatText(target.x, target.y, "☠+" + dose, "#9ad06a");
+            } else {
+              const spot = DIRS8.map(([dx, dy]) => [target.x + dx, target.y + dy])
+                .filter(([x, y]) => plantable(x, y) && !plantAt(x, y) && !monsterAt(x, y) && !(x === player.x && y === player.y));
+              if (spot.length) { const [x, y] = spot[randInt(0, spot.length - 1)]; sproutPlant(x, y); floatText(x, y, "🌱", "#8ad06a"); }
+            }
+          });
+          break;
+        }
+        case "arc": {                                   // Auvris: lightning jumps to foes near the one you hit
+          const burst = Math.max(1, Math.round(power * enchantTierValue(def, item, 0.4)));
+          const n = Math.ceil(((item && GEAR[item.key] && gearTier(item.key)) || 1) / 2);
+          const near = monsters.filter((o) => o !== target && o.hp > 0 && !o.dominated && cheb(o.x, o.y, target.x, target.y) <= 3 &&
+            inBounds(o.x, o.y) && visible[o.y][o.x] && lineOfSight(target.x, target.y, o.x, o.y))
+            .sort((a, b) => cheb(a.x, a.y, target.x, target.y) - cheb(b.x, b.y, target.x, target.y)).slice(0, n);
+          for (const o of near) {
+            spawnProjectile(target.x, target.y, o.x, o.y, "#9ad0ff");
+            o.hp -= burst; flash(o); floatText(o.x, o.y, "⛈-" + burst, "#9ad0ff");
+            startHunting(o);
+            if (o.hp <= 0) killMonster(o, "is struck by lightning");
+          }
+          break;
+        }
+        case "leech": {                                 // Maelon: renewal from the wound
+          const heal = Math.min(player.maxHp - player.hp, Math.max(1, Math.round(power * enchantTierValue(def, item, 20) / 100)));
+          if (heal > 0) { player.hp += heal; floatText(player.x, player.y, "🩸+" + heal, "#e0485a"); }
+          break;
+        }
+        case "chill": {                                 // Ourn: half speed for a few turns
+          target.chill = Math.max(target.chill || 0, Math.round(enchantTierValue(def, item, 3)));
+          floatText(target.x, target.y, "❄", "#9fd8ff");
+          break;
+        }
+        case "hasten": {                                // Ourn: a burst of Haste, decaying 1 a turn
+          player.hasteBuff = Math.max(player.hasteBuff || 0, Math.round(enchantTierValue(def, item, 15)));
+          floatText(player.x, player.y, "⏳", "#7fb4e8");
+          break;
+        }
+        case "madden": {                                // the Label: berserk — bosses are beyond it
+          if (target.boss || target.dominated) break;
+          target.berserk = Math.max(target.berserk || 0, Math.round(enchantTierValue(def, item, 2)));
+          floatText(target.x, target.y, "👁", color);
+          break;
+        }
+        case "terror": {                                // the Label: it flees — terror counts as Madness
+          if (target.boss || target.dominated) break;
+          target.fleeing = Math.max(target.fleeing || 0, Math.round(enchantTierValue(def, item, 2)));
+          floatText(target.x, target.y, "🐙", color);
+          break;
+        }
+        case "tempered": {                              // the Guild: flat extra on every hit
+          const extra = Math.max(1, Math.round(enchantTierValue(def, item, 1)));
+          target.hp -= extra; floatText(target.x, target.y, "⚒-" + extra, color);
+          break;
+        }
+        default: break;                                 // "haste", "keen" and unknown types do nothing on-hit
       }
     }
     if (target.hp <= 0) killMonster(target, "is destroyed");
@@ -12824,6 +12917,13 @@
     give: (k) => { if (GEAR[k]) invAdd(rollItem(k, depth)); else if (defOf(k)) invAdd({ key: k }); },
     // deterministic gear for tests: giveGear("sword", {rarity, plus, stats:[{stat,val}], enchants:[...]})
     giveGear: (k, o) => { if (GEAR[k]) player.inv.push(Object.assign(mkBase(k), o || {})); },
+    // Wield `gearKey` carrying exactly the listed enchants, then fire them at the
+    // foe on (x, y) with every proc forced — the effect, without the to-hit roll.
+    wieldEnchanted: (gearKey, enchants) => { if (!GEAR[gearKey]) return false; player.weapon = Object.assign(mkBase(gearKey), { enchants: enchants.slice() }); updateHUD(); return true; },
+    procAt: (x, y) => { const m = monsterAt(x, y), w = player.weapon; if (!m || !w) return false; forceProcs = true; try { procEnchants(w.enchants, m, itemPower(w), null, w); } finally { forceProcs = false; } return true; },
+    critChance: () => critChance(),
+    hasteBuff: () => player.hasteBuff || 0,
+    enchantText: (gearKey, enchants) => itemAffixText(Object.assign(mkBase(gearKey), { enchants: enchants.slice() })),
     rollItem: (k, f, rarity) => rollItem(k, f != null ? f : depth, rarity),   // rarity: force one, for measuring a tier's table
     // The rank an effect actually reads (spent + worn, past the level gates), and
     // the card text — the two things a jewellery grant has to get right.

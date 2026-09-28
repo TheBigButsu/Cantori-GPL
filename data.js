@@ -1424,49 +1424,256 @@ window.CANTORI_DATA = {
       }
     ],
     "enchants": {
-      "fire": {
-        "name": "Flaming",
-        "icon": "🔥",
-        "color": "#ff8f4a",
-        "proc": 0.35,
+      "binding": {
+        "name": "Binding",
+        "icon": "⛓",
+        "color": "#e8c060",
+        "god": "kethara",
+        "proc": 0.2,
         "slots": [
           "weapon"
         ],
-        "desc": "Sears on a hit for half the source's power, then keeps burning for a few turns. Only one flame burns at a time.",
+        "desc": "A hit may Bind the foe — stunned — for a turn or more. Kethara's Iron Law lengthens it; a boss shrugs it off after one.",
         "effect": {
-          "type": "burn",
-          "burstMult": 0.5,
-          "dotTurns": 3
+          "type": "bind"
         },
-        "tier": 2,
+        "tierValues": [
+          1,
+          1,
+          2,
+          2,
+          3
+        ]
+      },
+      "judging": {
+        "name": "Judging",
+        "icon": "⚖",
+        "color": "#e8c060",
+        "god": "kethara",
+        "proc": 1,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "Every hit on a Bound foe lands harder, by a share of the weapon's power.",
+        "effect": {
+          "type": "judge"
+        },
+        "tierValues": [
+          20,
+          30,
+          40,
+          55,
+          75
+        ]
+      },
+      "wild": {
+        "name": "Wild",
+        "icon": "🌿",
+        "color": "#8ad06a",
+        "god": "auvris",
+        "proc": 0.3,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "A hit may call something up out of the ground: a flare of fire, a gust of frost, a spit of poison, or a plant beside the foe. Auvris's Chaos can call it twice.",
+        "effect": {
+          "type": "wild"
+        },
         "tierValues": [
           0.5,
           0.75,
           1,
           1.5,
-          3
+          2.5
         ]
       },
-      "electric": {
-        "name": "Charged",
-        "icon": "⚡",
+      "stormcalled": {
+        "name": "Stormcalled",
+        "icon": "⛈",
         "color": "#9ad0ff",
+        "god": "auvris",
+        "proc": 0.25,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "A hit may throw lightning from the foe to others near it you can see — more of them on a better weapon.",
+        "effect": {
+          "type": "arc"
+        },
+        "tierValues": [
+          0.4,
+          0.6,
+          0.8,
+          1.1,
+          1.5
+        ]
+      },
+      "rotting": {
+        "name": "Rotting",
+        "icon": "☠",
+        "color": "#9ad06a",
+        "god": "maelon",
+        "proc": 0.2,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "Injects a dose equal to a tiered share of the weapon's power. Doses stack, and the poison ticks its total each turn, then fades by 1 — everything Maelon's Rot boons look for.",
+        "effect": {
+          "type": "poison"
+        },
+        "tierValues": [
+          0.2,
+          0.5,
+          0.8,
+          1,
+          1.5
+        ]
+      },
+      "vampiric": {
+        "name": "Vampiric",
+        "icon": "🩸",
+        "color": "#e0485a",
+        "god": "maelon",
+        "proc": 0.25,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "A hit may drink: you heal a share of the weapon's power.",
+        "effect": {
+          "type": "leech"
+        },
+        "tierValues": [
+          20,
+          30,
+          40,
+          50,
+          65
+        ]
+      },
+      "chilling": {
+        "name": "Chilling",
+        "icon": "❄",
+        "color": "#9fd8ff",
+        "god": "ourn",
         "proc": 0.3,
         "slots": [
           "weapon"
         ],
-        "desc": "A jolt equal to the source's power, with a chance to stun that fades against higher-level foes.",
+        "desc": "A hit may Chill the foe — half speed, moving and swinging — for a few turns.",
         "effect": {
-          "type": "shock",
-          "stunPer": 0.1,
-          "burstMult": 0.5
+          "type": "chill"
+        },
+        "tierValues": [
+          3,
+          4,
+          5,
+          6,
+          8
+        ]
+      },
+      "hastening": {
+        "name": "Hastening",
+        "icon": "⏳",
+        "color": "#7fb4e8",
+        "god": "ourn",
+        "proc": 0.15,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "A hit may quicken you: a burst of Haste that fades a point a turn.",
+        "effect": {
+          "type": "hasten"
+        },
+        "tierValues": [
+          15,
+          20,
+          30,
+          40,
+          50
+        ]
+      },
+      "maddening": {
+        "name": "Maddening",
+        "icon": "👁",
+        "color": "#c58fd6",
+        "god": "label",
+        "proc": 0.12,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "A hit may drive the foe berserk — it turns on whatever is nearest. Bosses are beyond it.",
+        "effect": {
+          "type": "madden"
+        },
+        "tierValues": [
+          2,
+          3,
+          3,
+          4,
+          5
+        ]
+      },
+      "dreadful": {
+        "name": "Dreadful",
+        "icon": "🐙",
+        "color": "#8a6ad0",
+        "god": "label",
+        "proc": 0.15,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "A hit may show the foe something it cannot bear, and it flees. Terror is Madness, to the Label. Bosses are beyond it.",
+        "effect": {
+          "type": "terror"
+        },
+        "tierValues": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "tempered": {
+        "name": "Tempered",
+        "icon": "⚒",
+        "color": "#d8b070",
+        "god": "guild",
+        "proc": 1,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "Good steel, well kept: every hit deals flat extra damage.",
+        "effect": {
+          "type": "tempered"
         },
         "tierValues": [
           1,
-          1.5,
           2,
           3,
-          5
+          5,
+          8
+        ]
+      },
+      "keen": {
+        "name": "Keen",
+        "icon": "🗡",
+        "color": "#d8d8e0",
+        "god": "guild",
+        "proc": 0,
+        "slots": [
+          "weapon"
+        ],
+        "desc": "An edge you could shave with: more critical hits while you wield it.",
+        "effect": {
+          "type": "keen"
+        },
+        "tierValues": [
+          3,
+          5,
+          7,
+          10,
+          14
         ]
       },
       "Speed": {
@@ -1530,26 +1737,6 @@ window.CANTORI_DATA = {
           1,
           1.5,
           2.5
-        ]
-      },
-      "Poison": {
-        "name": "Poison",
-        "icon": "☠",
-        "color": "#9ad06a",
-        "proc": 0.2,
-        "slots": [
-          "weapon"
-        ],
-        "desc": "Injects a dose equal to a tiered % of the weapon's damage. Doses stack: each proc adds to the poison already ticking, and every turn it deals its current total then fades by 1 — so a big stack keeps hurting long after you've backed off.",
-        "effect": {
-          "type": "poison"
-        },
-        "tierValues": [
-          0.2,
-          0.5,
-          0.8,
-          1,
-          1.5
         ]
       },
       "Defense": {

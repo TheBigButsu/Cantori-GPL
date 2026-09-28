@@ -207,11 +207,13 @@
   const flippedSkill = new Set();   // skill nodes currently showing raw code, keyed "cls:id"
   // The effect kinds the engine understands, and the numbers each one reads.
   // Leaving a param blank makes the engine fall back to its built-in default.
-  const EFFECT_TYPES = ["", "burn", "poison", "shock", "thorns", "haste", "walkHaste", "defense"];
+  const EFFECT_TYPES = ["", "burn", "poison", "thorns", "haste", "walkHaste", "defense",
+    "bind", "judge", "wild", "arc", "leech", "chill", "hasten", "madden", "terror", "tempered", "keen"];
   const EFFECT_PARAMS = {
     burn:    [["burstMult", "burst × power", "0.05"], ["dotTurns", "burn turns", "1"]],
     poison:  [["initial", "initial hit", "1"], ["perTurn", "dmg / turn", "1"], ["turns", "turns per dose", "1"]],
-    shock:   [["burstMult", "burst × power", "0.05"], ["stunPer", "stun / power", "0.01"]],
+    // The gods' weapon enchants read their one number from the tier table above.
+    bind: [], judge: [], wild: [], arc: [], leech: [], chill: [], hasten: [], madden: [], terror: [], tempered: [], keen: [],
     thorns:  [["mult", "reflect × power", "0.05"]],
     haste:   [["mult", "attack haste (0–1)", "0.05"]],
     walkHaste: [["mult", "walk haste (0–1)", "0.05"]],
@@ -1131,6 +1133,7 @@
       grid.appendChild(fld("icon", "icon", "text"));
       grid.appendChild(fld("color", "color", "color"));
       grid.appendChild(fld("proc rate (0–1)", "proc", "num"));
+      grid.appendChild(fld("god (kethara, auvris, maelon, ourn, label, guild — or blank)", "god", "text"));
       card.appendChild(grid);
       // Tier scaling: a 5-row table (not a single dropdown) so every level's value
       // is visible and editable at once. Pre-filled with the "+1 base stat" curve
@@ -1139,7 +1142,7 @@
       // it's here for you to reference while picking the Effect block's numbers.
       if (!Array.isArray(o.tierValues) || o.tierValues.length !== 5) o.tierValues = [1, 3, 6, 10, 15];
       const tierWrap = document.createElement("div"); tierWrap.className = "bfield wide";
-      const tierLabel = document.createElement("span"); tierLabel.textContent = "tier scaling (reference only — pick the Effect numbers to match)"; tierWrap.appendChild(tierLabel);
+      const tierLabel = document.createElement("span"); tierLabel.textContent = "tier scaling — the engine reads the value for the item's own tier"; tierWrap.appendChild(tierLabel);
       const tierTable = document.createElement("table"); tierTable.className = "tier-table";
       const headRow = document.createElement("tr");
       for (const h of ["Tier", "Value"]) { const th = document.createElement("th"); th.textContent = h; headRow.appendChild(th); }
@@ -1264,15 +1267,15 @@
       rows: [
         { name: "Proc chance", formula: "proc = enchant's own % (Enchants tab) + max(0, mod(LCK)) × 3%", note: "Driven by the LUCK MODIFIER, not the raw stat, and never negative — at LCK 10 that is +0%, at LCK 16 it is +9%. (This row read \"eff(LCK) / 100\" until the D&D migration was chased through it; that claimed +10% at LCK 10, which was never what the code did.) Passive always-on effects (Defense, Speed) are typically authored at 100% proc." },
         { name: "Affixes per rarity", formula: "white: none · green: 1 stat · blue: 1 stat + 1 enchant · purple: 1 stat + 1 enchant, then 75% a 2nd stat else a 2nd enchant · gold: 2 stats + 2 enchants", note: "Both pools are drawn WITHOUT replacement, so an item never carries the same enchant or the same stat twice. That matters because a duplicate is not cosmetic: two of an enchant each roll their own proc, and two of a stat each add triangular(plus). Weapons have only three eligible enchants, so before this a gold or two-enchant purple weapon doubled up about a third of the time. If a category has fewer distinct enchants than the rarity asks for, the extra becomes a stat instead so the item still carries as many properties." },
-        { name: "Which enchants an item can roll", formula: "every enchant whose `slots` list includes the item's cat (an enchant with no `slots` fits everything)", note: "Today that is 3 for weapons, 4 for armour, 5 for rings, 2 for trinkets, 5 for necklaces. Keep an eye on the small pools — a category with fewer eligible enchants than a gold roll wants will start substituting stats." },
+        { name: "Which enchants an item can roll", formula: "every enchant whose `slots` list includes the item's cat (an enchant with no `slots` fits everything)", note: "Today that is 12 for weapons (two per god), 4 for armour, 5 for rings, 2 for trinkets, 5 for necklaces. Keep an eye on the small pools — a category with fewer eligible enchants than a gold roll wants will start substituting stats." },
         { name: "Tiered value lookup", formula: "tierValues[clamp(1, 5, item's gear tier) − 1]", note: "Any enchant with a `tierValues` array (5 numbers) on the Enchants tab reads its number from the TIER of the item carrying it — an untiered item counts as tier 1. Falls back to the effect's flat legacy field if `tierValues` is absent. This is now true of all seven: Burn, Shock and Thorns each carried a tierValues array that nothing read, so a tier-5 Flaming weapon burst for exactly the same as a tier-1. They honour it now, which is a real power increase at the top tiers — if the arrays are too steep, they are on the Enchants tab." },
-        { name: "Poison", formula: "dose = round(weapon power × tiered %); stack += dose; each turn: hp −= stack, then stack −= 1", note: "Doses from repeated procs pile onto ONE running stack rather than layering separate timers — a big early stack keeps hurting as it winds down." },
+        { name: "Rotting (poison)", formula: "dose = round(weapon power × tiered %); stack += dose; each turn: hp −= stack, then stack −= 1", note: "Doses from repeated procs pile onto ONE running stack rather than layering separate timers — a big early stack keeps hurting as it winds down." },
         { name: "Defense (enchant)", formula: "armor def min += tiered amount,  armor def max += tiered amount", note: "" },
         { name: "Speed / haste", formula: "the matching speed multiplier includes (tiered value − 1) as an additive bonus", note: "Two separate kinds, and an enchant is one or the other: effect type `haste` quickens your ATTACKS, `walkHaste` quickens your WALK. A tiered value of 1.8 alone means ×1.8 on that axis only. Multiple sources stack additively; Ourn's boons are the one thing that counts toward both." },
         { name: "Burn", formula: "instant burst = power × tiered value (burstMult, 0.5, when untiered); DOT = ceil(burst / 2) per turn for dotTurns (3 default)", note: "Refreshes to the newest proc rather than stacking — only one burn timer at a time." },
-        { name: "Shock", formula: "instant burst = power × tiered value (burstMult, 1.0, when untiered); stun chance = (burst × stunPer (0.1 default)) / monster level", note: "" },
+        { name: "The gods' weapon enchants", formula: "bind: Bound N turns · judge: +N% of power vs a Bound foe · wild: fire burst ×N / 2 chill / poison ×N÷2 / a plant · arc: ×N to ⌈tier÷2⌉ foes within 3 · leech: heal N% of power · chill: N turns · hasten: +N% Haste, decaying · madden: berserk N turns · terror: flee N turns · tempered: +N flat · keen: +N% crit while wielded", note: "N is the tier value. Two per god: one applies the god's keyword (Bound, Wild, Rot, Chill, Madness) and the other pays off on it, so a weapon can build toward the same god as the boons and the hero's god branch. Bosses are never maddened or terrified." },
         { name: "Thorns", formula: "reflect = round(incoming damage × tiered value (mult, 0.5, when untiered))", note: "Fires back at whatever just hit you." },
-        { name: "What the item card shows", formula: "Defense prints \"+N\" (flat mitigation); every other enchant prints \"×N\"", note: "N is the tiered value for the item's own tier, so the same enchant reads differently on a tier-1 and a tier-5 piece — which is the whole point, and was invisible while the card printed only the name." },
+        { name: "What the item card shows", formula: "flat adds print \"+N\", percentages \"+N%\", durations \"N turns\", everything else \"×N\" — and a god's enchant names its god", note: "N is the tiered value for the item's own tier, so the same enchant reads differently on a tier-1 and a tier-5 piece — which is the whole point, and was invisible while the card printed only the name." },
       ],
     },
     {

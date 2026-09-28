@@ -112,3 +112,22 @@ Keyword: **Tier — your equipment**.
 | Passive | 📦 **Salvager** (`g_salvager`) | Crates hold loot 60% of the time, and shop prices are 20% lower. | 70% of the time, 25% lower. | 80% of the time, 30% lower. |
 | Passive | 💎 **Guild's Refinement** (`refinement`) | Doubles the maximum +X a dropped item can roll, and weights the roll toward the high end. | …and a little higher. | …and higher still. |
 | Capstone | 🏅 **Masterwork** (`g_masterwork`) | At each boss kill, every item you wear gains one more enchantment. |  |  |
+
+## Weapon enchantments — two per god
+
+Weapons roll from these twelve (a gold weapon carries two different ones). In each god's pair, one puts the god's keyword on a foe and the other pays off on it, so a weapon can build toward the same god as your boons and your hero's god branch. Numbers are by the weapon's tier, 1 → 5. Mirrors `loot.enchants` in `data.js`.
+
+| God | Enchant | Proc | Does | Tier 1 → 5 |
+|---|---|---|---|---|
+| Kethara | ⛓ **Binding** | 20% | A hit may Bind the foe — stunned — for a turn or more. Kethara's Iron Law lengthens it; a boss shrugs it off after one. | 1, 1, 2, 2, 3 |
+| Kethara | ⚖ **Judging** | always | Every hit on a Bound foe lands harder, by a share of the weapon's power. | 20, 30, 40, 55, 75 |
+| Auvris | 🌿 **Wild** | 30% | A hit may call something up out of the ground: a flare of fire, a gust of frost, a spit of poison, or a plant beside the foe. Auvris's Chaos can call it twice. | 0.5, 0.75, 1, 1.5, 2.5 |
+| Auvris | ⛈ **Stormcalled** | 25% | A hit may throw lightning from the foe to others near it you can see — more of them on a better weapon. | 0.4, 0.6, 0.8, 1.1, 1.5 |
+| Maelon | ☠ **Rotting** | 20% | Injects a dose equal to a tiered share of the weapon's power. Doses stack, and the poison ticks its total each turn, then fades by 1 — everything Maelon's Rot boons look for. | 0.2, 0.5, 0.8, 1, 1.5 |
+| Maelon | 🩸 **Vampiric** | 25% | A hit may drink: you heal a share of the weapon's power. | 20, 30, 40, 50, 65 |
+| Ourn | ❄ **Chilling** | 30% | A hit may Chill the foe — half speed, moving and swinging — for a few turns. | 3, 4, 5, 6, 8 |
+| Ourn | ⏳ **Hastening** | 15% | A hit may quicken you: a burst of Haste that fades a point a turn. | 15, 20, 30, 40, 50 |
+| The Label | 👁 **Maddening** | 12% | A hit may drive the foe berserk — it turns on whatever is nearest. Bosses are beyond it. | 2, 3, 3, 4, 5 |
+| The Label | 🐙 **Dreadful** | 15% | A hit may show the foe something it cannot bear, and it flees. Terror is Madness, to the Label. Bosses are beyond it. | 2, 3, 4, 5, 6 |
+| The Guild | ⚒ **Tempered** | always | Good steel, well kept: every hit deals flat extra damage. | 1, 2, 3, 5, 8 |
+| The Guild | 🗡 **Keen** | while wielded | An edge you could shave with: more critical hits while you wield it. | 3, 5, 7, 10, 14 |

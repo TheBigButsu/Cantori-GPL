@@ -4099,3 +4099,14 @@ Branch nodes run to 5 ranks and the gates are 3 / 7 / 15. A run pays 37
 points (one Potion of Insight a floor, 3 from each of the first four bosses),
 so going all-in lands the first capstone on the 16th point — the Golem, floor
 10 — and the second near the 32nd. Nobody gets all three.
+
+## Weapon enchantments belong to the gods — DONE
+
+Flaming, Charged and Poison are replaced by twelve weapon enchants, two per god:
+Kethara's Binding / Judging (Bind, and more damage to the Bound), Auvris's Wild /
+Stormcalled (a random element or plant, and chain lightning), Maelon's Rotting /
+Vampiric (the old poison stack, and lifesteal), Ourn's Chilling / Hastening, the
+Label's Maddening / Dreadful (berserk and terror — bosses immune) and the Guild's
+Tempered / Keen (flat damage, crit chance). Each applies or pays off on its god's
+boon keyword, so a weapon can join the same build as the boons and the god branch.
+The card names the god. Armour enchants are unchanged. Table: `docs/BOONS.md`.
